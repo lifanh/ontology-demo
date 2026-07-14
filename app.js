@@ -1,27 +1,27 @@
 const ontology = {
-  customer_id: { displayName: "Customer ID", type: "string", required: true, description: "Stable identifier for a customer business object." },
+  customer_number: { displayName: "Customer Number", type: "integer", required: true, primaryKey: true, minimum: 1, description: "Integer primary key for a customer business object." },
   name: { displayName: "Customer Name", type: "string", required: true, description: "Legal or operating name of the customer." },
   current_balance: { displayName: "Current Balance", type: "decimal", unit: "USD", minimum: 0, description: "Total current customer receivable balance." },
   ar_balance: { displayName: "AR Balance", type: "decimal", unit: "USD", minimum: 0, description: "Accounts receivable balance used for exposure ratios." },
   past_due_amount: { displayName: "Past Due Amount", type: "decimal", unit: "USD", minimum: 0, description: "Receivables currently beyond their due date." },
   adp_days: { displayName: "Average Days to Pay", type: "integer", unit: "DAYS", minimum: 0, description: "Average number of days between invoice issuance and payment." },
   credit_limit: { displayName: "Credit Limit", type: "decimal", unit: "USD", minimum: 0, description: "Maximum approved credit exposure." },
-  segment: { displayName: "Customer Segment", type: "enum", values: ["STANDARD", "STRATEGIC", "ENTERPRISE"], description: "Commercially assigned customer segment." },
   payment_terms: { displayName: "Payment Terms", type: "enum", values: ["NET_15", "NET_30", "NET_45", "NET_60"], description: "Contractual invoice payment terms." },
-  status: { displayName: "Status", type: "enum", values: ["ACTIVE", "INACTIVE", "BLOCKED"], description: "Operational customer status." }
+  restricted_status: { displayName: "Restricted Status", type: "enum", values: ["Y", "N"], description: "Indicates whether the customer is restricted: Y for restricted, N for not restricted." },
+  discontinued_status: { displayName: "Discontinued Status", type: "enum", values: ["Y", "N"], description: "Indicates whether the customer is discontinued: Y for discontinued, N for not discontinued." }
 };
 
 const customer = {
-  customer_id: "CUST-1001",
+  customer_number: 1001,
   name: "Acme Systems Inc.",
   current_balance: 125000,
   ar_balance: 125000,
   past_due_amount: 15000,
   adp_days: 28,
   credit_limit: 200000,
-  segment: "STRATEGIC",
   payment_terms: "NET_30",
-  status: "ACTIVE"
+  restricted_status: "N",
+  discontinued_status: "N"
 };
 
 const scenarios = {
@@ -34,8 +34,8 @@ const scenarios = {
     dsl: `RULE NET_30_PAST_DUE_RATIO_MAX_15_PERCENT\nSCOPE customer.payment_terms == "NET_30"\nSET_MAX_RATIO customer.past_due_amount\n    TO customer.ar_balance = 0.15\nEND`
   },
   adp45: {
-    policy: "For strategic customers with a current balance above $100,000, allow Average Days to Pay up to 45 days.",
-    dsl: `RULE STRATEGIC_HIGH_BALANCE_ADP_MAX_45\nSCOPE customer.segment == "STRATEGIC"\n      AND customer.current_balance > 100000 USD\nSET_MAX customer.adp_days = 45 DAYS\nEND`
+    policy: "For non-restricted customers with a current balance above $100,000, allow Average Days to Pay up to 45 days.",
+    dsl: `RULE UNRESTRICTED_HIGH_BALANCE_ADP_MAX_45\nSCOPE customer.restricted_status == "N"\n      AND customer.current_balance > 100000 USD\nSET_MAX customer.adp_days = 45 DAYS\nEND`
   }
 };
 
@@ -75,7 +75,7 @@ function renderOntology() {
     </button>`).join("");
 
   document.querySelector("#sidebarProperties").innerHTML = entries
-    .filter(([key]) => !["customer_id", "name"].includes(key))
+    .filter(([key]) => !["customer_number", "name"].includes(key))
     .map(([key, property]) => {
       const iconClass = property.unit === "USD" ? "currency" : property.unit === "DAYS" ? "days" : "enum";
       const icon = property.unit === "USD" ? "$" : property.unit === "DAYS" ? "#" : "Aa";
@@ -87,6 +87,7 @@ function renderOntology() {
 function ontologyPrompt() {
   return Object.entries(ontology).map(([key, property]) => {
     const metadata = [`customer.${key}`, `- Display name: ${property.displayName}`, `- Type: ${property.type}`];
+    if (property.primaryKey) metadata.push("- Primary key: true");
     if (property.unit) metadata.push(`- Unit: ${property.unit}`);
     if (property.values) metadata.push(`- Allowed values: ${property.values.join(", ")}`);
     return metadata.join("\n");

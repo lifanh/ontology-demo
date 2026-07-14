@@ -14,4 +14,4 @@ The demo uses one Customer Ontology as the source for rendering, prompt construc
 
 - A 5% maximum for NET 30 customers is a compatible refinement of the global 10% maximum.
 - A 15% maximum for NET 30 customers conflicts with the global 10% maximum.
-- A 45-day ADP maximum for strategic, high-balance customers conflicts with the global 30-day maximum.
+- A 45-day ADP maximum for non-restricted, high-balance customers conflicts with the global 30-day maximum.
