@@ -209,6 +209,74 @@
               </article>
             </div>
 
+            <section class="artifact-showcase" aria-labelledby="artifactShowcaseTitle">
+              <div class="artifact-heading">
+                <p class="eyebrow">Demo artifacts</p>
+                <h3 id="artifactShowcaseTitle">What each production tool produces</h3>
+                <p>Representative artifacts for the ADP policy shown in this demo.</p>
+              </div>
+
+              <article class="artifact-card">
+                <div class="artifact-meta">
+                  <span class="artifact-tool">Jena + SHACL</span>
+                  <h4>RDF policy and validation shape</h4>
+                  <p>Jena stores the policy as linked domain facts. SHACL makes its required property, datatype, and unit constraints executable.</p>
+                  <span class="artifact-file">policy.ttl</span>
+                </div>
+                <pre class="artifact-code"><code><span class="code-muted">@prefix ax: &lt;https://axiom.example/policy#&gt; .</span>
+
+ax:ADP_MAX_30 a ax:CreditPolicy ;
+  ax:appliesTo ax:Customer ;
+  ax:constrains ax:adp_days ;
+  ax:maxExclusive 30 ;
+  ax:unit ax:DAYS .
+
+ax:CreditPolicyShape a sh:NodeShape ;
+  sh:targetClass ax:CreditPolicy ;
+  sh:property [ sh:path ax:maxExclusive ;
+                sh:datatype xsd:integer ;
+                sh:minCount 1 ] .</code></pre>
+              </article>
+
+              <article class="artifact-card">
+                <div class="artifact-meta">
+                  <span class="artifact-tool">DMN + Kogito/Drools</span>
+                  <h4>Executable decision table</h4>
+                  <p>Policy owners review a standard decision table. The runtime records the matching row and returns a typed decision.</p>
+                  <span class="artifact-file">customer-credit-policy.dmn</span>
+                </div>
+                <div class="decision-artifact">
+                  <div class="decision-title"><span>Decision</span><strong>Maximum ADP Days</strong><em>U · Unique hit</em></div>
+                  <div class="decision-table-wrap">
+                    <table>
+                      <thead><tr><th>#</th><th>Restricted status</th><th>Current balance</th><th>Maximum ADP</th></tr></thead>
+                      <tbody>
+                        <tr><td>1</td><td>"N"</td><td>&gt; 100,000 USD</td><td>&lt; 30 DAYS</td></tr>
+                        <tr><td>2</td><td>"Y"</td><td>—</td><td>Manual review</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </article>
+
+              <article class="artifact-card">
+                <div class="artifact-meta">
+                  <span class="artifact-tool">Z3 constraint solver</span>
+                  <h4>Conflict proof and witness</h4>
+                  <p>Z3 proves that the active and proposed constraints overlap, then supplies a concrete customer state that demonstrates the conflict.</p>
+                  <span class="artifact-file">analysis.smt2</span>
+                </div>
+                <div class="solver-artifact">
+                  <pre class="artifact-code"><code>(declare-const adp_days Int)
+(assert (&lt;= adp_days 45))    <span class="code-muted">; proposal allows</span>
+(assert (not (&lt; adp_days 30))) <span class="code-muted">; violates active</span>
+(assert (= adp_days 35))      <span class="code-muted">; sample customer</span>
+(check-sat)                   <span class="code-muted">; sat → conflict exists</span></code></pre>
+                  <div class="solver-result"><span>CONFLICT WITNESS</span><b>restricted_status = "N"</b><b>current_balance = 125,000 USD</b><b>adp_days = 35 DAYS</b></div>
+                </div>
+              </article>
+            </section>
+
             <div class="roadmap-bottom">
               <div>
                 <p class="eyebrow">Incremental adoption</p>
