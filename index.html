@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="A deterministic ontology-aware credit policy reasoning demo." />
+    <title>Axiom — Policy Reasoner</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="Axiom home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>Axiom</span>
+        <small>Policy Reasoner</small>
+      </a>
+      <div class="topbar-right">
+        <span class="status-pill"><span class="pulse"></span> Engine ready</span>
+        <button class="icon-button" id="resetButton" title="Reset demo" aria-label="Reset demo">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6M20 20v-6h-6M5.7 15a7 7 0 0 0 11.7 2.4L20 14M4 10l2.6-3.4A7 7 0 0 1 18.3 9"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="app-shell">
+      <aside class="context-panel">
+        <div class="context-heading">
+          <p class="eyebrow">Active context</p>
+          <h2>Customer credit</h2>
+          <span>v1.4</span>
+        </div>
+
+        <section class="aside-section">
+          <div class="section-title-row">
+            <h3>Customer ontology</h3>
+            <span class="count">10</span>
+          </div>
+          <div class="property-list" id="sidebarProperties"></div>
+        </section>
+
+        <section class="aside-section existing-rules">
+          <div class="section-title-row">
+            <h3>Existing policies</h3>
+            <span class="count">2</span>
+          </div>
+          <article class="rule-card">
+            <span class="rule-number">01</span>
+            <div><strong>Payment speed</strong><p>Average Days to Pay <b>&lt; 30 days</b></p><small>Scope · ALL CUSTOMERS</small></div>
+          </article>
+          <article class="rule-card">
+            <span class="rule-number">02</span>
+            <div><strong>Past due exposure</strong><p>Past Due Amount <b>≤ 10% of AR Balance</b></p><small>Scope · ALL CUSTOMERS</small></div>
+          </article>
+        </section>
+
+        <section class="sample-card">
+          <div class="sample-head">
+            <span class="avatar">AS</span>
+            <div><strong>Acme Systems Inc.</strong><small>CUST-1001</small></div>
+            <span class="live-chip">Sample</span>
+          </div>
+          <dl>
+            <div><dt>Current Balance</dt><dd>$125,000</dd></div>
+            <div><dt>Past Due</dt><dd>$15,000</dd></div>
+            <div><dt>ADP</dt><dd>28 days</dd></div>
+            <div><dt>Credit Limit</dt><dd>$200,000</dd></div>
+            <div><dt>Segment</dt><dd><span class="term-chip">STRATEGIC</span></dd></div>
+            <div><dt>Terms</dt><dd><span class="term-chip">NET 30</span></dd></div>
+          </dl>
+        </section>
+      </aside>
+
+      <section class="workspace">
+        <div class="workspace-header">
+          <div>
+            <p class="eyebrow">Policy workshop</p>
+            <h1>Turn intent into <span>enforceable policy.</span></h1>
+            <p>Use AI to draft. Use deterministic semantics to decide.</p>
+          </div>
+          <div class="step-track" aria-label="Workflow progress">
+            <div class="track-line"><i id="progressLine"></i></div>
+            <div class="track-step active" data-step="1"><b>1</b><span>Describe</span></div>
+            <div class="track-step" data-step="2"><b>2</b><span>Generate</span></div>
+            <div class="track-step" data-step="3"><b>3</b><span>Validate</span></div>
+            <div class="track-step" data-step="4"><b>4</b><span>Reason</span></div>
+          </div>
+        </div>
+
+        <div class="scenario-switch" role="group" aria-label="Demo scenario">
+          <span>Demo scenario</span>
+          <button class="scenario active" data-scenario="ratio5"><i class="good-dot"></i> 5% refinement</button>
+          <button class="scenario" data-scenario="ratio15"><i class="bad-dot"></i> 15% conflict</button>
+          <button class="scenario" data-scenario="adp45"><i class="bad-dot"></i> ADP 45 conflict</button>
+        </div>
+
+        <section class="ontology-card">
+          <div class="ontology-card-head">
+            <div>
+              <p class="eyebrow">Shared semantic layer</p>
+              <h2>Customer Ontology</h2>
+              <p>One schema powers the interface, LLM prompt, validator, and reasoner.</p>
+            </div>
+            <div class="ontology-customer"><span class="avatar">AS</span><div><strong>Acme Systems Inc.</strong><small>CUST-1001 · ACTIVE</small></div></div>
+          </div>
+          <div class="ontology-grid" id="ontologyGrid"></div>
+        </section>
+
+        <section class="workflow-card input-card">
+          <div class="card-index">01</div>
+          <div class="card-content">
+            <div class="card-heading">
+              <div><p class="eyebrow">Business intent</p><h2>Describe the new policy</h2></div>
+              <span class="human-badge">Human authored</span>
+            </div>
+            <label class="policy-input-wrap">
+              <span class="quote-mark">“</span>
+              <textarea id="policyInput" rows="3" aria-label="Business policy">Customers with NET 30 payment terms cannot have more than 5% of their AR balance past due.</textarea>
+              <span class="char-count" id="charCount">95 characters</span>
+            </label>
+            <div class="card-actions">
+              <p><svg viewBox="0 0 24 24"><path d="M12 3v3m6.4-.4-2.1 2.1M21 12h-3M5.6 5.6l2.1 2.1M3 12h3m6-2a5 5 0 0 0-3 9v2h6v-2a5 5 0 0 0-3-9Z"/></svg> Ontology and DSL grammar will be included automatically</p>
+              <button class="primary-button" id="generatePrompt">Generate LLM prompt <span>→</span></button>
+            </div>
+          </div>
+        </section>
+
+        <section class="workflow-card prompt-card hidden" id="promptSection">
+          <div class="card-index">02</div>
+          <div class="card-content">
+            <div class="card-heading">
+              <div><p class="eyebrow">Prompt assembly</p><h2>Send to your preferred AI</h2></div>
+              <span class="ai-badge"><i></i> External LLM</span>
+            </div>
+            <div class="prompt-window">
+              <div class="window-bar">
+                <span><i></i><i></i><i></i></span>
+                <small>generated_prompt.txt</small>
+                <button id="copyPrompt" class="copy-button"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg> Copy prompt</button>
+              </div>
+              <pre id="promptOutput"></pre>
+            </div>
+            <div class="card-actions prompt-actions">
+              <p><svg viewBox="0 0 24 24"><path d="M12 8v4l3 2m6-2a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg> In production, this step can connect to any external model</p>
+              <button class="secondary-button" id="simulateResponse">Simulate AI response <span>→</span></button>
+            </div>
+          </div>
+        </section>
+
+        <section class="workflow-card editor-card hidden" id="editorSection">
+          <div class="card-index">03</div>
+          <div class="card-content">
+            <div class="card-heading">
+              <div><p class="eyebrow">Rule candidate</p><h2>Review the generated DSL</h2></div>
+              <span class="untrusted-badge">Untrusted input</span>
+            </div>
+            <div class="code-editor">
+              <div class="line-numbers">1<br/>2<br/>3<br/>4<br/>5</div>
+              <textarea id="dslInput" rows="5" spellcheck="false" aria-label="Generated DSL rule"></textarea>
+            </div>
+            <div class="card-actions">
+              <p><svg viewBox="0 0 24 24"><path d="m9 12 2 2 4-4m6 2a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg> No AI is used for validation or policy comparison</p>
+              <button class="primary-button" id="validateButton">Validate syntax <span>→</span></button>
+            </div>
+          </div>
+        </section>
+
+        <section class="result-section hidden" id="resultSection" aria-live="polite"></section>
+
+        <footer class="workspace-footer">
+          <span><b>Axiom</b> / Ontology Policy Demo</span>
+          <span>Deterministic by design <i></i> No customer data transmitted</span>
+        </footer>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status">Copied to clipboard</div>
+    <dialog id="propertyDialog">
+      <button class="dialog-close" aria-label="Close">×</button>
+      <p class="eyebrow">Ontology property</p>
+      <h3 id="dialogTitle"></h3>
+      <pre id="dialogBody"></pre>
+    </dialog>
+    <script src="app.js"></script>
+  </body>
+</html>
