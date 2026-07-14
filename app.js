@@ -89,13 +89,74 @@ function ontologyPrompt() {
     const metadata = [`customer.${key}`, `- Display name: ${property.displayName}`, `- Type: ${property.type}`];
     if (property.primaryKey) metadata.push("- Primary key: true");
     if (property.unit) metadata.push(`- Unit: ${property.unit}`);
-    if (property.values) metadata.push(`- Allowed values: ${property.values.join(", ")}`);
+    if (property.values) metadata.push(`- Allowed values: ${property.values.map(value => `"${value}"`).join(", ")}`);
     return metadata.join("\n");
   }).join("\n");
 }
 
 function makePrompt() {
-  return `You are a compiler that translates business credit policies into a constrained rule DSL.\nYour job is only to convert the user's business policy into the supported DSL.\nDo not decide whether the rule is correct or conflicts with other rules.\nDo not invent properties. Do not output explanations. Return exactly one DSL rule.\n\nAVAILABLE ONTOLOGY\nObject: customer\n${ontologyPrompt()}\n\nSUPPORTED DSL\nRULE <RULE_ID>\nSCOPE <scope_expression>\n<effect>\nEND\n\nScope operators: == != > >= < <=\nLogical operator: AND\nGlobal scope: SCOPE ALL\nEffects:\nSET_MAX <property> = <value> <unit>\nSET_MIN <property> = <value> <unit>\nSET_MAX_RATIO <numerator_property>\n    TO <denominator_property> = <ratio>\n\nBUSINESS POLICY TO CONVERT\n${els.policy.value.trim()}`;
+  return `You are a compiler that translates business credit policies into a constrained rule DSL.
+Your job is only to convert the user's business policy into the supported DSL.
+Do not decide whether the rule is correct or conflicts with other rules.
+Do not invent properties. Do not output explanations or Markdown fences. Return exactly one DSL rule.
+
+AVAILABLE ONTOLOGY
+Object: customer
+${ontologyPrompt()}
+
+SUPPORTED DSL
+RULE <RULE_ID>
+SCOPE <scope_expression>
+<effect>
+END
+
+Scope operators: == != > >= < <=
+Logical operator: AND
+Global scope: SCOPE ALL
+Effects:
+SET_MAX <property> = <value> <unit>
+SET_MIN <property> = <value> <unit>
+SET_MAX_RATIO <numerator_property>
+    TO <denominator_property> = <ratio>
+
+LITERAL AND FORMATTING RULES
+- ALWAYS wrap every enum or string value in straight double quotes.
+- Use the exact allowed ontology token inside the quotes: write "NET_30", not NET_30, "NET 30", or NET 30.
+- Write status values as "Y" or "N", never as unquoted Y or N.
+- Numeric values are not quoted and must include the property's unit when one is defined, for example 100000 USD or 45 DAYS.
+- Rule IDs, property names, operators, units, and numeric ratios are not quoted.
+- Preserve the line structure shown in the grammar. Return no prose before or after the rule.
+
+FEW-SHOT EXAMPLES
+
+Business policy: Customers with NET 15 terms cannot have more than 8% of their AR balance past due.
+DSL output:
+RULE NET_15_PAST_DUE_RATIO_MAX_8_PERCENT
+SCOPE customer.payment_terms == "NET_15"
+SET_MAX_RATIO customer.past_due_amount
+    TO customer.ar_balance = 0.08
+END
+
+Business policy: For non-restricted customers with a current balance above $100,000, allow Average Days to Pay up to 45 days.
+DSL output:
+RULE UNRESTRICTED_HIGH_BALANCE_ADP_MAX_45
+SCOPE customer.restricted_status == "N"
+      AND customer.current_balance > 100000 USD
+SET_MAX customer.adp_days = 45 DAYS
+END
+
+Business policy: All customers may have Average Days to Pay up to 25 days.
+DSL output:
+RULE GLOBAL_ADP_MAX_25
+SCOPE ALL
+SET_MAX customer.adp_days = 25 DAYS
+END
+
+FINAL CHECK BEFORE OUTPUT
+Confirm that every enum or string scope value is enclosed in straight double quotes and exactly matches an allowed ontology value.
+
+BUSINESS POLICY TO CONVERT
+${els.policy.value.trim()}`;
 }
 
 function setProgress(step) {
