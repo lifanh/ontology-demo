@@ -170,6 +170,62 @@
 
         <section class="result-section hidden" id="resultSection" aria-live="polite"></section>
 
+        <details class="production-path">
+          <summary>
+            <span class="roadmap-icon" aria-hidden="true">↗</span>
+            <span><small>Production direction</small><strong>How this deterministic demo scales</strong></span>
+            <span class="roadmap-state">Not used in the current runtime</span>
+          </summary>
+          <div class="roadmap-content">
+            <div class="roadmap-intro">
+              <div>
+                <p class="eyebrow">Demo today → production evolution</p>
+                <h2>Keep the trust model. Scale each responsibility.</h2>
+              </div>
+              <p>The LLM proposes. Deterministic systems validate and analyze. A human approves what becomes active.</p>
+            </div>
+
+            <div class="stack-grid">
+              <article class="stack-card">
+                <span class="stack-number">01</span>
+                <p class="stack-role">Semantic model &amp; validation</p>
+                <h3>Apache Jena + SHACL</h3>
+                <p>Formalize the ontology as RDF and validate types, domains, required properties, and relationships with a W3C standard.</p>
+                <div class="stack-transition"><span>Today</span> JS ontology + custom checks <b>→</b> <span>Scale</span> RDF/OWL + SHACL shapes</div>
+              </article>
+              <article class="stack-card">
+                <span class="stack-number">02</span>
+                <p class="stack-role">Executable decisions</p>
+                <h3>DMN + Kogito/Drools</h3>
+                <p>Publish approved policy as auditable decision tables with typed FEEL expressions, versioned deployment, and deterministic execution.</p>
+                <div class="stack-transition"><span>Today</span> Bounded DSL + AST <b>→</b> <span>Scale</span> Standard DMN runtime</div>
+              </article>
+              <article class="stack-card">
+                <span class="stack-number">03</span>
+                <p class="stack-role">Formal conflict analysis</p>
+                <h3>Z3 constraint solver</h3>
+                <p>Prove scope overlap and satisfiability across richer conditions, then return a concrete example that demonstrates each conflict.</p>
+                <div class="stack-transition"><span>Today</span> Interval comparison <b>→</b> <span>Scale</span> Constraint solving</div>
+              </article>
+            </div>
+
+            <div class="roadmap-bottom">
+              <div>
+                <p class="eyebrow">Incremental adoption</p>
+                <h3>A phased path—not a platform rewrite</h3>
+              </div>
+              <ol class="phase-list">
+                <li><b>Productionize</b><span>Versioned policy API, approvals, audit trail, and shadow testing</span></li>
+                <li><b>Standardize</b><span>Execute approved decisions as DMN with regression tests and rollback</span></li>
+                <li><b>Formalize</b><span>Add Jena and SHACL when taxonomy and semantic relationships require it</span></li>
+                <li><b>Expand</b><span>Use Z3 for complex overlap, exceptions, dates, and conflict witnesses</span></li>
+              </ol>
+            </div>
+
+            <p class="roadmap-boundary"><b>Clear boundary:</b> Jena and SHACL validate semantic meaning, DMN executes approved decisions, and Z3 proves constraint conflicts. The LLM is never the policy authority.</p>
+          </div>
+        </details>
+
         <footer class="workspace-footer">
           <span><b>Axiom</b> / Ontology Policy Demo</span>
           <span>Deterministic by design <i></i> No customer data transmitted</span>
