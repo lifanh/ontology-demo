@@ -144,9 +144,305 @@ Resolve the active policy release once for a review evaluation and pass its ID e
 
 Feature flags must be server-controlled and audited. Define mismatch thresholds, stop conditions, and rollback ownership before moving between modes.
 
-## 3. Target Production Architecture
+## 3. Mandatory Protocol for an AI Implementation Agent
 
-### 3.1 Recommended architecture around the existing service
+This section is intentionally explicit. An implementation agent must treat it as a set of execution constraints, not optional guidance. Complete one approved phase or work unit at a time. Do not turn this roadmap into a single large implementation task.
+
+### 3.1 Instruction and evidence precedence
+
+When sources disagree, use this order:
+
+1. The maintainer's current, explicit task and approved decisions.
+2. Repository guidance files and team standards that govern the files being changed.
+3. The approved integration brief, architecture decision records, fact dictionary, and policy fixtures.
+4. Existing public API/event contracts, database constraints, characterization tests, and documented production behavior.
+5. The defaults in this document.
+6. The exploration described in Section 16, which is evidence only and is never a production contract.
+
+Do not silently choose between conflicting sources. Record the conflict with exact file, symbol, test, or decision references and ask the maintainer which source should win.
+
+### 3.2 No-guess rules
+
+The agent must not:
+
+- infer that similarly named fields have the same business meaning; for example, do not map `balance` to `current_balance` without confirmed semantics, units, and null behavior;
+- choose a review decision point merely because a class is named `ReviewService`, `DecisionService`, or `RuleEngine`; trace callers, transactions, side effects, and tests;
+- invent mappings from policy outcomes to review statuses, reason codes, API responses, or events;
+- choose Java, Spring Boot, Jena, Drools/KIE, Kogito, Z3, database, or LLM versions without checking the existing build and completing the required compatibility decision;
+- create a new service, database, schema, message topic, outbox, identity role, public endpoint, or deployment unit when an existing mechanism may serve the need;
+- invent fail-open, fail-closed, retry, timeout, tenancy, authorization, retention, or data-redaction behavior;
+- send customer records, review payloads, production logs, or personal data to an LLM or Z3;
+- copy the illustrative package names, APIs, records, statuses, table names, or pseudocode in this document without adapting them to confirmed repository conventions;
+- remove, bypass, or change the current evaluator before shadow comparison and the Phase 6 enforcement gate;
+- introduce Jena, Z3, or an LLM call on the customer review transaction path;
+- implement the LLM phase before deterministic policy validation, DMN compilation/execution, conflict analysis, and approval controls exist;
+- perform unrelated refactoring, dependency upgrades, schema cleanup, or naming changes while adding a policy seam;
+- weaken tests, suppress failures, hard-code fixture-specific behavior, or change expected current outcomes merely to make a new adapter pass.
+
+An unknown value is not permission to select a convenient default. Continue read-only discovery where useful, mark the item `UNRESOLVED`, and use the stop conditions in Section 3.9.
+
+### 3.3 Required implementation input sheet
+
+Before production code is changed, the agent must populate this sheet with evidence. Evidence means a repository path and symbol/test/configuration name, an approved architecture decision, or a named maintainer decision. A guess such as "probably handled by Spring Security" is not evidence.
+
+For each row, record one status: `VERIFIED_FROM_REPOSITORY`, `APPROVED_BY_OWNER`, or `UNRESOLVED`. Include the evidence or owner next to the status. A required row must not be blank, and `UNRESOLVED` rows block the work named in the third column.
+
+| Required input | Evidence to record | Must be resolved before |
+| --- | --- | --- |
+| Governing repository instructions | Paths to guidance files and relevant rules | Any edit |
+| Build and test entry points | Wrapper/build files, module, focused test command, broader check | Any edit |
+| Runtime versions | Java, Spring Boot, dependency-management/BOM, container constraints | Dependency spike |
+| Review entry points | Controller/listener/job symbols and request/event types | Integration seam |
+| Review orchestration owner | Exact application-service method and transaction boundary | Integration seam |
+| Current decision implementation | Exact evaluator/rules/manual handoff and its callers | Characterization tests |
+| Current side effects | State transitions, writes, events, notifications, downstream calls | Shadow wiring |
+| Authoritative customer facts | Source symbol, canonical meaning, type, unit, null behavior, freshness, sensitivity | Fact adapter |
+| Existing policy inventory | Policy source, owner, precedence, effective dates, expected outcomes | Canonical migration |
+| Review state and outcome semantics | Current statuses, reason codes, transition owner, approval authority | Advisory/enforcement |
+| Runtime failure behavior | Approved behavior for timeout, missing release, invalid release, and evaluator failure | Runtime adapter |
+| Public contracts | API schemas, event schemas, consumers, compatibility requirements | Any externally visible change |
+| Persistence conventions | Database, schema ownership, migration tool, IDs, tenancy, audit fields | Migration |
+| Security and tenancy | Authentication path, authorities, tenant isolation, service accounts | Administration API |
+| Audit and messaging | Current audit store, outbox/event pattern, retention | Publication workflow |
+| Feature flags | Existing framework, ownership, default, kill-switch procedure | Shadow deployment |
+| Service objectives | Current latency, throughput, availability, timeout, and resource budgets | Runtime selection |
+| Integration topology | Embedded modules, companion control plane, or remote runtime, with approved rationale | Engine implementation |
+| First migration cohort | Named policy types, tenants/users, traffic boundary, success and stop criteria | Pilot |
+
+The agent may discover technical entries from the repository. Business semantics, policy precedence, enforcement authority, and failure behavior require confirmation from the relevant owner when they are not already documented.
+
+### 3.4 Gate A — read-only discovery before implementation
+
+The first agent task must be read-only unless the maintainer has already supplied an approved, current integration brief containing all items above.
+
+Perform these steps in order:
+
+1. Inspect repository status and note pre-existing changes. Do not revert, reformat, or include unrelated work.
+2. Read governing guidance and identify the exact build module containing customer review orchestration.
+3. Read the build files and record Java, Spring Boot, dependency-management, test, migration, security, feature-flag, and observability conventions.
+4. Trace each review entry point to the application-service method that owns the transaction and state transition.
+5. Trace current decision logic and all of its side effects. Identify whether a retry repeats writes or emits duplicate events.
+6. Trace every proposed customer fact to its authoritative source and existing tests. Exclude facts with unresolved semantics.
+7. Locate current authorization, tenancy, audit, outbox, API error, idempotency, and correlation-ID patterns.
+8. Locate characterization, integration, contract, and migration tests that protect current behavior.
+9. Fill the implementation input sheet with exact evidence and list all unresolved items.
+10. Propose one integration seam and explain why it is safer than the alternatives found.
+
+The Gate A output must use this form:
+
+```text
+Review entry point(s): <path + symbol>
+Orchestration/transaction owner: <path + symbol>
+Current decision logic: <path + symbol>
+Current side effects: <writes/events/calls + evidence>
+Authoritative fact sources: <fact -> path + symbol + semantics>
+Existing extension patterns: <security/audit/outbox/flags + evidence>
+Current tests: <path + test names + commands>
+Recommended seam: <path + symbol + reason>
+Alternatives rejected: <option + evidence-based reason>
+Unresolved items: <question + required owner>
+Proposed first code work unit: <smallest behavior-preserving change>
+```
+
+Do not proceed past Gate A until the maintainer confirms the review decision point, authoritative fact mapping, current behavior to preserve, and runtime failure behavior.
+
+### 3.5 Gate B — characterize current behavior
+
+Before adding an engine or changing review orchestration:
+
+1. Add or identify tests for the current evaluator's representative pass, fail, refer/manual-review, boundary, missing-data, retry, and error cases.
+2. Assert current persisted state, reason codes, response fields, emitted events, and downstream calls—not only a returned enum.
+3. Convert approved current policies and sanitized historical cases into engine-neutral fixtures.
+4. Label each expected result as `CURRENT_BEHAVIOR`, `APPROVED_CORRECTION`, or `NEW_CAPABILITY`.
+5. Run the focused suite and the narrowest module-level suite that can detect side-effect regressions.
+
+If current behavior cannot be characterized, stop after adding non-invasive observations or tests. Do not replace it with behavior inferred from this document.
+
+### 3.6 Gate C — add only a disabled integration seam
+
+The first production-code work unit should normally contain only:
+
+- `PolicyDecisionPort` or the repository's equivalent application boundary;
+- a customer-facts adapter containing only confirmed facts;
+- a no-op or current-behavior adapter;
+- the existing feature-flag integration with default mode `DISABLED`;
+- enough telemetry to prove whether the seam was invoked;
+- tests proving that disabled mode produces contract-equivalent responses and equivalent persistence/business-event side effects, with exact serialization comparison where the existing contract requires it.
+
+Do not add Jena, a DMN engine, Z3, an LLM SDK, new policy administration APIs, or enforcement in this work unit. If the repository's architecture makes even this seam invasive, stop and propose a smaller seam.
+
+### 3.7 Required mode behavior
+
+Implement these semantics using existing service conventions. Do not copy names literally if the service already has equivalent modes:
+
+```text
+DISABLED
+  Do not resolve a policy release.
+  Do not invoke a policy engine.
+  Execute and return current behavior unchanged.
+
+SHADOW
+  Execute current behavior as the authority.
+  Evaluate the pinned policy release without changing the existing customer-review
+  response, state, business events, notifications, or downstream calls.
+  Record a comparison and metrics without sensitive facts.
+  On policy failure or timeout, record the failure and return current behavior.
+
+ADVISORY
+  Keep current behavior authoritative.
+  Expose policy findings only through an approved backward-compatible field,
+  internal reviewer view, or audit record.
+  Do not transition review state from a policy result.
+
+ENFORCED
+  Use policy findings only for the approved cohort and explicit outcome mapping.
+  Pin the release and preserve it across idempotent retries.
+  Apply the documented runtime fallback on engine/release failure.
+  Persist decision ID, release ID, reasons, mode, and evaluation timestamp.
+```
+
+Never catch broad exceptions and silently continue in advisory or enforced mode. Use the service's error taxonomy, record the failure safely, and apply only the approved fallback. Shadow mode may protect current behavior from policy errors, but those errors must remain observable.
+
+### 3.8 Phase order and prohibited shortcuts
+
+An agent must follow this dependency order:
+
+```text
+Phase 0 discovery/semantics
+        │
+        ▼
+Phase 1 disabled + shadow seam
+        │
+        ▼
+Phase 2 Jena/SHACL authoring validation
+        │
+        ▼
+Phase 3 DMN compilation + shadow execution
+        │
+        ▼
+Phase 4 Z3 pre-publication conflict analysis
+        │
+        ├─────────────▶ Phase 5 optional LLM draft assistance
+        │
+        ▼
+Phase 6 advisory, bounded enforcement, rollout
+```
+
+| Phase | Allowed outcome | Must not happen in this phase |
+| --- | --- | --- |
+| 0 | Evidence, fixtures, decisions, threat model | Production behavior or dependency changes |
+| 1 | Disabled/shadow seam and governance skeleton | New engine authority or review-state changes |
+| 2 | Authoring-time ontology/SHACL validation | Per-review RDF conversion or SHACL calls |
+| 3 | Approved DMN artifacts evaluated in shadow/advisory mode | Enforcement before reconciliation and conflict controls |
+| 4 | Bounded conflict classifications and synthetic witnesses before publication | Z3 calls with customer records or on the review path |
+| 5 | LLM-created structured drafts | Model approval, validation authority, executable artifacts, or customer data |
+| 6 | Approved bounded enforcement and staged expansion | Unflagged all-tenant cutover or removal of rollback |
+
+Phases 0 through 4 and their exit gates are mandatory before policy enforcement. Phase 5 is optional and may be omitted indefinitely. A maintainer may authorize parallel technical spikes, but an agent must not merge later-phase production wiring before earlier gates are approved.
+
+### 3.9 Stop conditions: ask instead of guessing
+
+| Situation | Required agent action |
+| --- | --- |
+| More than one plausible review decision point | Present the call paths and side effects; ask which is authoritative |
+| A fact has unclear meaning, unit, null behavior, freshness, or ownership | Exclude it from the adapter and ask the fact owner |
+| Current outcome-to-state mapping is undocumented | Characterize it from tests/code and request business confirmation |
+| Runtime fallback is undocumented | Do not implement advisory/enforced mode; ask risk/business owners |
+| Required engine conflicts with Java/Spring/BOM/container constraints | Report the exact conflict and spike alternatives; do not upgrade the platform |
+| No test protects current behavior | Add characterization tests only; do not change behavior in the same work unit |
+| A migration would rename/drop/rewrite existing data | Stop and request a separately reviewed migration/backfill plan |
+| A new public field, endpoint, event, reason code, role, or topic appears necessary | Show why existing mechanisms are insufficient and request contract approval |
+| Tenant isolation or authorization cannot be proven | Do not expose the administration or decision operation |
+| Customer or personal data would reach an LLM, Z3, logs, metrics, or fixtures | Stop and redesign around metadata, structured policy constraints, synthetic witnesses, or redacted fixtures |
+| Existing tests fail before the change | Record the baseline failure and do not claim it was caused or fixed by this work without evidence |
+| Unrelated worktree changes overlap target files | Preserve them, narrow the edit, and ask only if safe separation is impossible |
+| The requested task spans multiple roadmap phases | Split it into phase-scoped work units and request approval for the first one |
+
+### 3.10 Verification required for every work unit
+
+Run the narrowest checks that prove the intended behavior, then the relevant module-level checks. At minimum, add or preserve coverage for the modes or components touched:
+
+- `DISABLED`: policy resolver/engine is not called; current responses, writes, transitions, reason codes, and events remain unchanged;
+- `SHADOW`: current behavior remains authoritative even when policy evaluation conflicts, times out, or fails; comparison and safe telemetry are recorded;
+- `ADVISORY`: findings are visible only to approved consumers and cannot transition review state;
+- `ENFORCED`: cohort filtering, explicit outcome mapping, release pinning, idempotent retry, fallback, kill switch, and rollback are tested;
+- fact mapping: units, decimals, enums, nulls, stale data, and tenant boundaries are tested;
+- governance: invalid lifecycle transitions, stale revision approval, unauthorized access, and separation of duties are rejected;
+- releases: checksum/signature failure, compile/load failure, atomic activation, last-valid-release retention, and rollback are tested;
+- engine adapters: reference fixtures, current-policy fixtures, boundaries, unsupported constructs, timeouts, and deterministic replay are tested;
+- persistence/API/events: migrations, optimistic locking, idempotency, compatibility, audit linkage, and sensitive-data handling are tested.
+
+Do not claim a check passed unless it was run. Do not suppress a failing check to obtain a green build. If a broader check cannot run, state the exact reason and the remaining risk.
+
+### 3.11 Required agent handoff format
+
+Every implementation or investigation handoff must contain:
+
+```text
+Roadmap phase and work unit:
+Intended behavior:
+Explicit non-goals:
+Evidence used (paths/symbols/tests/decisions):
+Approved decisions relied on:
+Files changed:
+Behavior preserved:
+Behavior intentionally changed:
+Feature-flag/default-mode impact:
+Database/API/event/security impact:
+Verification run and result:
+Unresolved items and owners:
+Rollback or disable procedure:
+Next gate; do not start yet:
+```
+
+The agent must not commit, push, deploy, enable a feature flag, publish a policy release, migrate production data, or invoke shared infrastructure unless the maintainer explicitly requests that action.
+
+### 3.12 Maintainer task packet for each agent run
+
+Do not ask an agent to "implement this roadmap" or "integrate the policy system." Give it one gate or one work unit. Every agent task should use this packet:
+
+```text
+Roadmap phase:
+Gate/work unit:
+Goal and reason:
+Approved integration-brief/ADR references:
+Exact existing entry point or symbols, if approved:
+Behavior that must remain unchanged:
+Behavior allowed to change:
+In-scope files/modules:
+Explicit non-goals:
+Feature-flag mode and required default:
+Database/API/event/security constraints:
+Focused verification command(s):
+Broader verification command(s):
+Required handoff format: NEXT_STEPS.md Section 3.11
+Stop condition: Do not begin the next gate or phase.
+```
+
+If required fields are unknown, assign Gate A read-only discovery instead of a coding task. A safe first task is:
+
+```text
+Perform only NEXT_STEPS.md Gate A for the existing customer review service.
+Do not edit files, add dependencies, create design artifacts, or implement code.
+Populate the Section 3.3 input sheet from repository evidence.
+Return the exact Gate A output from Section 3.4, including unresolved questions.
+Stop after recommending the smallest behavior-preserving integration seam.
+```
+
+A safe first coding task, after Gate A and Gate B approval, is:
+
+```text
+Implement only NEXT_STEPS.md Gate C at the approved review decision point.
+Add the existing-service equivalent of PolicyDecisionPort, confirmed fact mapping,
+a no-op/current-behavior adapter, and a server-side flag defaulted to DISABLED.
+Do not add engine dependencies, policy APIs, schema changes, or enforcement.
+Prove disabled mode preserves current response, persistence, state, and event behavior.
+Use the Section 3.11 handoff and stop; do not start Phase 2.
+```
+
+## 4. Target Production Architecture
+
+### 4.1 Recommended architecture around the existing service
 
 ```text
  Customer Review API / Events
@@ -181,7 +477,7 @@ storage, secrets manager, observability platform, and RDF store.
 
 Policy administration may move to a companion control-plane service without changing the review-time `PolicyDecisionPort`. The transaction-processing path must not call an LLM or Z3. It should evaluate a locally available or highly available approved DMN release and continue operating if authoring, conflict analysis, or the model provider is unavailable.
 
-### 3.2 Control-plane and runtime responsibilities
+### 4.2 Control-plane and runtime responsibilities
 
 1. **Control plane** — authors drafts, validates them, compares them with active policies, records approvals, and creates immutable releases.
 2. **Decision runtime** — loads only approved releases and evaluates customer facts against a pinned DMN release.
@@ -189,7 +485,7 @@ Policy administration may move to a companion control-plane service without chan
 
 Do not share mutable engine state between authoring and runtime. Publication should create an immutable release that runtime instances verify and load atomically.
 
-### 3.3 Policy authoring and publication flow
+### 4.3 Policy authoring and publication flow
 
 1. An authenticated policy author enters a bounded policy through an administrative UI or supported import format.
 2. An optional LLM gateway translates the request into structured draft JSON. The prompt version, model identity, and response provenance are recorded subject to data-retention rules.
@@ -203,7 +499,7 @@ Do not share mutable engine state between authoring and runtime. Publication sho
 10. Publication creates an immutable, checksummed release using the service's existing transaction/outbox conventions. Runtime instances atomically load it or retain the previous release.
 11. Rollback republishes a previous approved release; it never edits policy or audit history.
 
-### 3.4 Customer review evaluation flow
+### 4.4 Customer review evaluation flow
 
 1. The existing application service reaches its current policy/decision point.
 2. Its adapter builds a `PolicyEvaluationRequest` from authoritative facts available for that review.
@@ -212,7 +508,7 @@ Do not share mutable engine state between authoring and runtime. Publication sho
 5. The existing application service decides how those findings affect the review workflow.
 6. The service persists the release ID, decision ID, outcome, and reasons with the review or its existing audit record.
 
-### 3.5 Keep policy lifecycle separate from review lifecycle
+### 4.5 Keep policy lifecycle separate from review lifecycle
 
 Use explicit policy states and reject attempts to skip them:
 
@@ -235,7 +531,7 @@ Any material edit creates a new immutable revision and restarts validation. Vali
 
 These states govern policy artifacts only. Do not add them to the customer review entity or couple them to review states such as open, pending, approved, rejected, or escalated.
 
-## 4. Canonical Policy Model: The Shared Contract
+## 5. Canonical Policy Model: The Shared Contract
 
 The most important production addition is a canonical policy intermediate representation (IR). RDF/SHACL, DMN, and SMT encode different concerns; none should be used as the sole authoring model for all three.
 
@@ -275,7 +571,7 @@ Every engine adapter must consume the canonical model. Do not separately transla
 
 For every fact exposed by the existing service, record its canonical name, source field, datatype, unit, null behavior, allowed values, freshness, sensitivity classification, and owner. That fact dictionary is the contract between the customer-facts adapter, ontology, DMN compiler, and solver. A source-field rename should require only an adapter change; a semantic change requires a new ontology and policy release.
 
-## 5. Spring Boot Module Design
+## 6. Spring Boot Module Design
 
 A suggested structure under the service's existing base package is:
 
@@ -326,9 +622,9 @@ interface ReleasePublisher {
 
 These are architectural seams, not a reason to split into microservices immediately.
 
-## 6. Technology Integration Details
+## 7. Technology Integration Details
 
-### 6.1 Apache Jena and SHACL
+### 7.1 Apache Jena and SHACL
 
 Maintain ontology releases as versioned artifacts, for example:
 
@@ -356,7 +652,7 @@ For the first release, use the service's existing artifact mechanism where possi
 
 SHACL validates ontology conformance during authoring and publication; it does not replace request validation, workflow validation, DMN compilation, or policy conflict analysis. Do not add RDF conversion and SHACL validation to every customer review unless a separately measured requirement justifies it.
 
-### 6.2 DMN with Drools/KIE or Kogito
+### 7.2 DMN with Drools/KIE or Kogito
 
 The bounded canonical policy should compile deterministically into DMN XML. Generated DMN must include traceability metadata: policy ID, revision, ontology version, compiler version, and source hash.
 
@@ -384,7 +680,7 @@ Do not mutate one large live decision table in place. Build immutable release bu
 - content checksums and signature;
 - approval and publication metadata.
 
-### 6.3 Z3 conflict analysis
+### 7.3 Z3 conflict analysis
 
 Implement solver-neutral constraint objects before writing Z3 expressions. The adapter should translate the same typed comparisons and effects used by the DMN compiler. It should never accept arbitrary SMT-LIB supplied by a user or an LLM.
 
@@ -422,7 +718,7 @@ Z3 should generate synthetic witnesses from policy constraints rather than recei
 
 Z3 does not decide which business policy wins. Overrides and precedence remain explicit, reviewable policy metadata.
 
-### 6.4 LLM proposal gateway
+### 7.4 LLM proposal gateway
 
 Add a real model only after deterministic validation, analysis, and approval paths work without it. The gateway should:
 
@@ -439,9 +735,9 @@ Add a real model only after deterministic validation, analysis, and approval pat
 
 If policies are imported from the exploratory DSL, keep its parser as a migration adapter only. If the existing service has another policy format, build an importer for that format instead. Neither format should become the persistence or execution model unless it independently satisfies the production requirements.
 
-## 7. Persistence, APIs, and Audit
+## 8. Persistence, APIs, and Audit
 
-### 7.1 Additive persistence
+### 8.1 Additive persistence
 
 Use the existing service's supported relational database and migration tool. PostgreSQL is suitable but not required. Keep changes additive and follow existing naming, identifier, tenancy, timestamp, encryption, retention, and soft-delete conventions. Use relational records for workflow and traceability, with JSON only for immutable typed payloads where appropriate.
 
@@ -462,7 +758,7 @@ Use optimistic locking for draft commands and a database uniqueness/locking stra
 
 Do not store a second copy of the customer or review aggregate in the policy schema. Runtime evaluation records should reference the service's existing review/customer identifiers according to current data-classification rules.
 
-### 7.2 Illustrative APIs and application commands
+### 8.2 Illustrative APIs and application commands
 
 If policy management is part of the existing service, prefer internal application calls for review-time evaluation and expose only the administration resources required by its UI or clients. If it is a companion service, define a versioned release-distribution contract and expose a decision endpoint only when the runtime is also remote.
 
@@ -495,7 +791,7 @@ POST /internal/v1/policy-evaluations
 
 Long-running analysis or translation may return `202 Accepted` with an operation resource. Never hold a database transaction open while calling an LLM or solver.
 
-### 7.3 Audit guarantees
+### 8.3 Audit guarantees
 
 Audit records should answer:
 
@@ -508,9 +804,9 @@ Audit records should answer:
 
 Application logs are not the audit system. Extend the service's existing business audit trail where it meets these guarantees; otherwise add an append-only policy audit store. Protect records from update or deletion according to existing retention and legal-hold policy.
 
-## 8. Security and Operational Controls
+## 9. Security and Operational Controls
 
-### 8.1 Authorization
+### 9.1 Authorization
 
 Use the service's current Spring Security and identity-provider integration. The following are capabilities that must be authorized, not a requirement to create these exact role names:
 
@@ -523,7 +819,7 @@ Use the service's current Spring Security and identity-provider integration. The
 
 Map these capabilities to existing authorities and tenancy rules. Enforce separation of duties for high-risk policies: an author cannot be the sole approver, and publication may require a different actor. Service accounts should have narrower permissions than human operators. If the runtime is embedded, ordinary customer-review callers should not receive policy-administration authorities.
 
-### 8.2 Required controls
+### 9.2 Required controls
 
 - TLS in transit and managed encryption at rest;
 - secrets manager rather than configuration files or database rows for credentials;
@@ -534,9 +830,9 @@ Map these capabilities to existing authorities and tenancy rules. Enforce separa
 - allow-listed outbound connectivity from the application and solver;
 - backup and restore exercises for the service's database and policy artifacts;
 - audit retention, legal hold, and redaction rules;
-- explicit fail-closed behavior for missing ontology, invalid release, indeterminate analysis, and signature failure.
+- fail-closed authoring/publication behavior for missing ontology, invalid candidate release, indeterminate analysis, and signature failure, plus the explicitly approved customer-review runtime fallback.
 
-### 8.3 Observability and service objectives
+### 9.3 Observability and service objectives
 
 Propagate a correlation ID through translation, validation, analysis, approval, publication, and decision execution. Record metrics for:
 
@@ -550,15 +846,17 @@ Propagate a correlation ID through translation, validation, analysis, approval, 
 
 Define separate service objectives for control-plane operations and low-latency decision execution. A model-provider or solver outage must not stop evaluation of the currently active release.
 
-## 9. Delivery Roadmap
+## 10. Delivery Roadmap
 
 Durations below indicate sequencing for one small cross-functional team, not a delivery commitment. Re-estimate after the existing-service assessment and technology spikes. Each phase should be independently deployable and reversible.
+
+For AI-agent work, the gates in Section 3 are mandatory. At every phase exit gate, the agent must stop, provide the Section 3.11 handoff, and wait for explicit approval. Completing one phase does not authorize starting the next phase.
 
 ### Phase 0 — Discover the service and freeze semantics (1–2 weeks)
 
 **Deliver**
 
-- Complete the baseline discovery checklist in Section 2 with the customer review service maintainers.
+- Complete the baseline discovery checklist in Section 2 and agent Gates A and B in Section 3 with the customer review service maintainers.
 - Inventory current automated and manual policies, their owners, inputs, outcomes, effective dates, and precedence.
 - Capture representative historical review cases and current expected outcomes without copying prohibited production data into test fixtures.
 - Add the three reference scenarios as engine-neutral fixtures:
@@ -580,6 +878,7 @@ Service, business, risk, and engineering owners approve the context map, fact di
 
 - Add policy domain/application packages or modules within the existing repository without reorganizing unrelated code.
 - Add `PolicyDecisionPort`, the customer-facts adapter, and an adapter for the current decision behavior or a no-op implementation.
+- Complete agent Gate C before adding any engine dependency or policy authority.
 - Implement the canonical IR, deterministic schema/domain validation, and a manual structured-authoring path.
 - Add namespaced database migrations, mappings to existing authorities, audit integration, and outbox integration only where needed.
 - Implement policy lifecycle enforcement, immutable revisions, idempotency, optimistic locking, and API/application tests.
@@ -666,7 +965,7 @@ No model response bypasses schema, ontology, DMN, conflict, or approval gates. D
 
 Customer review service owners, risk, and business owners sign off on shadow/advisory results and controls. Production readiness review passes, rollback is rehearsed, and the first enforced cohort has explicit success, mismatch, and stop criteria.
 
-## 10. Cross-Engine and Existing-Behavior Conformance
+## 11. Cross-Engine and Existing-Behavior Conformance
 
 The largest technical risk is semantic drift between the canonical IR, RDF/SHACL, DMN, and Z3. Manage it as a first-class compatibility problem:
 
@@ -683,7 +982,7 @@ The largest technical risk is semantic drift between the canonical IR, RDF/SHACL
 
 The reference scenarios explain the design but are not sufficient acceptance coverage. Service-specific policies and historical outcomes are the primary migration baseline.
 
-## 11. Production-Readiness Definition
+## 12. Production-Readiness Definition
 
 The system is ready for a controlled production pilot only when all of the following are true:
 
@@ -702,7 +1001,7 @@ The system is ready for a controlled production pilot only when all of the follo
 - Logs, metrics, traces, and alerts avoid sensitive policy/customer data while retaining useful identifiers.
 - Backup restore, rollback, key rotation, access review, and incident runbooks have been exercised.
 
-## 12. Decisions Required Before Implementation
+## 13. Decisions Required Before Implementation
 
 Resolve these through short architecture decision records during Phase 0:
 
@@ -722,7 +1021,7 @@ Resolve these through short architecture decision records during Phase 0:
 | Activation | Human approval plus publisher action | Add two-person approval for high-risk scopes |
 | Runtime failure behavior | Preserve the last valid release and use the service's approved fallback | Never infer fail-open/fail-closed behavior without the current business and risk owners |
 
-## 13. Explicit Non-Goals for the First Release
+## 14. Explicit Non-Goals for the First Release
 
 - General natural-language understanding or arbitrary rule syntax.
 - General OWL inference as a replacement for explicit business semantics.
@@ -737,7 +1036,7 @@ Resolve these through short architecture decision records during Phase 0:
 - Selecting library versions before verifying compatibility with the maintained Spring Boot application.
 - Supporting multiple currencies or unit conversion until those semantics are explicitly designed.
 
-## 14. Immediate Next Sprint
+## 15. Immediate Next Sprint
 
 The first sprint should produce an integration brief and executable baseline, not commit to all three engines at once:
 
@@ -753,6 +1052,6 @@ The first sprint should produce an integration brief and executable baseline, no
 
 The outcome should be a signed-off integration brief, adapter contract, and fixture suite. Full implementation should begin only after the team can show where the capability fits, which current behavior it preserves, how it is disabled or rolled back, and that all three engine adapters can represent the same bounded policy without semantic differences.
 
-## 15. Exploration Provenance
+## 16. Exploration Provenance
 
 This direction was informed by the [Axiom Policy Reasoner exploration](https://ampcode.com/threads/T-019f5ef7-3be2-7009-9cb6-8b19ac6ff953). That prototype demonstrated a browser-only bounded DSL, ontology-aware validation, and deterministic conflict examples. It did **not** integrate Apache Jena, SHACL, DMN/Kogito/Drools, Z3, a backend, an LLM provider, persistence, authentication, or a production approval workflow. Treat its examples as seed fixtures and design evidence, not production code or an integration contract.
