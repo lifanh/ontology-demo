@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+if [[ ! -f index.html ]]; then
+  printf '%s\n' 'Required application file is missing: index.html' >&2
+  exit 1
+fi
+
+printf '%s\n' 'No persistent services require repair; the static demo is ready.'

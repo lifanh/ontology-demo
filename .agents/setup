@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+printf '%s\n' 'Preparing the Axiom Policy Reasoner static demo...'
+
+for required_file in index.html app.js styles.css; do
+  if [[ ! -f "$required_file" ]]; then
+    printf 'Required application file is missing: %s\n' "$required_file" >&2
+    exit 1
+  fi
+done
+
+printf '%s\n' 'No dependencies or external services are required; setup is complete.'
