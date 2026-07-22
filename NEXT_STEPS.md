@@ -18,11 +18,11 @@ An LLM must never validate its own output, resolve policy conflicts, approve a p
 
 The examples below provide a concrete bounded credit-policy domain for the behavior referenced throughout this guide:
 
-- Global policy: average days to pay (`adp_days`) must be **less than 30 days**.
+- Global policy: average days to pay (`adp_days`) must be **no more than 30 calendar days**.
 - Global policy: `past_due_amount` must be no more than **10% of `ar_balance`**.
 - Candidate: for `NET_30` customers, allow only 5% past due. This is a compatible refinement because it is stricter than the global 10% maximum.
 - Candidate: for `NET_30` customers, allow 15% past due. This conflicts with the global 10% maximum.
-- Candidate: for unrestricted customers with balance above USD 100,000, allow up to 45 days to pay. This conflicts with the global exclusive 30-day maximum; a customer with 35 days to pay is a concrete conflict witness.
+- Candidate: for unrestricted customers with balance above USD 100,000, allow up to 45 days to pay. This conflicts with the global inclusive 30-day maximum; a customer with 35 days to pay is a concrete conflict witness.
 
 The existing service does not need to use these field names. During integration, map its authoritative customer facts and policy concepts to the canonical policy model described below. Start only with facts already governed and available at review time.
 
@@ -862,7 +862,7 @@ For AI-agent work, the gates in Section 3 are mandatory. At every phase exit gat
 - Add the three reference scenarios as engine-neutral fixtures:
   - NET_30 with 5% past due → `COMPATIBLE_REFINEMENT`;
   - NET_30 with 15% past due → `CONFLICT` with the global 10% policy;
-  - unrestricted high-balance customer with 45 ADP days → `CONFLICT` with the exclusive 30-day policy, including a witness.
+  - unrestricted high-balance customer with 45 ADP days → `CONFLICT` with the inclusive 30-day policy, including a witness.
 - Add negative fixtures for unknown properties, invalid enum values, unit mismatch, inclusive/exclusive boundaries, nulls, and unsatisfiable scopes.
 - Define the customer-fact dictionary, canonical IR v1, lifecycle states, error codes, classification semantics, override behavior, and exact-decimal/unit rules.
 - Record architecture decisions for integration topology, current-runtime fallback, Java/Spring compatibility, build layout, engine selection criteria, and artifact storage.

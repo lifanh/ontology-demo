@@ -1,328 +1,721 @@
-const ontology = {
-  customer_number: { displayName: "Customer Number", type: "integer", required: true, primaryKey: true, minimum: 1, description: "Integer primary key for a customer business object." },
-  name: { displayName: "Customer Name", type: "string", required: true, description: "Legal or operating name of the customer." },
-  current_balance: { displayName: "Current Balance", type: "decimal", unit: "USD", minimum: 0, description: "Total current customer receivable balance." },
-  ar_balance: { displayName: "AR Balance", type: "decimal", unit: "USD", minimum: 0, description: "Accounts receivable balance used for exposure ratios." },
-  past_due_amount: { displayName: "Past Due Amount", type: "decimal", unit: "USD", minimum: 0, description: "Receivables currently beyond their due date." },
-  adp_days: { displayName: "Average Days to Pay", type: "integer", unit: "DAYS", minimum: 0, description: "Average number of days between invoice issuance and payment." },
-  credit_limit: { displayName: "Credit Limit", type: "decimal", unit: "USD", minimum: 0, description: "Maximum approved credit exposure." },
-  payment_terms: { displayName: "Payment Terms", type: "enum", values: ["NET_15", "NET_30", "NET_45", "NET_60"], description: "Contractual invoice payment terms." },
-  restricted_status: { displayName: "Restricted Status", type: "enum", values: ["Y", "N"], description: "Indicates whether the customer is restricted: Y for restricted, N for not restricted." },
-  discontinued_status: { displayName: "Discontinued Status", type: "enum", values: ["Y", "N"], description: "Indicates whether the customer is discontinued: Y for discontinued, N for not discontinued." }
-};
+const {
+  DecisionEngineError,
+  evaluateDecisionTable,
+  formatCondition,
+  validateDecisionTable
+} = window.DecisionEngine;
 
-const customer = {
-  customer_number: 1001,
-  name: "Acme Systems Inc.",
-  current_balance: 125000,
-  ar_balance: 125000,
-  past_due_amount: 15000,
-  adp_days: 28,
-  credit_limit: 200000,
-  payment_terms: "NET_30",
-  restricted_status: "N",
-  discontinued_status: "N"
-};
-
-const scenarios = {
-  ratio5: {
-    policy: "Customers with NET 30 payment terms cannot have more than 5% of their AR balance past due.",
-    dsl: `RULE NET_30_PAST_DUE_RATIO_MAX_5_PERCENT\nSCOPE customer.payment_terms == "NET_30"\nSET_MAX_RATIO customer.past_due_amount\n    TO customer.ar_balance = 0.05\nEND`
+const facts = {
+  evidence_state: {
+    displayName: "Evidence state",
+    type: "enum",
+    values: ["complete", "conflicting", "missing"],
+    required: true,
+    description: "Whether the source evidence needed for this review is complete, internally conflicting, or missing."
   },
-  ratio15: {
-    policy: "Customers with NET 30 payment terms may have up to 15% of their AR balance past due.",
-    dsl: `RULE NET_30_PAST_DUE_RATIO_MAX_15_PERCENT\nSCOPE customer.payment_terms == "NET_30"\nSET_MAX_RATIO customer.past_due_amount\n    TO customer.ar_balance = 0.15\nEND`
+  adp_days: {
+    displayName: "Average Days to Pay",
+    shortName: "ADP",
+    type: "integer",
+    unit: "calendar days",
+    nullable: true,
+    minimum: 0,
+    description: "Average number of calendar days between invoice issuance and payment. The standard maximum is inclusive: 30 passes and 31 fails."
   },
-  adp45: {
-    policy: "For non-restricted customers with a current balance above $100,000, allow Average Days to Pay up to 45 days.",
-    dsl: `RULE UNRESTRICTED_HIGH_BALANCE_ADP_MAX_45\nSCOPE customer.restricted_status == "N"\n      AND customer.current_balance > 100000 USD\nSET_MAX customer.adp_days = 45 DAYS\nEND`
+  exception_status: {
+    displayName: "Exception status",
+    type: "enum",
+    values: ["valid", "invalid", "absent"],
+    required: true,
+    description: "Whether an approved exception is valid, invalid, or absent. Below the ADP threshold, an exception is not required."
+  },
+  risk_level: {
+    displayName: "Risk level",
+    type: "enum",
+    values: ["low", "medium", "high"],
+    required: true,
+    description: "Normalized customer risk used for escalation. High risk always requires manual review when evidence is complete."
   }
 };
+
+function condition(fact, operator, value, display) {
+  const result = { fact, operator };
+  if (value !== undefined) result.value = value;
+  if (display) result.display = display;
+  return result;
+}
+
+const dispositions = {
+  approve: { label: "Approve", tone: "approve" },
+  approve_with_exception: { label: "Approve with exception", tone: "exception" },
+  request_information: { label: "Request information", tone: "information" },
+  manual_review: { label: "Manual review", tone: "review" },
+  reject: { label: "Reject", tone: "reject" }
+};
+
+const decisionContract = { facts, dispositions };
+
+const decisionTable = {
+  id: "CUSTOMER-ELIGIBILITY-001",
+  version: 1,
+  name: "Customer eligibility review",
+  hitPolicy: "FIRST",
+  facts,
+  dispositions,
+  assumptions: [
+    "Average Days to Pay is measured in calendar days.",
+    "The standard maximum is inclusive: 30 days passes and 31 days fails.",
+    "Conflicting or missing evidence takes precedence over customer-level conditions.",
+    "All evidence in this demo is synthetic and fixture-backed."
+  ],
+  rows: [
+    {
+      id: "ROW-1",
+      priority: 1,
+      conditions: [
+        condition("evidence_state", "equals", "conflicting"),
+        condition("adp_days", "any"),
+        condition("exception_status", "any"),
+        condition("risk_level", "any")
+      ],
+      disposition: "manual_review",
+      summary: "The source documents contain conflicting ADP values. The engine cannot select one as authoritative, so the customer requires manual review.",
+      nextAction: "Reconcile the conflicting payment-history sources before making a customer decision.",
+      findings: [{
+        criterion: "Evidence consistency",
+        fact: "evidence_state",
+        result: "indeterminate",
+        observedLabel: "Documents report 28 and 42 days",
+        required: "One consistent ADP value",
+        decisionEffect: "requires_manual_review",
+        group: "unresolved"
+      }]
+    },
+    {
+      id: "ROW-2",
+      priority: 2,
+      conditions: [
+        condition("evidence_state", "equals", "missing"),
+        condition("adp_days", "any"),
+        condition("exception_status", "any"),
+        condition("risk_level", "any")
+      ],
+      disposition: "request_information",
+      summary: "Average Days to Pay is unavailable in the supplied evidence. The review cannot be completed until that information is provided.",
+      nextAction: "Request an updated payment-history extract containing Average Days to Pay.",
+      findings: [{
+        criterion: "Evidence completeness",
+        fact: "evidence_state",
+        result: "indeterminate",
+        observedLabel: "ADP unavailable",
+        required: "Complete evidence including ADP",
+        decisionEffect: "requires_information",
+        group: "unresolved"
+      }]
+    },
+    {
+      id: "ROW-3",
+      priority: 3,
+      conditions: [
+        condition("evidence_state", "equals", "complete"),
+        condition("adp_days", "gt", 30),
+        condition("exception_status", "in", ["absent", "invalid"]),
+        condition("risk_level", "any")
+      ],
+      disposition: "reject",
+      summary: "The customer's ADP is {{adp_days}} days, exceeding the standard maximum by {{adp_days_overage}} days. No valid exception applies, so the customer is rejected.",
+      nextAction: "Reject the customer review or obtain an approved exception before reassessment.",
+      findings: [
+        {
+          criterion: "Standard ADP threshold",
+          fact: "adp_days",
+          result: "violated",
+          required: "≤ 30 calendar days",
+          decisionEffect: "blocks_approval",
+          group: "blocking"
+        },
+        {
+          criterion: "Approved exception",
+          fact: "exception_status",
+          result: "violated",
+          required: "Valid when ADP exceeds 30 days",
+          decisionEffect: "does_not_compensate",
+          group: "blocking"
+        }
+      ]
+    },
+    {
+      id: "ROW-4",
+      priority: 4,
+      conditions: [
+        condition("evidence_state", "equals", "complete"),
+        condition("adp_days", "any"),
+        condition("exception_status", "any"),
+        condition("risk_level", "equals", "high")
+      ],
+      disposition: "manual_review",
+      summary: "The evidence is complete, but customer risk is high. A credit reviewer must assess the case before a final disposition is made.",
+      nextAction: "Escalate the case to a credit reviewer with the complete evidence packet.",
+      findings: [{
+        criterion: "Customer risk",
+        fact: "risk_level",
+        result: "violated",
+        required: "Low or medium for automatic approval",
+        decisionEffect: "requires_manual_review",
+        group: "blocking"
+      }]
+    },
+    {
+      id: "ROW-5",
+      priority: 5,
+      conditions: [
+        condition("evidence_state", "equals", "complete"),
+        condition("adp_days", "gt", 30),
+        condition("exception_status", "equals", "valid"),
+        condition("risk_level", "in", ["low", "medium"])
+      ],
+      disposition: "approve_with_exception",
+      summary: "The customer's ADP is {{adp_days}} days, exceeding the standard maximum by {{adp_days_overage}} days. A valid approved exception applies, the evidence is complete, and customer risk is low or medium. The customer can be approved with the exception recorded.",
+      nextAction: "If approved outside this demo, record the exception with the customer review.",
+      findings: [
+        {
+          criterion: "Standard ADP threshold",
+          fact: "adp_days",
+          result: "condition_not_met",
+          required: "≤ 30 calendar days",
+          decisionEffect: "compensated_by_exception",
+          group: "compensated"
+        },
+        {
+          criterion: "Approved exception",
+          fact: "exception_status",
+          result: "satisfied",
+          required: "Valid",
+          decisionEffect: "permits_approval",
+          group: "compensated"
+        }
+      ]
+    },
+    {
+      id: "ROW-6",
+      priority: 6,
+      conditions: [
+        condition("evidence_state", "equals", "complete"),
+        condition("adp_days", "lte", 30),
+        condition("exception_status", "any", undefined, "Not required"),
+        condition("risk_level", "in", ["low", "medium"])
+      ],
+      disposition: "approve",
+      summary: "The customer's ADP is {{adp_days}} days, satisfying the inclusive 30-day maximum. The evidence is complete and customer risk is low or medium.",
+      nextAction: "Continue the normal approval process outside this demo.",
+      findings: [
+        {
+          criterion: "Standard ADP threshold",
+          fact: "adp_days",
+          result: "satisfied",
+          required: "≤ 30 calendar days",
+          decisionEffect: "permits_approval",
+          group: "advisory"
+        },
+        {
+          criterion: "Approved exception",
+          fact: "exception_status",
+          result: "not_applicable",
+          required: "Not required at or below 30 days",
+          decisionEffect: "none",
+          group: "advisory"
+        }
+      ]
+    }
+  ]
+};
+
+function buildSyntheticEvidence(inputs, adpEvidence) {
+  const adpEntries = adpEvidence || [{
+    fact: "adp_days",
+    source: "Synthetic payment history extract",
+    location: "Trailing 12-month payment summary",
+    value: inputs.adp_days,
+    note: inputs.adp_days === null ? "No ADP value was present in the fixture." : "Calculated fixture value."
+  }];
+  return [
+    {
+      fact: "evidence_state",
+      source: "Synthetic review packet",
+      location: "Document checklist",
+      value: inputs.evidence_state,
+      note: "Fixture-backed evidence status; no documents were uploaded."
+    },
+    ...adpEntries,
+    {
+      fact: "exception_status",
+      source: "Synthetic exception register",
+      location: inputs.exception_status === "valid" ? "Exception EX-204" : "Customer exception lookup",
+      value: inputs.exception_status,
+      note: inputs.exception_status === "valid" ? "Fixture marks the exception as approved and in force." : "Fixture contains no valid approved exception."
+    },
+    {
+      fact: "risk_level",
+      source: "Synthetic risk profile",
+      location: "Current customer risk band",
+      value: inputs.risk_level,
+      note: "Fixture-backed risk classification."
+    }
+  ];
+}
+
+function createScenario(id, label, description, expected, customer, inputs, adpEvidence) {
+  return {
+    id,
+    label,
+    description,
+    expected,
+    customer,
+    inputs,
+    evidence: buildSyntheticEvidence(inputs, adpEvidence)
+  };
+}
+
+const scenarios = [
+  createScenario(
+    "standard-approval",
+    "Standard approval",
+    "ADP 24 · complete evidence · medium risk",
+    "Approve",
+    { id: "DEMO-101", name: "Northstar Supply" },
+    { evidence_state: "complete", adp_days: 24, exception_status: "absent", risk_level: "medium" }
+  ),
+  createScenario(
+    "approved-exception",
+    "Approved exception",
+    "ADP 42 · valid exception · medium risk",
+    "Approve with exception",
+    { id: "DEMO-104", name: "Demo Customer" },
+    { evidence_state: "complete", adp_days: 42, exception_status: "valid", risk_level: "medium" }
+  ),
+  createScenario(
+    "no-exception",
+    "No exception",
+    "ADP 42 · no valid exception",
+    "Reject",
+    { id: "DEMO-107", name: "Harborline Goods" },
+    { evidence_state: "complete", adp_days: 42, exception_status: "absent", risk_level: "medium" }
+  ),
+  createScenario(
+    "conflicting-evidence",
+    "Conflicting evidence",
+    "Documents report ADP 28 and 42",
+    "Manual review",
+    { id: "DEMO-112", name: "Atlas Components" },
+    { evidence_state: "conflicting", adp_days: null, exception_status: "valid", risk_level: "medium" },
+    [
+      { fact: "adp_days", source: "Synthetic aging report", location: "Payment summary", value: 28, note: "First fixture source." },
+      { fact: "adp_days", source: "Synthetic account statement", location: "Customer metrics", value: 42, note: "Conflicts with the aging report." }
+    ]
+  ),
+  createScenario(
+    "missing-adp",
+    "Missing ADP",
+    "ADP unavailable in the evidence packet",
+    "Request information",
+    { id: "DEMO-118", name: "Cedar Works" },
+    { evidence_state: "missing", adp_days: null, exception_status: "absent", risk_level: "low" }
+  ),
+  createScenario(
+    "high-risk",
+    "High risk",
+    "ADP 24 · complete evidence · high risk",
+    "Manual review",
+    { id: "DEMO-123", name: "Summit Industrial" },
+    { evidence_state: "complete", adp_days: 24, exception_status: "absent", risk_level: "high" }
+  )
+];
+
+const defaultPolicy = "Evaluate customer eligibility in priority order. Conflicting evidence requires manual review. Missing evidence requires more information. ADP above 30 calendar days without a valid exception is rejected. High risk requires manual review. ADP above 30 days with a valid exception and low or medium risk may be approved with the exception. Complete evidence, ADP at or below 30 days, and low or medium risk may be approved.";
 
 const els = {
   policy: document.querySelector("#policyInput"),
   charCount: document.querySelector("#charCount"),
   promptSection: document.querySelector("#promptSection"),
   promptOutput: document.querySelector("#promptOutput"),
-  editorSection: document.querySelector("#editorSection"),
-  dsl: document.querySelector("#dslInput"),
+  draftSection: document.querySelector("#draftSection"),
+  draftInput: document.querySelector("#draftInput"),
+  validationSection: document.querySelector("#validationSection"),
+  validationContent: document.querySelector("#validationContent"),
+  reviewSection: document.querySelector("#reviewSection"),
+  tablePreview: document.querySelector("#tablePreview"),
+  assumptionList: document.querySelector("#assumptionList"),
+  reviewStatus: document.querySelector("#reviewStatus"),
+  reviewButton: document.querySelector("#reviewButton"),
+  dryRunSection: document.querySelector("#dryRunSection"),
+  scenarioGrid: document.querySelector("#scenarioGrid"),
+  customerPreview: document.querySelector("#customerPreview"),
   resultSection: document.querySelector("#resultSection"),
+  sidebarFacts: document.querySelector("#sidebarFacts"),
+  sidebarCustomer: document.querySelector("#sidebarCustomer"),
   toast: document.querySelector("#toast"),
   progressLine: document.querySelector("#progressLine")
 };
 
-let selectedScenario = "ratio5";
-let validatedAst = null;
+let selectedScenarioId = "approved-exception";
+let validatedTable = null;
+let draftReviewed = false;
+let toastTimer = null;
 
 function escapeHtml(value) {
-  return String(value).replace(/[&<>"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[char]);
+  return String(value).replace(/[&<>"']/g, character => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#039;"
+  })[character]);
 }
 
-function formatValue(key, value) {
-  const property = ontology[key];
-  if (property.unit === "USD") return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
-  if (property.unit === "DAYS") return `${value} days`;
-  return String(value).replaceAll("_", " ");
+function humanize(value) {
+  return String(value).replaceAll("_", " ").replace(/\b\w/g, character => character.toUpperCase());
 }
 
-function renderOntology() {
-  const entries = Object.entries(ontology);
-  document.querySelector("#ontologyGrid").innerHTML = entries.map(([key, property]) => `
-    <button class="ontology-property" data-property="${key}">
-      <strong>${escapeHtml(property.displayName)}</strong>
-      <small>customer.${key} · ${property.type}${property.unit ? ` · ${property.unit}` : ""}</small>
-      <em>${escapeHtml(formatValue(key, customer[key]))}</em>
-    </button>`).join("");
-
-  document.querySelector("#sidebarProperties").innerHTML = entries
-    .filter(([key]) => !["customer_number", "name"].includes(key))
-    .map(([key, property]) => {
-      const iconClass = property.unit === "USD" ? "currency" : property.unit === "DAYS" ? "days" : "enum";
-      const icon = property.unit === "USD" ? "$" : property.unit === "DAYS" ? "#" : "Aa";
-      const detail = property.values ? `enum · ${property.values.length} values` : `${property.type} · ${property.unit || "text"}`;
-      return `<button class="property-row" data-property="${key}"><span class="property-icon ${iconClass}">${icon}</span><span><strong>${escapeHtml(property.displayName)}</strong><small>${detail}</small></span><span class="required-dot"></span></button>`;
-    }).join("");
+function formatFactValue(fact, value, inputs = {}) {
+  if (value === null || value === undefined || value === "") {
+    if (fact === "adp_days" && inputs.evidence_state === "conflicting") return "Conflicting values";
+    return "Unavailable";
+  }
+  if (fact === "adp_days") return `${value} calendar days`;
+  return humanize(value);
 }
 
-function ontologyPrompt() {
-  return Object.entries(ontology).map(([key, property]) => {
-    const metadata = [`customer.${key}`, `- Display name: ${property.displayName}`, `- Type: ${property.type}`];
-    if (property.primaryKey) metadata.push("- Primary key: true");
-    if (property.unit) metadata.push(`- Unit: ${property.unit}`);
-    if (property.values) metadata.push(`- Allowed values: ${property.values.map(value => `"${value}"`).join(", ")}`);
-    return metadata.join("\n");
-  }).join("\n");
-}
-
-function makePrompt() {
-  return `You are a compiler that translates business credit policies into a constrained rule DSL.
-Your job is only to convert the user's business policy into the supported DSL.
-Do not decide whether the rule is correct or conflicts with other rules.
-Do not invent properties. Do not output explanations or Markdown fences. Return exactly one DSL rule.
-
-AVAILABLE ONTOLOGY
-Object: customer
-${ontologyPrompt()}
-
-SUPPORTED DSL
-RULE <RULE_ID>
-SCOPE <scope_expression>
-<effect>
-END
-
-Scope operators: == != > >= < <=
-Logical operator: AND
-Global scope: SCOPE ALL
-Effects:
-SET_MAX <property> = <value> <unit>
-SET_MIN <property> = <value> <unit>
-SET_MAX_RATIO <numerator_property>
-    TO <denominator_property> = <ratio>
-
-LITERAL AND FORMATTING RULES
-- ALWAYS wrap every enum or string value in straight double quotes.
-- Use the exact allowed ontology token inside the quotes: write "NET_30", not NET_30, "NET 30", or NET 30.
-- Write status values as "Y" or "N", never as unquoted Y or N.
-- Numeric values are not quoted and must include the property's unit when one is defined, for example 100000 USD or 45 DAYS.
-- Rule IDs, property names, operators, units, and numeric ratios are not quoted.
-- Preserve the line structure shown in the grammar. Return no prose before or after the rule.
-
-FEW-SHOT EXAMPLES
-
-Business policy: Customers with NET 15 terms cannot have more than 8% of their AR balance past due.
-DSL output:
-RULE NET_15_PAST_DUE_RATIO_MAX_8_PERCENT
-SCOPE customer.payment_terms == "NET_15"
-SET_MAX_RATIO customer.past_due_amount
-    TO customer.ar_balance = 0.08
-END
-
-Business policy: For non-restricted customers with a current balance above $100,000, allow Average Days to Pay up to 45 days.
-DSL output:
-RULE UNRESTRICTED_HIGH_BALANCE_ADP_MAX_45
-SCOPE customer.restricted_status == "N"
-      AND customer.current_balance > 100000 USD
-SET_MAX customer.adp_days = 45 DAYS
-END
-
-Business policy: All customers may have Average Days to Pay up to 25 days.
-DSL output:
-RULE GLOBAL_ADP_MAX_25
-SCOPE ALL
-SET_MAX customer.adp_days = 25 DAYS
-END
-
-FINAL CHECK BEFORE OUTPUT
-Confirm that every enum or string scope value is enclosed in straight double quotes and exactly matches an allowed ontology value.
-
-BUSINESS POLICY TO CONVERT
-${els.policy.value.trim()}`;
+function getSelectedScenario() {
+  return scenarios.find(scenario => scenario.id === selectedScenarioId);
 }
 
 function setProgress(step) {
-  document.querySelectorAll(".track-step").forEach((element, index) => element.classList.toggle("active", index < step));
-  els.progressLine.style.width = `${((step - 1) / 3) * 100}%`;
+  document.querySelectorAll(".track-step").forEach((element, index) => {
+    element.classList.toggle("active", index < step);
+    element.setAttribute("aria-current", index === step - 1 ? "step" : "false");
+  });
+  els.progressLine.style.width = `${((step - 1) / 4) * 100}%`;
 }
 
-function reveal(element) {
+function reveal(element, shouldScroll = true) {
   element.classList.remove("hidden");
-  setTimeout(() => element.scrollIntoView({ behavior: "smooth", block: "center" }), 70);
+  if (shouldScroll) setTimeout(() => element.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+}
+
+function hideAfterDraft() {
+  [els.validationSection, els.reviewSection, els.dryRunSection, els.resultSection].forEach(element => element.classList.add("hidden"));
 }
 
 function showToast(message) {
+  window.clearTimeout(toastTimer);
   els.toast.textContent = message;
   els.toast.classList.add("show");
-  setTimeout(() => els.toast.classList.remove("show"), 1800);
+  toastTimer = window.setTimeout(() => els.toast.classList.remove("show"), 2200);
 }
 
 function updateCount() {
   els.charCount.textContent = `${els.policy.value.length} characters`;
 }
 
-function propertyDefinition(name) {
-  const definition = ontology[name];
-  if (!definition) {
-    const suggestion = name.includes("average") ? "customer.adp_days" : "a property shown in the Customer Ontology";
-    throw new Error(`UNKNOWN_PROPERTY\ncustomer.${name} is not defined in the Customer Ontology.\nSuggestion: ${suggestion}`);
-  }
-  return definition;
+function factsForPrompt() {
+  return Object.entries(facts).map(([key, fact]) => {
+    const details = [`- ${key}: ${fact.type}`];
+    if (fact.unit) details.push(`unit=${fact.unit}`);
+    if (fact.values) details.push(`values=${fact.values.join("|")}`);
+    if (fact.nullable) details.push("nullable=true");
+    return details.join("; ");
+  }).join("\n");
 }
 
-function parseCondition(text) {
-  const match = text.match(/^customer\.([a-z_]+)\s*(==|!=|>=|<=|>|<)\s*(?:"([A-Z0-9_ -]+)"|(-?\d+(?:\.\d+)?)\s*([A-Z]+)?)$/);
-  if (!match) throw new Error(`SYNTAX_ERROR\nInvalid scope condition: ${text}`);
-  const [, propertyName, operator, stringValue, numericValue, unit] = match;
-  const definition = propertyDefinition(propertyName);
-  if (stringValue !== undefined) {
-    if (definition.type !== "enum" && definition.type !== "string") throw new Error(`TYPE_ERROR\ncustomer.${propertyName} has type ${definition.type.toUpperCase()}. Received STRING.`);
-    if (definition.values && !definition.values.includes(stringValue)) throw new Error(`INVALID_ENUM_VALUE\n${stringValue} is not valid for customer.${propertyName}.\nSupported values: ${definition.values.join(", ")}`);
-    return { type: "CONDITION", property: `customer.${propertyName}`, operator, value: stringValue };
-  }
-  if (!["decimal", "integer"].includes(definition.type)) throw new Error(`TYPE_ERROR\ncustomer.${propertyName} is not numeric.`);
-  if (definition.unit && unit !== definition.unit) throw new Error(`UNIT_ERROR\ncustomer.${propertyName} requires ${definition.unit}. Received ${unit || "no unit"}.`);
-  return { type: "CONDITION", property: `customer.${propertyName}`, operator, value: Number(numericValue), unit };
+function makePrompt() {
+  return `You translate a business policy into a constrained, auditable decision-table JSON draft.
+The draft is untrusted until a deterministic validator accepts it and a human reviews it.
+Do not execute the policy, assess a customer, invent facts, or output private reasoning.
+Return one JSON object only, with no Markdown fences or prose.
+
+ALLOWED FACTS
+${factsForPrompt()}
+
+FACT DEFINITIONS JSON
+${JSON.stringify(facts, null, 2)}
+
+DISPOSITION DEFINITIONS JSON
+${JSON.stringify(decisionTable.dispositions, null, 2)}
+
+ALLOWED CONTRACT
+- hitPolicy must be "FIRST". Rows execute in ascending numeric priority.
+- Every row must contain exactly one condition for every allowed fact.
+- Operators: equals, in, gt, gte, lt, lte, missing, present, any.
+- any is an explicit wildcard, not an AI judgment.
+- Dispositions: approve, approve_with_exception, request_information, manual_review, reject.
+- Finding results: satisfied, violated, condition_not_met, indeterminate, not_applicable, error.
+- Finding groups: blocking, compensated, advisory, unresolved.
+- Each row requires: id, priority, conditions, disposition, summary, nextAction, findings.
+- Each finding requires: criterion, fact, result, required, decisionEffect, group.
+- Include an assumptions array and explain missing-data behavior through explicit rows.
+- Keep the raw ADP threshold result separate from its decision effect. A 42-day ADP does not satisfy a 30-day threshold even when a valid exception compensates for it.
+- Treat ADP as calendar days. Exactly 30 passes; 31 fails unless another higher-priority row applies.
+- The table must cover conflicting evidence, missing evidence, no valid exception, high risk, valid exception, and standard approval.
+
+TOP-LEVEL JSON KEYS
+id, version, name, hitPolicy, facts, dispositions, assumptions, rows
+
+Use the fact and disposition definitions exactly as supplied above. IDs must be stable uppercase tokens. Summary placeholders may reference {{adp_days}} and {{adp_days_overage}}.
+
+BUSINESS POLICY
+${els.policy.value.trim()}`;
 }
 
-function parseRule(source) {
-  const lines = source.trim().split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-  if (lines.length < 4) throw new Error("SYNTAX_ERROR\nRule is incomplete.");
-  const ruleMatch = lines[0].match(/^RULE\s+([A-Z][A-Z0-9_]*)$/);
-  if (!ruleMatch) throw new Error("SYNTAX_ERROR\nLine 1 must contain RULE followed by a valid rule ID.");
-  if (lines.at(-1) !== "END") throw new Error("SYNTAX_ERROR\nThe final line must be END.");
-
-  const effectIndex = lines.findIndex(line => /^SET_(MAX_RATIO|MAX|MIN)\b/.test(line));
-  if (effectIndex < 2) throw new Error("SYNTAX_ERROR\nExpected one SCOPE and one supported effect.");
-  const scopeText = lines.slice(1, effectIndex).join(" ");
-  if (!scopeText.startsWith("SCOPE ")) throw new Error("SYNTAX_ERROR\nExpected SCOPE after the RULE declaration.");
-  const expression = scopeText.slice(6).trim();
-  let scope;
-  if (expression === "ALL") {
-    scope = { type: "ALL" };
-  } else {
-    const conditions = expression.split(/\s+AND\s+/).map(parseCondition);
-    scope = conditions.length === 1 ? conditions[0] : { type: "AND", conditions };
-  }
-
-  const effectLine = lines[effectIndex];
-  let effect;
-  if (effectLine.startsWith("SET_MAX_RATIO")) {
-    const numeratorMatch = effectLine.match(/^SET_MAX_RATIO\s+customer\.([a-z_]+)$/);
-    const ratioMatch = lines[effectIndex + 1]?.match(/^TO\s+customer\.([a-z_]+)\s*=\s*(0(?:\.\d+)?|1(?:\.0+)?)$/);
-    if (!numeratorMatch || !ratioMatch || effectIndex + 2 !== lines.length - 1) throw new Error("SYNTAX_ERROR\nInvalid SET_MAX_RATIO effect.");
-    const numerator = propertyDefinition(numeratorMatch[1]);
-    const denominator = propertyDefinition(ratioMatch[1]);
-    if (numerator.type !== "decimal" || denominator.type !== "decimal") throw new Error("TYPE_ERROR\nRatio properties must both be decimal values.");
-    if (numerator.unit !== denominator.unit) throw new Error(`UNIT_ERROR\nRatio dimensions are incompatible: ${numerator.unit} and ${denominator.unit}.`);
-    const value = Number(ratioMatch[2]);
-    if (!(value > 0 && value <= 1)) throw new Error("DOMAIN_ERROR\nRatio must be greater than 0 and no more than 1.");
-    effect = { type: "SET_MAX_RATIO", numeratorProperty: `customer.${numeratorMatch[1]}`, denominatorProperty: `customer.${ratioMatch[1]}`, value };
-  } else {
-    const effectMatch = effectLine.match(/^SET_(MAX|MIN)\s+customer\.([a-z_]+)\s*=\s*(-?\d+(?:\.\d+)?)\s+([A-Z]+)$/);
-    if (!effectMatch || effectIndex + 1 !== lines.length - 1) throw new Error("SYNTAX_ERROR\nInvalid SET_MAX or SET_MIN effect.");
-    const [, kind, propertyName, rawValue, unit] = effectMatch;
-    const definition = propertyDefinition(propertyName);
-    if (!["decimal", "integer"].includes(definition.type)) throw new Error(`TYPE_ERROR\ncustomer.${propertyName} is not numeric.`);
-    if (definition.unit !== unit) throw new Error(`UNIT_ERROR\ncustomer.${propertyName} requires ${definition.unit}. Received ${unit}.`);
-    const value = Number(rawValue);
-    if (definition.minimum !== undefined && value < definition.minimum) throw new Error(`DOMAIN_ERROR\ncustomer.${propertyName} cannot be below ${definition.minimum}.`);
-    effect = { type: `SET_${kind}`, property: `customer.${propertyName}`, value, unit };
-  }
-
-  return { id: ruleMatch[1], scope, effect };
+function renderSidebarFacts() {
+  els.sidebarFacts.innerHTML = Object.entries(facts).map(([key, fact]) => `
+    <button class="fact-row" data-fact="${escapeHtml(key)}">
+      <span class="fact-icon" aria-hidden="true">${fact.type === "integer" ? "#" : "Aa"}</span>
+      <span><strong>${escapeHtml(fact.displayName)}</strong><small>${escapeHtml(fact.type)}${fact.unit ? ` · ${escapeHtml(fact.unit)}` : ` · ${fact.values.length} values`}</small></span>
+      <span class="required-dot" aria-label="${fact.required ? "Required" : "Conditionally available"}"></span>
+    </button>
+  `).join("");
 }
 
-function scopeLabel(scope) {
-  if (scope.type === "ALL") return "ALL CUSTOMERS";
-  const conditions = scope.type === "AND" ? scope.conditions : [scope];
-  return conditions.map(condition => `${condition.property.replace("customer.", "")} ${condition.operator} ${typeof condition.value === "string" ? condition.value : condition.value.toLocaleString()}${condition.unit ? ` ${condition.unit}` : ""}`).join(" AND ");
-}
-
-function analyzeRule(ast) {
-  const scopeRelationship = ast.scope.type === "ALL" ? "SCOPES_EQUIVALENT" : "NEW_SCOPE_IS_SUBSET";
-  if (ast.effect.type === "SET_MAX_RATIO" && ast.effect.numeratorProperty === "customer.past_due_amount" && ast.effect.denominatorProperty === "customer.ar_balance") {
-    const existingValue = 0.10;
-    const status = ast.effect.value > existingValue ? "CONFLICT" : ast.effect.value === existingValue ? "REDUNDANT" : "COMPATIBLE_REFINEMENT";
-    return {
-      status, newRuleId: ast.id, existingRuleId: "GLOBAL_PAST_DUE_RATIO_MAX_10_PERCENT", property: "customer.past_due_amount / customer.ar_balance",
-      scopeRelationship, existingLabel: "ALL → Past Due Ratio ≤ 10%", newLabel: `${scopeLabel(ast.scope)} → Past Due Ratio ≤ ${Math.round(ast.effect.value * 100)}%`,
-      relationship: status === "CONFLICT" ? `10% < Past Due Ratio ≤ ${Math.round(ast.effect.value * 100)}%` : `${Math.round(ast.effect.value * 100)}% maximum is stricter than 10%`,
-      explanation: status === "CONFLICT" ? "The proposed rule permits past-due ratios prohibited by the active global policy." : "Every customer satisfying the proposed maximum also satisfies the active global maximum."
-    };
-  }
-  if (ast.effect.type === "SET_MAX" && ast.effect.property === "customer.adp_days") {
-    const existingValue = 30;
-    const status = ast.effect.value >= existingValue ? "CONFLICT" : "COMPATIBLE_REFINEMENT";
-    return {
-      status, newRuleId: ast.id, existingRuleId: "GLOBAL_ADP_MAX_30", property: "customer.adp_days", scopeRelationship,
-      existingLabel: "ALL → Average Days to Pay < 30 DAYS", newLabel: `${scopeLabel(ast.scope)} → Average Days to Pay ≤ ${ast.effect.value} DAYS`,
-      relationship: status === "CONFLICT" ? `30 ≤ customer.adp_days ≤ ${ast.effect.value} DAYS` : `${ast.effect.value} day maximum is stricter than 30 days`,
-      explanation: status === "CONFLICT" ? "The narrower rule permits ADP values that the active global policy prohibits for the same customers." : "The proposed ADP maximum does not permit values prohibited by the active global policy."
-    };
-  }
-  return { status: "NO_CONFLICT", newRuleId: ast.id, existingRuleId: "None", property: ast.effect.property, scopeRelationship, existingLabel: "No active rule affects this relationship", newLabel: scopeLabel(ast.scope), relationship: "No overlapping constraint", explanation: "No active policy constrains the same property in an overlapping scope." };
-}
-
-function renderValidation(ast) {
-  const scopeConditions = ast.scope.type === "AND" ? ast.scope.conditions.length : ast.scope.type === "ALL" ? 0 : 1;
-  els.resultSection.className = "result-section";
-  els.resultSection.innerHTML = `<div class="validation-success">
-    <div class="validation-success-head"><div class="result-icon">✓</div><div><span class="result-label">Deterministic parser result</span><h2>VALID RULE</h2><p>${escapeHtml(ast.id)} is ready for contradiction analysis.</p></div></div>
-    <div class="validation-body">
-      <div class="validation-list">
-        <div class="check-row"><i>✓</i> Lexical and DSL grammar valid</div>
-        <div class="check-row"><i>✓</i> ${scopeConditions || "Global"} scope condition${scopeConditions === 1 ? "" : "s"} normalized</div>
-        <div class="check-row"><i>✓</i> All ontology properties exist</div>
-        <div class="check-row"><i>✓</i> Value types and enum domains valid</div>
-        <div class="check-row"><i>✓</i> Units and dimensions compatible</div>
-      </div>
-      <details class="ast-details" open><summary>Internal parsed rule (AST)</summary><pre>${escapeHtml(JSON.stringify(ast, null, 2))}</pre></details>
+function renderSidebarCustomer() {
+  const scenario = getSelectedScenario();
+  const initials = scenario.customer.name.split(/\s+/).map(part => part[0]).join("").slice(0, 2);
+  els.sidebarCustomer.innerHTML = `
+    <div class="sample-head">
+      <span class="avatar">${escapeHtml(initials)}</span>
+      <div><strong>${escapeHtml(scenario.customer.name)}</strong><small>${escapeHtml(scenario.customer.id)}</small></div>
+      <span class="synthetic-chip">Synthetic</span>
     </div>
-    <div class="analyze-bar"><p>Syntax validity does not imply policy compatibility. Compare against both active rules.</p><button class="primary-button" id="analyzeButton">Analyze against existing rules <span>→</span></button></div>
-  </div>`;
-  reveal(els.resultSection);
-  setProgress(3);
+    <dl>
+      ${Object.entries(facts).map(([key, fact]) => `<div><dt>${escapeHtml(fact.shortName || fact.displayName)}</dt><dd>${escapeHtml(formatFactValue(key, scenario.inputs[key], scenario.inputs))}</dd></div>`).join("")}
+    </dl>
+  `;
 }
 
-function renderAnalysis(result, ast) {
-  const conflict = result.status === "CONFLICT";
-  els.resultSection.className = `result-section${conflict ? " conflict" : ""}`;
-  const resolutions = conflict ? `<ol class="resolution-list"><li>Declare an explicit override of ${result.existingRuleId}.</li><li>Narrow the existing global rule to exclude this qualifying scope.</li><li>Change the proposed maximum to comply with the global limit.</li></ol>` : "";
+function scenarioButtons() {
+  return scenarios.map(scenario => `
+    <button class="scenario${scenario.id === selectedScenarioId ? " active" : ""}" data-scenario="${escapeHtml(scenario.id)}" aria-pressed="${scenario.id === selectedScenarioId}">
+      <span><strong>${escapeHtml(scenario.label)}</strong><small>${escapeHtml(scenario.description)}</small></span>
+      <em>${escapeHtml(scenario.expected)}</em>
+    </button>
+  `).join("");
+}
+
+function renderScenarioPicker() {
+  els.scenarioGrid.innerHTML = scenarioButtons();
+}
+
+function renderCustomerPreview() {
+  const scenario = getSelectedScenario();
+  els.customerPreview.innerHTML = `
+    <div>
+      <p class="eyebrow">Selected fixture</p>
+      <h3>${escapeHtml(scenario.customer.name)} <span>${escapeHtml(scenario.customer.id)}</span></h3>
+    </div>
+    <div class="preview-facts">
+      ${Object.entries(facts).map(([key, fact]) => `<div><span>${escapeHtml(fact.shortName || fact.displayName)}</span><strong>${escapeHtml(formatFactValue(key, scenario.inputs[key], scenario.inputs))}</strong></div>`).join("")}
+    </div>
+    <p class="synthetic-notice"><b>Synthetic demo evidence</b> — no customer data was uploaded or transmitted.</p>
+  `;
+}
+
+function traceStateLabel(status) {
+  return ({
+    matched: "✓ Matched",
+    not_matched: "× Did not match",
+    wildcard: "— Any / not evaluated",
+    not_evaluated: "— Not evaluated"
+  })[status] || "";
+}
+
+function renderDecisionTable(table, trace = []) {
+  const factNames = Object.keys(table.facts);
+  const traceByRow = new Map(trace.map(row => [row.rowId, row]));
+  const rows = [...table.rows].sort((left, right) => left.priority - right.priority);
+  return `
+    <div class="decision-table-wrap">
+      <table class="decision-table">
+        <caption>${escapeHtml(table.name || table.id)} · ${escapeHtml(table.hitPolicy)} hit policy</caption>
+        <thead>
+          <tr><th scope="col">Priority</th>${factNames.map(fact => `<th scope="col">${escapeHtml(table.facts[fact].shortName || table.facts[fact].displayName || fact)}</th>`).join("")}<th scope="col">Disposition</th></tr>
+        </thead>
+        <tbody>
+          ${rows.map(row => {
+            const rowTrace = traceByRow.get(row.id);
+            const rowClass = rowTrace ? ` trace-${rowTrace.status}` : "";
+            return `<tr class="${rowClass.trim()}">
+              <th scope="row"><span class="priority-number">${row.priority}</span><small>${escapeHtml(row.id)}</small>${rowTrace?.status === "selected" ? `<b class="selected-row-badge">Selected row</b>` : ""}</th>
+              ${factNames.map(fact => {
+                const rowCondition = row.conditions.find(item => item.fact === fact);
+                const conditionTrace = rowTrace?.conditions.find(item => item.fact === fact);
+                const state = conditionTrace?.status || "";
+                return `<td class="${state ? `condition-${state}` : ""}"><strong>${escapeHtml(formatCondition(rowCondition, table.facts[fact]))}</strong>${state ? `<small>${escapeHtml(traceStateLabel(state))}</small>` : ""}</td>`;
+              }).join("")}
+              <td><span class="disposition-chip tone-${escapeHtml(table.dispositions[row.disposition].tone)}">${escapeHtml(table.dispositions[row.disposition].label)}</span></td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderValidation(report, table) {
+  const warningMarkup = report.warnings.length ? `
+    <div class="validation-note warning-note">
+      <strong>${report.warnings.length} priority-dependent overlap${report.warnings.length === 1 ? "" : "s"}</strong>
+      <p>These overlaps are explicit under FIRST hit policy; the higher-priority row wins.</p>
+      <ul>${report.warnings.map(warning => `<li>${escapeHtml(warning.message)}</li>`).join("")}</ul>
+    </div>` : "";
+  els.validationContent.innerHTML = `
+    <div class="validation-head success">
+      <span class="status-icon" aria-hidden="true">✓</span>
+      <div><p class="eyebrow">Deterministic validation</p><h2>Valid decision table</h2><p>${escapeHtml(table.id)} v${table.version} is structurally valid and ready for human review.</p></div>
+    </div>
+    <div class="validation-grid">
+      <ul class="check-list">
+        <li>✓ FIRST hit policy recognized</li>
+        <li>✓ ${Object.keys(table.facts).length} typed facts validated</li>
+        <li>✓ ${table.rows.length} priorities and outputs validated</li>
+        <li>✓ Operators and enum values constrained</li>
+        <li>✓ Duplicate and obviously unreachable rows rejected</li>
+      </ul>
+      ${warningMarkup}
+    </div>
+  `;
+}
+
+function renderValidationError(error, issues = []) {
+  const details = issues.length ? `<ul>${issues.map(issue => `<li><code>${escapeHtml(issue.path || issue.code)}</code> ${escapeHtml(issue.message)}</li>`).join("")}</ul>` : "";
+  els.validationContent.innerHTML = `
+    <div class="validation-head error">
+      <span class="status-icon" aria-hidden="true">!</span>
+      <div><p class="eyebrow">Deterministic validation</p><h2>Invalid decision table</h2><p>${escapeHtml(error)}</p></div>
+    </div>
+    ${details ? `<div class="validation-errors">${details}</div>` : ""}
+  `;
+}
+
+function renderReview(table) {
+  els.tablePreview.innerHTML = renderDecisionTable(table);
+  els.assumptionList.innerHTML = table.assumptions.map(assumption => `<li>${escapeHtml(assumption)}</li>`).join("");
+  els.reviewStatus.textContent = "Awaiting human review";
+  els.reviewStatus.className = "review-status pending";
+  els.reviewButton.disabled = false;
+  els.reviewButton.innerHTML = `Mark reviewed for dry run <span>→</span>`;
+}
+
+function findingValue(value) {
+  if (value === null || value === undefined || value === "") return "Unavailable";
+  if (typeof value === "number") return String(value);
+  return humanize(value);
+}
+
+function renderEvidence(result, table) {
+  return Object.entries(table.facts).map(([key, fact]) => {
+    const evidence = result.evidence.filter(item => item.fact === key);
+    return `<details class="evidence-card">
+      <summary>
+        <span><small>${escapeHtml(fact.shortName || fact.displayName || key)}</small><strong>${escapeHtml(formatFactValue(key, result.inputs[key], result.inputs))}</strong></span>
+        <em>Synthetic evidence</em>
+      </summary>
+      <div class="evidence-detail">
+        ${evidence.length ? evidence.map(item => `<article><div><span>Source</span><b>${escapeHtml(item.source)}</b></div><div><span>Location</span><b>${escapeHtml(item.location)}</b></div><div><span>Value</span><b>${escapeHtml(findingValue(item.value))}</b></div>${item.note ? `<p>${escapeHtml(item.note)}</p>` : ""}</article>`).join("") : `<p>No evidence fixture is attached to this fact.</p>`}
+      </div>
+    </details>`;
+  }).join("");
+}
+
+function boundaryLabel(table) {
+  const standardCondition = table.rows
+    .flatMap(row => row.conditions)
+    .find(condition => condition.fact === "adp_days" && condition.operator === "lte" && typeof condition.value === "number");
+  return standardCondition
+    ? `${standardCondition.value} days passes · ${standardCondition.value + 1} fails`
+    : "Inspect configured boundaries";
+}
+
+function renderFindings(findings) {
+  const groups = [
+    ["blocking", "Blocking"],
+    ["compensated", "Compensated"],
+    ["advisory", "Advisory"],
+    ["unresolved", "Unresolved"]
+  ];
+  return groups.map(([key, label]) => {
+    const items = findings.filter(finding => finding.group === key);
+    return `<section class="finding-group group-${key}">
+      <div class="finding-group-head"><h4>${label}</h4><span>${items.length}</span></div>
+      ${items.length ? items.map(finding => `<article>
+        <div><strong>${escapeHtml(finding.criterion)}</strong><span class="finding-result">${escapeHtml(humanize(finding.result))}</span></div>
+        <dl><div><dt>Observed</dt><dd>${escapeHtml(findingValue(finding.observed))}</dd></div><div><dt>Required</dt><dd>${escapeHtml(finding.required)}</dd></div><div><dt>Decision effect</dt><dd><code>${escapeHtml(finding.decisionEffect)}</code></dd></div></dl>
+      </article>`).join("") : `<p class="empty-group">No ${label.toLowerCase()} findings.</p>`}
+    </section>`;
+  }).join("");
+}
+
+function renderDryRunResult(result, table) {
   els.resultSection.innerHTML = `
-    <div class="result-hero"><div class="result-icon">${conflict ? "!" : "✓"}</div><div><span class="result-label">Deterministic reasoning result</span><h2>${result.status.replaceAll("_", " ")}</h2><p>${escapeHtml(result.explanation)}</p></div></div>
-    <div class="result-grid">
-      <div class="result-column"><h3>Rule review</h3><div class="logic-stack">
-        <div class="logic-row"><span>Proposed ID</span><code>${escapeHtml(result.newRuleId)}</code></div>
-        <div class="logic-row"><span>Compared with</span><code>${escapeHtml(result.existingRuleId)}</code></div>
-        <div class="logic-row"><span>Property</span><code>${escapeHtml(result.property)}</code></div>
-        <div class="logic-row"><span>Scope</span><code>${escapeHtml(result.scopeRelationship)}</code></div>
-      </div>${resolutions}<details class="ast-details"><summary>View validated AST</summary><pre>${escapeHtml(JSON.stringify(ast, null, 2))}</pre></details></div>
-      <div class="result-column"><h3>Semantic comparison</h3><div class="logic-stack">
-        <div class="logic-row"><span>Existing</span><code>${escapeHtml(result.existingLabel)}</code></div>
-        <div class="logic-row"><span>Proposed</span><code>${escapeHtml(result.newLabel)}</code></div>
-      </div><div class="relationship"><svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="12"/><circle cx="16" cy="16" r="6"/></svg><div><p class="eyebrow">${conflict ? "Conflicting interval" : "Constraint relationship"}</p><b>${escapeHtml(result.relationship)}</b></div></div></div>
-    </div>`;
-  reveal(els.resultSection);
-  setProgress(4);
+    <article class="disposition-card tone-${escapeHtml(result.dispositionTone)}">
+      <div class="disposition-icon" aria-hidden="true">${result.disposition === "reject" ? "×" : result.disposition === "approve" || result.disposition === "approve_with_exception" ? "✓" : "!"}</div>
+      <div class="disposition-copy">
+        <div class="disposition-meta"><span>Deterministic dry-run result</span><b>${escapeHtml(result.matchedRow.id)} · Priority ${result.matchedRow.priority}</b></div>
+        <h2>${escapeHtml(result.dispositionLabel)}</h2>
+        <p>${escapeHtml(result.summary)}</p>
+      </div>
+      <div class="dry-run-banner"><strong>Dry run — no changes saved</strong><span>${escapeHtml(result.sideEffects.message)}</span></div>
+      <div class="next-action"><span>Recommended next action</span><strong>${escapeHtml(result.nextAction)}</strong></div>
+    </article>
+
+    <section class="result-block" aria-labelledby="inputsTitle">
+      <div class="result-heading"><div><p class="eyebrow">Inputs and provenance</p><h3 id="inputsTitle">Normalized inputs and evidence</h3></div><span class="boundary-chip">${escapeHtml(boundaryLabel(table))}</span></div>
+      <div class="evidence-grid">${renderEvidence(result, table)}</div>
+    </section>
+
+    <section class="result-block" aria-labelledby="traceTitle">
+      <div class="result-heading"><div><p class="eyebrow">Deterministic execution</p><h3 id="traceTitle">Decision-table execution trace</h3></div><span class="hit-policy-chip">F · FIRST hit</span></div>
+      <p class="section-intro">Rows above the selected row show why they failed. Rows below it were not evaluated after the first match.</p>
+      ${renderDecisionTable(table, result.trace)}
+    </section>
+
+    <section class="result-block" aria-labelledby="findingsTitle">
+      <div class="result-heading"><div><p class="eyebrow">Policy effects</p><h3 id="findingsTitle">Findings</h3></div></div>
+      <p class="section-intro">Raw condition outcomes remain separate from their decision effects.</p>
+      <div class="findings-grid">${renderFindings(result.findings)}</div>
+    </section>
+  `;
+  reveal(els.resultSection, false);
+}
+
+function renderExecutionError(error) {
+  const code = error instanceof DecisionEngineError ? error.code : "EXECUTION_ERROR";
+  els.resultSection.innerHTML = `<div class="execution-error"><p class="eyebrow">Deterministic execution failed</p><h2>${escapeHtml(code)}</h2><p>${escapeHtml(error.message)}</p><strong>No disposition was produced.</strong></div>`;
+  reveal(els.resultSection, false);
+}
+
+function runDryRun(shouldScroll = true) {
+  if (!validatedTable || !draftReviewed) return;
+  const scenario = getSelectedScenario();
+  renderSidebarCustomer();
+  renderScenarioPicker();
+  renderCustomerPreview();
+  try {
+    const result = evaluateDecisionTable(validatedTable, scenario.inputs, {
+      customer: scenario.customer,
+      evidence: scenario.evidence,
+      contract: decisionContract
+    });
+    renderDryRunResult(result, validatedTable);
+    if (shouldScroll) setTimeout(() => els.resultSection.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+  } catch (error) {
+    renderExecutionError(error);
+  }
+}
+
+function invalidateDraft() {
+  validatedTable = null;
+  draftReviewed = false;
+  hideAfterDraft();
+  setProgress(3);
 }
 
 document.querySelector("#generatePrompt").addEventListener("click", () => {
@@ -332,69 +725,111 @@ document.querySelector("#generatePrompt").addEventListener("click", () => {
 });
 
 document.querySelector("#copyPrompt").addEventListener("click", async () => {
-  try { await navigator.clipboard.writeText(els.promptOutput.textContent); showToast("Prompt copied to clipboard"); }
-  catch { showToast("Select the prompt text to copy"); }
+  try {
+    await navigator.clipboard.writeText(els.promptOutput.textContent);
+    showToast("Prompt copied to clipboard");
+  } catch {
+    showToast("Select the prompt text to copy");
+  }
 });
 
 document.querySelector("#simulateResponse").addEventListener("click", () => {
-  els.dsl.value = scenarios[selectedScenario].dsl;
-  reveal(els.editorSection);
+  els.draftInput.value = JSON.stringify(decisionTable, null, 2);
+  invalidateDraft();
+  reveal(els.draftSection);
   setProgress(3);
 });
 
 document.querySelector("#validateButton").addEventListener("click", () => {
+  draftReviewed = false;
+  validatedTable = null;
+  [els.reviewSection, els.dryRunSection, els.resultSection].forEach(element => element.classList.add("hidden"));
   try {
-    validatedAst = parseRule(els.dsl.value);
-    renderValidation(validatedAst);
+    const parsed = JSON.parse(els.draftInput.value);
+    const report = validateDecisionTable(parsed, decisionContract);
+    reveal(els.validationSection);
+    if (!report.valid) {
+      renderValidationError("The structured draft does not satisfy the constrained table contract.", report.errors);
+      setProgress(3);
+      return;
+    }
+    validatedTable = parsed;
+    renderValidation(report, parsed);
+    renderReview(parsed);
+    reveal(els.reviewSection, false);
+    setProgress(4);
   } catch (error) {
-    validatedAst = null;
-    els.resultSection.className = "result-section";
-    els.resultSection.innerHTML = `<div class="error-result"><p class="eyebrow">Deterministic validation failed</p><h2>INVALID RULE</h2><pre>${escapeHtml(error.message)}</pre></div>`;
-    reveal(els.resultSection);
+    reveal(els.validationSection);
+    renderValidationError(`The draft is not valid JSON: ${error.message}`);
+    setProgress(3);
   }
 });
 
-els.resultSection.addEventListener("click", event => {
-  if (event.target.closest("#analyzeButton") && validatedAst) renderAnalysis(analyzeRule(validatedAst), validatedAst);
+els.reviewButton.addEventListener("click", () => {
+  if (!validatedTable) return;
+  draftReviewed = true;
+  els.reviewStatus.textContent = "Reviewed for this demo dry run";
+  els.reviewStatus.className = "review-status reviewed";
+  els.reviewButton.disabled = true;
+  els.reviewButton.textContent = "Draft reviewed";
+  renderScenarioPicker();
+  renderCustomerPreview();
+  reveal(els.dryRunSection);
+  setProgress(5);
+  runDryRun(false);
 });
 
-document.querySelectorAll(".scenario").forEach(button => button.addEventListener("click", () => {
-  selectedScenario = button.dataset.scenario;
-  document.querySelectorAll(".scenario").forEach(item => item.classList.toggle("active", item === button));
-  els.policy.value = scenarios[selectedScenario].policy;
-  validatedAst = null;
+document.querySelector("#runDryRunButton").addEventListener("click", () => runDryRun(true));
+
+document.addEventListener("click", event => {
+  const scenarioButton = event.target.closest("[data-scenario]");
+  if (scenarioButton) {
+    selectedScenarioId = scenarioButton.dataset.scenario;
+    renderSidebarCustomer();
+    renderScenarioPicker();
+    renderCustomerPreview();
+    if (draftReviewed) runDryRun(false);
+    return;
+  }
+
+  const factButton = event.target.closest("[data-fact]");
+  if (factButton) {
+    const key = factButton.dataset.fact;
+    const fact = facts[key];
+    document.querySelector("#dialogTitle").textContent = fact.displayName;
+    document.querySelector("#dialogBody").textContent = `${key}\n\n${fact.description}\n\n${JSON.stringify(fact, null, 2)}\n\nSupported operators: equals, in, gt, gte, lt, lte, missing, present, any`;
+    document.querySelector("#factDialog").showModal();
+  }
+});
+
+els.policy.addEventListener("input", () => {
   updateCount();
   if (!els.promptSection.classList.contains("hidden")) els.promptOutput.textContent = makePrompt();
-  if (!els.editorSection.classList.contains("hidden")) els.dsl.value = scenarios[selectedScenario].dsl;
-  els.resultSection.classList.add("hidden");
-  setProgress(els.editorSection.classList.contains("hidden") ? 1 : 3);
-}));
+});
 
-els.policy.addEventListener("input", updateCount);
-els.dsl.addEventListener("input", () => { validatedAst = null; els.resultSection.classList.add("hidden"); });
+els.draftInput.addEventListener("input", invalidateDraft);
 
 document.querySelector("#resetButton").addEventListener("click", () => {
-  selectedScenario = "ratio5";
-  validatedAst = null;
-  els.policy.value = scenarios.ratio5.policy;
-  els.dsl.value = "";
-  document.querySelectorAll(".scenario").forEach(item => item.classList.toggle("active", item.dataset.scenario === "ratio5"));
-  [els.promptSection, els.editorSection, els.resultSection].forEach(item => item.classList.add("hidden"));
-  updateCount(); setProgress(1); window.scrollTo({ top: 0, behavior: "smooth" });
+  selectedScenarioId = "approved-exception";
+  validatedTable = null;
+  draftReviewed = false;
+  els.policy.value = defaultPolicy;
+  els.draftInput.value = "";
+  [els.promptSection, els.draftSection, els.validationSection, els.reviewSection, els.dryRunSection, els.resultSection].forEach(element => element.classList.add("hidden"));
+  renderSidebarCustomer();
+  renderScenarioPicker();
+  updateCount();
+  setProgress(1);
+  window.scrollTo({ top: 0, behavior: "smooth" });
 });
 
-const dialog = document.querySelector("#propertyDialog");
-document.addEventListener("click", event => {
-  const propertyButton = event.target.closest("[data-property]");
-  if (!propertyButton) return;
-  const key = propertyButton.dataset.property;
-  const definition = ontology[key];
-  document.querySelector("#dialogTitle").textContent = definition.displayName;
-  document.querySelector("#dialogBody").textContent = `customer.${key}\n\n${definition.description}\n\n${JSON.stringify(definition, null, 2)}\n\nAllowed operators: <  <=  >  >=  ==  !=`;
-  dialog.showModal();
-});
+const dialog = document.querySelector("#factDialog");
 document.querySelector(".dialog-close").addEventListener("click", () => dialog.close());
 dialog.addEventListener("click", event => { if (event.target === dialog) dialog.close(); });
 
-renderOntology();
+els.policy.value = defaultPolicy;
+renderSidebarFacts();
+renderSidebarCustomer();
+renderScenarioPicker();
 updateCount();
+setProgress(1);
