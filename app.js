@@ -5,22 +5,84 @@ const {
   validateDecisionTable
 } = window.DecisionEngine;
 
-const facts = {
+const customerOntology = {
+  customer_number: {
+    displayName: "Customer Number",
+    type: "integer",
+    required: true,
+    primaryKey: true,
+    minimum: 1,
+    description: "Integer primary key for a customer business object."
+  },
+  name: {
+    displayName: "Customer Name",
+    type: "string",
+    required: true,
+    description: "Legal or operating name of the customer."
+  },
+  current_balance: {
+    displayName: "Current Balance",
+    type: "decimal",
+    unit: "USD",
+    minimum: 0,
+    description: "Total current customer receivable balance."
+  },
+  ar_balance: {
+    displayName: "AR Balance",
+    type: "decimal",
+    unit: "USD",
+    minimum: 0,
+    description: "Accounts receivable balance used for exposure ratios."
+  },
+  past_due_amount: {
+    displayName: "Past Due Amount",
+    type: "decimal",
+    unit: "USD",
+    minimum: 0,
+    description: "Receivables currently beyond their due date."
+  },
+  adp_days: {
+    displayName: "Average Days to Pay",
+    type: "integer",
+    unit: "calendar days",
+    minimum: 0,
+    nullable: true,
+    description: "Average number of calendar days between invoice issuance and payment."
+  },
+  credit_limit: {
+    displayName: "Credit Limit",
+    type: "decimal",
+    unit: "USD",
+    minimum: 0,
+    description: "Maximum approved credit exposure."
+  },
+  payment_terms: {
+    displayName: "Payment Terms",
+    type: "enum",
+    values: ["NET_15", "NET_30", "NET_45", "NET_60"],
+    description: "Contractual invoice payment terms."
+  },
+  restricted_status: {
+    displayName: "Restricted Status",
+    type: "enum",
+    values: ["Y", "N"],
+    description: "Indicates whether the customer is restricted: Y for restricted, N for not restricted."
+  },
+  discontinued_status: {
+    displayName: "Discontinued Status",
+    type: "enum",
+    values: ["Y", "N"],
+    description: "Indicates whether the customer is discontinued: Y for discontinued, N for not discontinued."
+  }
+};
+
+const reviewFacts = {
   evidence_state: {
     displayName: "Evidence state",
     type: "enum",
     values: ["complete", "conflicting", "missing"],
     required: true,
     description: "Whether the source evidence needed for this review is complete, internally conflicting, or missing."
-  },
-  adp_days: {
-    displayName: "Average Days to Pay",
-    shortName: "ADP",
-    type: "integer",
-    unit: "calendar days",
-    nullable: true,
-    minimum: 0,
-    description: "Average number of calendar days between invoice issuance and payment. The standard maximum is inclusive: 30 passes and 31 fails."
   },
   exception_status: {
     displayName: "Exception status",
@@ -36,6 +98,22 @@ const facts = {
     required: true,
     description: "Normalized customer risk used for escalation. High risk always requires manual review when evidence is complete."
   }
+};
+
+const decisionProjection = {
+  customerFacts: ["adp_days"],
+  reviewFacts: Object.keys(reviewFacts)
+};
+
+const facts = {
+  evidence_state: reviewFacts.evidence_state,
+  adp_days: {
+    ...customerOntology.adp_days,
+    shortName: "ADP",
+    description: "Average number of calendar days between invoice issuance and payment. The standard maximum is inclusive: 30 passes and 31 fails."
+  },
+  exception_status: reviewFacts.exception_status,
+  risk_level: reviewFacts.risk_level
 };
 
 function condition(fact, operator, value, display) {
@@ -265,14 +343,35 @@ function buildSyntheticEvidence(inputs, adpEvidence) {
 }
 
 function createScenario(id, label, description, expected, customer, inputs, adpEvidence) {
+  const projectedCustomerFacts = Object.fromEntries(
+    decisionProjection.customerFacts.map(fact => [fact, customer[fact]])
+  );
+  const decisionInputs = { ...inputs, ...projectedCustomerFacts };
   return {
     id,
     label,
     description,
     expected,
     customer,
-    inputs,
-    evidence: buildSyntheticEvidence(inputs, adpEvidence)
+    inputs: decisionInputs,
+    evidence: buildSyntheticEvidence(decisionInputs, adpEvidence)
+  };
+}
+
+function createSyntheticCustomer(customerNumber, name, adpDays, overrides = {}) {
+  return {
+    id: `DEMO-${customerNumber}`,
+    customer_number: customerNumber,
+    name,
+    current_balance: 125000,
+    ar_balance: 125000,
+    past_due_amount: 15000,
+    adp_days: adpDays,
+    credit_limit: 200000,
+    payment_terms: "NET_30",
+    restricted_status: "N",
+    discontinued_status: "N",
+    ...overrides
   };
 }
 
@@ -282,32 +381,32 @@ const scenarios = [
     "Standard approval",
     "ADP 24 · complete evidence · medium risk",
     "Approve",
-    { id: "DEMO-101", name: "Northstar Supply" },
-    { evidence_state: "complete", adp_days: 24, exception_status: "absent", risk_level: "medium" }
+    createSyntheticCustomer(101, "Northstar Supply", 24, { current_balance: 82000, ar_balance: 82000, past_due_amount: 4100, credit_limit: 150000 }),
+    { evidence_state: "complete", exception_status: "absent", risk_level: "medium" }
   ),
   createScenario(
     "approved-exception",
     "Approved exception",
     "ADP 42 · valid exception · medium risk",
     "Approve with exception",
-    { id: "DEMO-104", name: "Demo Customer" },
-    { evidence_state: "complete", adp_days: 42, exception_status: "valid", risk_level: "medium" }
+    createSyntheticCustomer(104, "Demo Customer", 42),
+    { evidence_state: "complete", exception_status: "valid", risk_level: "medium" }
   ),
   createScenario(
     "no-exception",
     "No exception",
     "ADP 42 · no valid exception",
     "Reject",
-    { id: "DEMO-107", name: "Harborline Goods" },
-    { evidence_state: "complete", adp_days: 42, exception_status: "absent", risk_level: "medium" }
+    createSyntheticCustomer(107, "Harborline Goods", 42, { current_balance: 164000, ar_balance: 164000, past_due_amount: 28700, credit_limit: 175000 }),
+    { evidence_state: "complete", exception_status: "absent", risk_level: "medium" }
   ),
   createScenario(
     "conflicting-evidence",
     "Conflicting evidence",
     "Documents report ADP 28 and 42",
     "Manual review",
-    { id: "DEMO-112", name: "Atlas Components" },
-    { evidence_state: "conflicting", adp_days: null, exception_status: "valid", risk_level: "medium" },
+    createSyntheticCustomer(112, "Atlas Components", null, { payment_terms: "NET_45" }),
+    { evidence_state: "conflicting", exception_status: "valid", risk_level: "medium" },
     [
       { fact: "adp_days", source: "Synthetic aging report", location: "Payment summary", value: 28, note: "First fixture source." },
       { fact: "adp_days", source: "Synthetic account statement", location: "Customer metrics", value: 42, note: "Conflicts with the aging report." }
@@ -318,16 +417,16 @@ const scenarios = [
     "Missing ADP",
     "ADP unavailable in the evidence packet",
     "Request information",
-    { id: "DEMO-118", name: "Cedar Works" },
-    { evidence_state: "missing", adp_days: null, exception_status: "absent", risk_level: "low" }
+    createSyntheticCustomer(118, "Cedar Works", null, { current_balance: 47000, ar_balance: 47000, past_due_amount: 1800, credit_limit: 90000, payment_terms: "NET_15" }),
+    { evidence_state: "missing", exception_status: "absent", risk_level: "low" }
   ),
   createScenario(
     "high-risk",
     "High risk",
     "ADP 24 · complete evidence · high risk",
     "Manual review",
-    { id: "DEMO-123", name: "Summit Industrial" },
-    { evidence_state: "complete", adp_days: 24, exception_status: "absent", risk_level: "high" }
+    createSyntheticCustomer(123, "Summit Industrial", 24, { current_balance: 238000, ar_balance: 238000, past_due_amount: 32100, credit_limit: 250000, restricted_status: "Y" }),
+    { evidence_state: "complete", exception_status: "absent", risk_level: "high" }
   )
 ];
 
@@ -351,8 +450,12 @@ const els = {
   scenarioGrid: document.querySelector("#scenarioGrid"),
   customerPreview: document.querySelector("#customerPreview"),
   resultSection: document.querySelector("#resultSection"),
+  sidebarOntology: document.querySelector("#sidebarOntology"),
   sidebarFacts: document.querySelector("#sidebarFacts"),
   sidebarCustomer: document.querySelector("#sidebarCustomer"),
+  ontologyGrid: document.querySelector("#ontologyGrid"),
+  ontologyCustomer: document.querySelector("#ontologyCustomer"),
+  dialogType: document.querySelector("#dialogType"),
   toast: document.querySelector("#toast"),
   progressLine: document.querySelector("#progressLine")
 };
@@ -383,6 +486,29 @@ function formatFactValue(fact, value, inputs = {}) {
   }
   if (fact === "adp_days") return `${value} calendar days`;
   return humanize(value);
+}
+
+function formatOntologyValue(key, value, scenario = getSelectedScenario()) {
+  if (value === null || value === undefined || value === "") {
+    if (key === "adp_days" && scenario.inputs.evidence_state === "conflicting") return "Conflicting values";
+    return "Unavailable";
+  }
+  const property = customerOntology[key];
+  if (property.unit === "USD") {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 0
+    }).format(value);
+  }
+  if (property.unit === "calendar days") return `${value} days`;
+  return String(value).replaceAll("_", " ");
+}
+
+function propertyIcon(property) {
+  if (property.unit === "USD") return { className: "currency", label: "$" };
+  if (property.unit === "calendar days" || property.type === "integer") return { className: "number", label: "#" };
+  return { className: "text", label: "Aa" };
 }
 
 function getSelectedScenario() {
@@ -433,6 +559,14 @@ The draft is untrusted until a deterministic validator accepts it and a human re
 Do not execute the policy, assess a customer, invent facts, or output private reasoning.
 Return one JSON object only, with no Markdown fences or prose.
 
+CUSTOMER ONTOLOGY CONTEXT
+${JSON.stringify(customerOntology, null, 2)}
+
+CURRENT DECISION PROJECTION
+- Customer ontology facts used by this decision: ${decisionProjection.customerFacts.join(", ")}.
+- Review-specific facts added for this decision: ${decisionProjection.reviewFacts.join(", ")}.
+- The broader customer ontology remains authoritative context, but only the ALLOWED FACTS below may appear in decision rows.
+
 ALLOWED FACTS
 ${factsForPrompt()}
 
@@ -466,6 +600,20 @@ BUSINESS POLICY
 ${els.policy.value.trim()}`;
 }
 
+function renderSidebarOntology() {
+  els.sidebarOntology.innerHTML = Object.entries(customerOntology)
+    .filter(([key]) => !["customer_number", "name"].includes(key))
+    .map(([key, property]) => {
+      const icon = propertyIcon(property);
+      return `
+        <button class="fact-row ontology-row" data-ontology-property="${escapeHtml(key)}">
+          <span class="fact-icon ${icon.className}" aria-hidden="true">${icon.label}</span>
+          <span><strong>${escapeHtml(property.displayName)}</strong><small>${escapeHtml(property.type)}${property.unit ? ` · ${escapeHtml(property.unit)}` : property.values ? ` · ${property.values.length} values` : ""}</small></span>
+          ${decisionProjection.customerFacts.includes(key) ? `<span class="projection-dot" aria-label="Used by this decision"></span>` : `<span></span>`}
+        </button>`;
+    }).join("");
+}
+
 function renderSidebarFacts() {
   els.sidebarFacts.innerHTML = Object.entries(facts).map(([key, fact]) => `
     <button class="fact-row" data-fact="${escapeHtml(key)}">
@@ -474,6 +622,24 @@ function renderSidebarFacts() {
       <span class="required-dot" aria-label="${fact.required ? "Required" : "Conditionally available"}"></span>
     </button>
   `).join("");
+}
+
+function renderOntology() {
+  const scenario = getSelectedScenario();
+  const initials = scenario.customer.name.split(/\s+/).map(part => part[0]).join("").slice(0, 2);
+  els.ontologyCustomer.innerHTML = `
+    <span class="avatar">${escapeHtml(initials)}</span>
+    <div><strong>${escapeHtml(scenario.customer.name)}</strong><small>${escapeHtml(scenario.customer.id)} · synthetic fixture</small></div>
+  `;
+  els.ontologyGrid.innerHTML = Object.entries(customerOntology).map(([key, property]) => {
+    const usedByDecision = decisionProjection.customerFacts.includes(key);
+    return `
+      <button class="ontology-property${usedByDecision ? " in-use" : ""}" data-ontology-property="${escapeHtml(key)}">
+        <span class="ontology-property-title"><strong>${escapeHtml(property.displayName)}</strong>${usedByDecision ? `<b>Decision input</b>` : ""}</span>
+        <small>customer.${escapeHtml(key)} · ${escapeHtml(property.type)}${property.unit ? ` · ${escapeHtml(property.unit)}` : ""}</small>
+        <em>${escapeHtml(formatOntologyValue(key, scenario.customer[key], scenario))}</em>
+      </button>`;
+  }).join("");
 }
 
 function renderSidebarCustomer() {
@@ -486,7 +652,7 @@ function renderSidebarCustomer() {
       <span class="synthetic-chip">Synthetic</span>
     </div>
     <dl>
-      ${Object.entries(facts).map(([key, fact]) => `<div><dt>${escapeHtml(fact.shortName || fact.displayName)}</dt><dd>${escapeHtml(formatFactValue(key, scenario.inputs[key], scenario.inputs))}</dd></div>`).join("")}
+      ${["current_balance", "past_due_amount", "adp_days", "credit_limit", "payment_terms", "restricted_status", "discontinued_status"].map(key => `<div><dt>${escapeHtml(customerOntology[key].displayName)}</dt><dd>${escapeHtml(formatOntologyValue(key, scenario.customer[key], scenario))}</dd></div>`).join("")}
     </dl>
   `;
 }
@@ -785,6 +951,7 @@ document.addEventListener("click", event => {
   const scenarioButton = event.target.closest("[data-scenario]");
   if (scenarioButton) {
     selectedScenarioId = scenarioButton.dataset.scenario;
+    renderOntology();
     renderSidebarCustomer();
     renderScenarioPicker();
     renderCustomerPreview();
@@ -792,10 +959,22 @@ document.addEventListener("click", event => {
     return;
   }
 
+  const ontologyButton = event.target.closest("[data-ontology-property]");
+  if (ontologyButton) {
+    const key = ontologyButton.dataset.ontologyProperty;
+    const property = customerOntology[key];
+    els.dialogType.textContent = "Customer ontology property";
+    document.querySelector("#dialogTitle").textContent = property.displayName;
+    document.querySelector("#dialogBody").textContent = `customer.${key}\n\n${property.description}\n\n${JSON.stringify(property, null, 2)}\n\nCurrent decision projection: ${decisionProjection.customerFacts.includes(key) ? "used" : "not used"}`;
+    document.querySelector("#factDialog").showModal();
+    return;
+  }
+
   const factButton = event.target.closest("[data-fact]");
   if (factButton) {
     const key = factButton.dataset.fact;
     const fact = facts[key];
+    els.dialogType.textContent = decisionProjection.customerFacts.includes(key) ? "Projected ontology fact" : "Normalized review fact";
     document.querySelector("#dialogTitle").textContent = fact.displayName;
     document.querySelector("#dialogBody").textContent = `${key}\n\n${fact.description}\n\n${JSON.stringify(fact, null, 2)}\n\nSupported operators: equals, in, gt, gte, lt, lte, missing, present, any`;
     document.querySelector("#factDialog").showModal();
@@ -816,6 +995,7 @@ document.querySelector("#resetButton").addEventListener("click", () => {
   els.policy.value = defaultPolicy;
   els.draftInput.value = "";
   [els.promptSection, els.draftSection, els.validationSection, els.reviewSection, els.dryRunSection, els.resultSection].forEach(element => element.classList.add("hidden"));
+  renderOntology();
   renderSidebarCustomer();
   renderScenarioPicker();
   updateCount();
@@ -828,7 +1008,9 @@ document.querySelector(".dialog-close").addEventListener("click", () => dialog.c
 dialog.addEventListener("click", event => { if (event.target === dialog) dialog.close(); });
 
 els.policy.value = defaultPolicy;
+renderSidebarOntology();
 renderSidebarFacts();
+renderOntology();
 renderSidebarCustomer();
 renderScenarioPicker();
 updateCount();

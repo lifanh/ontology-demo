@@ -1,6 +1,6 @@
 # Axiom Decision Review Demo
 
-A dependency-free browser demo of AI-assisted decision-table authoring, deterministic validation, human review, and side-effect-free customer dry runs.
+A dependency-free browser demo of ontology-aware, AI-assisted decision-table authoring, deterministic validation, human review, and side-effect-free customer dry runs.
 
 ## Run locally
 
@@ -16,22 +16,28 @@ No package installation or build step is required. The generated model response 
 
 The workflow deliberately separates responsibilities:
 
-1. A human describes the policy.
-2. A simulated LLM response proposes constrained decision-table JSON.
-3. `decision-engine.js` validates facts, operators, outputs, priorities, and obvious table defects.
-4. A human marks the visualized table as reviewed for the current session.
-5. The same deterministic FIRST-hit evaluator runs six synthetic customer scenarios.
+1. The ten-property customer ontology remains the reusable semantic source for customer data.
+2. The current decision projects `adp_days` from that ontology and adds three review-specific facts.
+3. A human describes the policy.
+4. A simulated LLM response proposes constrained decision-table JSON.
+5. `decision-engine.js` validates facts, operators, outputs, priorities, and obvious table defects.
+6. A human marks the visualized table as reviewed for the current session.
+7. The same deterministic FIRST-hit evaluator runs six synthetic customer scenarios.
 
 The model never evaluates customers or activates policy. Every result reports `sideEffects.performed: false`, and the UI states that nothing was saved or submitted.
 
 ## Decision contract
 
-The table uses four normalized inputs:
+The reusable customer ontology defines customer number, name, current balance, AR balance, past-due amount, Average Days to Pay, credit limit, payment terms, restricted status, and discontinued status. The UI and prompt retain all ten definitions.
+
+The executable table deliberately uses a smaller four-fact projection:
 
 - Evidence state: `complete`, `conflicting`, or `missing`
-- Average Days to Pay: integer calendar days, with an inclusive 30-day maximum
+- Average Days to Pay: projected from `customer.adp_days`, with an inclusive 30-day maximum
 - Exception status: `valid`, `invalid`, or `absent`
 - Risk level: `low`, `medium`, or `high`
+
+Only these four facts reach the deterministic evaluator. The remaining ontology properties stay available for other policies rather than being redefined or discarded.
 
 Rows execute in priority order under the `FIRST` hit policy. Exactly 30 days passes the standard threshold; 31 days fails unless a higher-priority exception or escalation row applies.
 

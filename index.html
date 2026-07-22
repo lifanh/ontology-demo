@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Review an AI-authored decision table and run deterministic, side-effect-free customer scenarios." />
+    <meta name="description" content="Project a customer ontology into an AI-authored decision table, then run deterministic, side-effect-free customer scenarios." />
     <title>Axiom — Decision Review</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -37,22 +37,18 @@
 
         <section class="aside-section">
           <div class="section-title-row">
-            <h3>Decision inputs</h3>
-            <span class="count">4</span>
+            <h3>Customer ontology</h3>
+            <span class="count">10</span>
           </div>
-          <div class="fact-list" id="sidebarFacts"></div>
+          <div class="fact-list" id="sidebarOntology"></div>
         </section>
 
         <section class="aside-section">
           <div class="section-title-row">
-            <h3>Policy contract</h3>
-            <span class="count">3</span>
+            <h3>Decision inputs</h3>
+            <span class="count">4</span>
           </div>
-          <div class="contract-list">
-            <article><span>F</span><div><strong>FIRST hit</strong><small>Priority decides overlaps</small></div></article>
-            <article><span>≤</span><div><strong>30 calendar days</strong><small>30 passes · 31 fails</small></div></article>
-            <article><span>Ø</span><div><strong>No side effects</strong><small>Nothing saved or submitted</small></div></article>
-          </div>
+          <div class="fact-list" id="sidebarFacts"></div>
         </section>
 
         <section class="sample-card" id="sidebarCustomer" aria-label="Selected synthetic customer"></section>
@@ -85,6 +81,18 @@
           <div><span aria-hidden="true">Ø</span><p><strong>Dry run only</strong><small>No persistence or notifications</small></p></div>
         </section>
 
+        <section class="ontology-card" aria-labelledby="ontologyTitle">
+          <div class="ontology-card-head">
+            <div>
+              <p class="eyebrow">Shared semantic layer</p>
+              <h2 id="ontologyTitle">Customer Ontology</h2>
+              <p>Ten reusable customer properties remain authoritative. This decision projects only ADP and adds three review-specific facts.</p>
+            </div>
+            <div class="ontology-customer" id="ontologyCustomer"></div>
+          </div>
+          <div class="ontology-grid" id="ontologyGrid"></div>
+        </section>
+
         <section class="workflow-card input-card">
           <div class="card-index">01</div>
           <div class="card-content">
@@ -98,7 +106,7 @@
               <span class="char-count" id="charCount"></span>
             </label>
             <div class="card-actions">
-              <p>Only the four normalized facts and constrained table operators will be offered to the model.</p>
+              <p>The prompt includes the full ontology as context, while only the four projected decision inputs may appear in executable rows.</p>
               <button class="primary-button" id="generatePrompt">Generate structured prompt <span>→</span></button>
             </div>
           </div>
@@ -214,7 +222,7 @@
     <div class="toast" id="toast" role="status">Copied to clipboard</div>
     <dialog id="factDialog">
       <button class="dialog-close" aria-label="Close fact details">×</button>
-      <p class="eyebrow">Normalized decision fact</p>
+      <p class="eyebrow" id="dialogType">Domain definition</p>
       <h3 id="dialogTitle"></h3>
       <pre id="dialogBody"></pre>
     </dialog>
