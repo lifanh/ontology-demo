@@ -165,7 +165,7 @@ Do not silently choose between conflicting sources. Record the conflict with exa
 
 The agent must not:
 
-- infer that similarly named fields have the same business meaning; for example, do not map `balance` to `current_balance` without confirmed semantics, units, and null behavior;
+- infer that similarly named fields have the same business meaning; for example, do not map `balance` to `ar_balance` without confirmed semantics, units, and null behavior;
 - choose a review decision point merely because a class is named `ReviewService`, `DecisionService`, or `RuleEngine`; trace callers, transactions, side effects, and tests;
 - invent mappings from policy outcomes to review statuses, reason codes, API responses, or events;
 - choose Java, Spring Boot, Jena, Drools/KIE, Kogito, Z3, database, or LLM versions without checking the existing build and completing the required compatibility decision;
@@ -636,7 +636,7 @@ ontology/
 └── 1.0.0/release.json
 ```
 
-The initial RDF model should represent only the customer facts and policy concepts required by the first migration cohort, including datatype, allowed values, units, labels, sensitivity, and applicability. The reference examples use customer number, name, current balance, AR balance, past-due amount, average days to pay, credit limit, payment terms, restricted status, and discontinued status; retain only fields that have an authoritative equivalent in the existing service.
+The initial RDF model should represent only the customer facts and policy concepts required by the first migration cohort, including datatype, allowed values, units, labels, sensitivity, and applicability. The reference examples use customer number, name, AR balance, past-due amount, average days to pay, credit limit, payment terms, restricted status, and discontinued status; retain only fields that have an authoritative equivalent in the existing service.
 
 SHACL should enforce structural and domain rules. The Spring adapter should:
 
@@ -702,7 +702,7 @@ Return a structured result rather than solver text:
   "conflictingPolicies": ["GLOBAL_ADP_MAX_30"],
   "witness": {
     "restricted_status": "N",
-    "current_balance": { "value": "125000", "unit": "USD" },
+    "ar_balance": { "value": "125000", "unit": "USD" },
     "adp_days": { "value": 35, "unit": "DAYS" }
   },
   "solverStatus": "SAT",
