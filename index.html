@@ -167,29 +167,83 @@
               <div class="artifact-heading">
                 <p class="eyebrow">Demo artifacts</p>
                 <h3 id="artifactShowcaseTitle">What each production tool produces</h3>
-                <p>Representative artifacts for the ADP policy shown in this demo.</p>
+                <p>Representative artifacts for the customer facts and approved policies shown in this demo.</p>
               </div>
 
               <article class="artifact-card">
                 <div class="artifact-meta">
                   <span class="artifact-tool">Jena + SHACL</span>
-                  <h4>RDF policy and validation shape</h4>
-                  <p>Jena stores the policy as linked domain facts. SHACL makes its required property, datatype, and unit constraints executable.</p>
-                  <span class="artifact-file">policy.ttl</span>
+                  <h4>Customer-to-policy semantic walkthrough</h4>
+                  <p>Three versionable artifacts show the same Acme facts and NET 30 policy used by the DMN dry run: RDF models them, SHACL checks their shape, and SPARQL identifies the applicable breached ratio policy.</p>
+                  <div class="artifact-files" aria-label="Jena example files">
+                    <a class="artifact-file" href="artifacts/jena/customer-policy.ttl">customer-policy.ttl</a>
+                    <a class="artifact-file" href="artifacts/jena/customer-policy-shapes.ttl">customer-policy-shapes.ttl</a>
+                    <a class="artifact-file" href="artifacts/jena/breached-ratio-policies.rq">breached-ratio-policies.rq</a>
+                  </div>
+                  <p class="artifact-boundary"><b>Static preview:</b> this page does not load Apache Jena or execute these snippets. The checked-in files can be run with Jena tooling outside the browser.</p>
                 </div>
-                <pre class="artifact-code"><code><span class="code-muted">@prefix ax: &lt;https://axiom.example/policy#&gt; .</span>
+                <div class="jena-walkthrough">
+                  <ol class="jena-flow" aria-label="Jena execution narrative">
+                    <li><b>Model</b><span>Load customer facts and approved policy resources into a Jena dataset.</span></li>
+                    <li><b>Validate</b><span>Run SHACL before publication; this fixture conforms to cardinality, datatype, range, and enum rules.</span></li>
+                    <li><b>Query</b><span>AR ratio = 15,000 ÷ 125,000 = 0.12. SPARQL returns the NET 30 policy because 0.12 &gt; 0.05.</span></li>
+                    <li><b>Hand off</b><span>Map validated facts and the pinned policy release to DMN, which owns review-time evaluation and stable reason codes.</span></li>
+                  </ol>
 
-ax:ADP_MAX_30 a ax:CreditPolicy ;
-  ax:appliesTo ax:Customer ;
-  ax:constrains ax:adp_days ;
-  ax:maxExclusive 30 ;
-  ax:unit ax:DAYS .
+                  <div class="jena-snippets">
+                    <details open>
+                      <summary><span>1 · RDF / Turtle</span><code>customer-policy.ttl</code></summary>
+                      <pre class="artifact-code"><code><span class="code-muted">@prefix ax: &lt;https://axiom.example/ontology#&gt; .</span>
 
-ax:CreditPolicyShape a sh:NodeShape ;
-  sh:targetClass ax:CreditPolicy ;
-  sh:property [ sh:path ax:maxExclusive ;
-                sh:datatype xsd:integer ;
-                sh:minCount 1 ] .</code></pre>
+ax:customer-1001 a ax:Customer ;
+  ax:arBalance 125000.00 ;
+  ax:pastDueAmount 15000.00 ;
+  ax:paymentTerms ax:NET_30 .
+
+ax:NET_30_PAST_DUE_MAX_5 a ax:RatioPolicy ;
+  ax:scopePaymentTerms ax:NET_30 ;
+  ax:maxPastDueRatio 0.05 .</code></pre>
+                    </details>
+                    <details>
+                      <summary><span>2 · SHACL shape</span><code>customer-policy-shapes.ttl</code></summary>
+                      <pre class="artifact-code"><code>ax:CustomerShape a sh:NodeShape ;
+  sh:targetClass ax:Customer ;
+  sh:property [
+    sh:path ax:arBalance ;
+    sh:datatype xsd:decimal ;
+    sh:minInclusive 0 ;
+    sh:minCount 1 ; sh:maxCount 1
+  ] ;
+  sh:property [
+    sh:path ax:paymentTerms ;
+    sh:in ( ax:NET_15 ax:NET_30
+            ax:NET_45 ax:NET_60 ) ;
+    sh:minCount 1 ; sh:maxCount 1
+  ] .</code></pre>
+                    </details>
+                    <details>
+                      <summary><span>3 · SPARQL query</span><code>breached-ratio-policies.rq</code></summary>
+                      <pre class="artifact-code"><code>SELECT ?customer ?policy ?ratio ?maximum WHERE {
+  ?customer a ax:Customer ;
+    ax:paymentTerms ?terms ;
+    ax:pastDueAmount ?pastDue ;
+    ax:arBalance ?balance .
+  ?policy a ax:RatioPolicy ;
+    ax:scopePaymentTerms ?terms ;
+    ax:maxPastDueRatio ?maximum .
+  FILTER (?balance &gt; 0)
+  BIND (?pastDue / ?balance AS ?ratio)
+  FILTER (?ratio &gt; ?maximum)
+}</code></pre>
+                    </details>
+                  </div>
+
+                  <div class="jena-outcome" aria-label="Expected Jena results">
+                    <div><span>SHACL report</span><strong>Conforms: true</strong><small>The graph is structurally valid; this is not a credit decision.</small></div>
+                    <div><span>SPARQL result</span><strong>ratio 0.12 · maximum 0.05</strong><small>Returns NET_30_PAST_DUE_MAX_5 for customer-1001.</small></div>
+                    <p><b>Responsibility boundary:</b> Jena/SHACL establishes semantic and data-shape conformance on the authoring/publication path. The query demonstrates discovery and preflight analysis. Neither activates policy, emits DMN reason codes, nor approves or rejects a customer.</p>
+                  </div>
+                </div>
               </article>
 
               <article class="artifact-card">

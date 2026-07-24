@@ -1,0 +1,43 @@
+@prefix ax:  <https://axiom.example/ontology#> .
+@prefix sh:  <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+ax:CustomerShape a sh:NodeShape ;
+  sh:targetClass ax:Customer ;
+  sh:property [
+    sh:path ax:customerNumber ;
+    sh:datatype xsd:integer ;
+    sh:minInclusive 1 ;
+    sh:minCount 1 ; sh:maxCount 1
+  ] ;
+  sh:property [
+    sh:path ax:arBalance ;
+    sh:datatype xsd:decimal ;
+    sh:minInclusive 0 ;
+    sh:minCount 1 ; sh:maxCount 1
+  ] ;
+  sh:property [
+    sh:path ax:pastDueAmount ;
+    sh:datatype xsd:decimal ;
+    sh:minInclusive 0 ;
+    sh:minCount 1 ; sh:maxCount 1
+  ] ;
+  sh:property [
+    sh:path ax:paymentTerms ;
+    sh:in ( ax:NET_15 ax:NET_30 ax:NET_45 ax:NET_60 ) ;
+    sh:minCount 1 ; sh:maxCount 1
+  ] .
+
+ax:RatioPolicyShape a sh:NodeShape ;
+  sh:targetClass ax:RatioPolicy ;
+  sh:property [
+    sh:path ax:maxPastDueRatio ;
+    sh:datatype xsd:decimal ;
+    sh:minExclusive 0 ; sh:maxInclusive 1 ;
+    sh:minCount 1 ; sh:maxCount 1
+  ] ;
+  sh:property [
+    sh:path ax:scopePaymentTerms ;
+    sh:class ax:PaymentTerms ;
+    sh:minCount 1 ; sh:maxCount 1
+  ] .
