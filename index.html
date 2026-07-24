@@ -36,7 +36,7 @@
         <section class="aside-section">
           <div class="section-title-row">
             <h3>Customer ontology</h3>
-            <span class="count">10</span>
+            <span class="count">9</span>
           </div>
           <div class="property-list" id="sidebarProperties"></div>
         </section>
@@ -63,7 +63,7 @@
             <span class="live-chip">Sample</span>
           </div>
           <dl>
-            <div><dt>Current Balance</dt><dd>$125,000</dd></div>
+            <div><dt>AR Balance</dt><dd>$125,000</dd></div>
             <div><dt>Past Due</dt><dd>$15,000</dd></div>
             <div><dt>ADP</dt><dd>28 days</dd></div>
             <div><dt>Credit Limit</dt><dd>$200,000</dd></div>
@@ -249,7 +249,7 @@ ax:CreditPolicyShape a sh:NodeShape ;
                   <div class="decision-title"><span>Decision</span><strong>Maximum ADP Days</strong><em>U · Unique hit</em></div>
                   <div class="decision-table-wrap">
                     <table>
-                      <thead><tr><th>#</th><th>Restricted status</th><th>Current balance</th><th>Maximum ADP</th></tr></thead>
+                      <thead><tr><th>#</th><th>Restricted status</th><th>AR balance</th><th>Maximum ADP</th></tr></thead>
                       <tbody>
                         <tr><td>1</td><td>"N"</td><td>&gt; 100,000 USD</td><td>&lt; 30 DAYS</td></tr>
                         <tr><td>2</td><td>"Y"</td><td>—</td><td>Manual review</td></tr>
@@ -272,7 +272,7 @@ ax:CreditPolicyShape a sh:NodeShape ;
 (assert (not (&lt; adp_days 30))) <span class="code-muted">; violates active</span>
 (assert (= adp_days 35))      <span class="code-muted">; sample customer</span>
 (check-sat)                   <span class="code-muted">; sat → conflict exists</span></code></pre>
-                  <div class="solver-result"><span>CONFLICT WITNESS</span><b>restricted_status = "N"</b><b>current_balance = 125,000 USD</b><b>adp_days = 35 DAYS</b></div>
+                  <div class="solver-result"><span>CONFLICT WITNESS</span><b>restricted_status = "N"</b><b>ar_balance = 125,000 USD</b><b>adp_days = 35 DAYS</b></div>
                 </div>
               </article>
             </section>

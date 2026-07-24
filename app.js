@@ -1,7 +1,6 @@
 const ontology = {
   customer_number: { displayName: "Customer Number", type: "integer", required: true, primaryKey: true, minimum: 1, description: "Integer primary key for a customer business object." },
   name: { displayName: "Customer Name", type: "string", required: true, description: "Legal or operating name of the customer." },
-  current_balance: { displayName: "Current Balance", type: "decimal", unit: "USD", minimum: 0, description: "Total current customer receivable balance." },
   ar_balance: { displayName: "AR Balance", type: "decimal", unit: "USD", minimum: 0, description: "Accounts receivable balance used for exposure ratios." },
   past_due_amount: { displayName: "Past Due Amount", type: "decimal", unit: "USD", minimum: 0, description: "Receivables currently beyond their due date." },
   adp_days: { displayName: "Average Days to Pay", type: "integer", unit: "DAYS", minimum: 0, description: "Average number of days between invoice issuance and payment." },
@@ -14,7 +13,6 @@ const ontology = {
 const customer = {
   customer_number: 1001,
   name: "Acme Systems Inc.",
-  current_balance: 125000,
   ar_balance: 125000,
   past_due_amount: 15000,
   adp_days: 28,
@@ -34,8 +32,8 @@ const scenarios = {
     dsl: `RULE NET_30_PAST_DUE_RATIO_MAX_15_PERCENT\nSCOPE customer.payment_terms == "NET_30"\nSET_MAX_RATIO customer.past_due_amount\n    TO customer.ar_balance = 0.15\nEND`
   },
   adp45: {
-    policy: "For non-restricted customers with a current balance above $100,000, allow Average Days to Pay up to 45 days.",
-    dsl: `RULE UNRESTRICTED_HIGH_BALANCE_ADP_MAX_45\nSCOPE customer.restricted_status == "N"\n      AND customer.current_balance > 100000 USD\nSET_MAX customer.adp_days = 45 DAYS\nEND`
+    policy: "For non-restricted customers with an AR balance above $100,000, allow Average Days to Pay up to 45 days.",
+    dsl: `RULE UNRESTRICTED_HIGH_BALANCE_ADP_MAX_45\nSCOPE customer.restricted_status == "N"\n      AND customer.ar_balance > 100000 USD\nSET_MAX customer.adp_days = 45 DAYS\nEND`
   }
 };
 
@@ -137,11 +135,11 @@ SET_MAX_RATIO customer.past_due_amount
     TO customer.ar_balance = 0.08
 END
 
-Business policy: For non-restricted customers with a current balance above $100,000, allow Average Days to Pay up to 45 days.
+Business policy: For non-restricted customers with an AR balance above $100,000, allow Average Days to Pay up to 45 days.
 DSL output:
 RULE UNRESTRICTED_HIGH_BALANCE_ADP_MAX_45
 SCOPE customer.restricted_status == "N"
-      AND customer.current_balance > 100000 USD
+      AND customer.ar_balance > 100000 USD
 SET_MAX customer.adp_days = 45 DAYS
 END
 
