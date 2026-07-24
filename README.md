@@ -16,6 +16,8 @@ The demo uses one Customer Ontology as the source for rendering, prompt construc
 - A 15% maximum for NET 30 customers conflicts with the global 10% maximum.
 - A 45-day ADP maximum for non-restricted, high-balance customers conflicts with the global 30-day maximum.
 
+The interface uses a responsive single-column policy workshop. Ontology properties, sample customer facts, schema version, and active-policy context are presented in the main review flow rather than repeated in a separate sidebar. At narrow widths, ontology cards, workflow actions, decision evidence, and production artifacts reflow for touch and keyboard use.
+
 ## From demo to production
 
 The browser demo intentionally uses a bounded, custom validator and reasoner. It proves the trust model without implying that an LLM is the authority: **the LLM proposes, deterministic systems validate and analyze, and a human approves activation**.
