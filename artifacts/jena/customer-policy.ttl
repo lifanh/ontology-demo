@@ -1,0 +1,20 @@
+@prefix ax:  <https://axiom.example/ontology#> .
+
+ax:NET_15 a ax:PaymentTerms .
+ax:NET_30 a ax:PaymentTerms .
+ax:NET_45 a ax:PaymentTerms .
+ax:NET_60 a ax:PaymentTerms .
+
+ax:customer-1001 a ax:Customer ;
+  ax:customerNumber 1001 ;
+  ax:customerName "Acme Systems Inc." ;
+  ax:arBalance 125000.00 ;
+  ax:pastDueAmount 15000.00 ;
+  ax:averageDaysToPay 28 ;
+  ax:paymentTerms ax:NET_30 ;
+  ax:restrictedStatus ax:NotRestricted .
+
+ax:NET_30_PAST_DUE_MAX_5 a ax:RatioPolicy ;
+  ax:scopePaymentTerms ax:NET_30 ;
+  ax:maxPastDueRatio 0.05 ;
+  ax:unit ax:Ratio .

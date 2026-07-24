@@ -39,6 +39,28 @@ These technologies are **not used by the current static runtime**. They are an i
 
 Jena and SHACL validate semantic meaning, DMN executes approved decisions, and Z3 proves constraint conflicts. Business precedence and policy activation remain explicit governance decisions rather than engine or LLM judgments.
 
+## Apache Jena example: model, validate, and query
+
+The production-artifact section now includes a practical Jena walkthrough built from three checked-in, illustrative files:
+
+- [`artifacts/jena/customer-policy.ttl`](artifacts/jena/customer-policy.ttl) models the fictional Acme customer and the approved NET 30 5% ratio policy as RDF resources.
+- [`artifacts/jena/customer-policy-shapes.ttl`](artifacts/jena/customer-policy-shapes.ttl) uses SHACL Core constraints to check required cardinalities, RDF datatypes, numeric ranges, and allowed payment terms.
+- [`artifacts/jena/breached-ratio-policies.rq`](artifacts/jena/breached-ratio-policies.rq) joins customers to ratio policies by payment terms, calculates `pastDueAmount / arBalance`, and returns breached applicable policies.
+
+With Apache Jena command-line tools installed, run the examples from the repository root:
+
+```bash
+shacl validate \
+  --data artifacts/jena/customer-policy.ttl \
+  --shapes artifacts/jena/customer-policy-shapes.ttl
+
+arq \
+  --data artifacts/jena/customer-policy.ttl \
+  --query artifacts/jena/breached-ratio-policies.rq
+```
+
+The supplied graph is expected to conform. The query is expected to return `customer-1001`, `NET_30_PAST_DUE_MAX_5`, ratio `0.12`, and maximum `0.05`. These files are executable **when run with external Jena tooling**, but the static browser demo only presents excerpts and expected results—it does not bundle or invoke Jena. In a production architecture, SHACL belongs on the ontology/policy authoring and publication path. A successful SHACL report proves graph conformance, not policy compatibility or customer approval. SPARQL can support policy discovery and preflight analysis; the pinned, approved DMN release remains responsible for review-time evaluation and stable reason codes.
+
 ## DMN example: transparent customer-review dry run
 
 The expanded DMN artifact shows how a fictional customer ontology object can cross the runtime boundary and be evaluated against four approved checks:
