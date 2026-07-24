@@ -39,5 +39,6 @@ ax:RatioPolicyShape a sh:NodeShape ;
   sh:property [
     sh:path ax:scopePaymentTerms ;
     sh:class ax:PaymentTerms ;
+    sh:in ( ax:NET_15 ax:NET_30 ax:NET_45 ax:NET_60 ) ;
     sh:minCount 1 ; sh:maxCount 1
   ] .

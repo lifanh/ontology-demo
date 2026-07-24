@@ -44,7 +44,7 @@ Jena and SHACL validate semantic meaning, DMN executes approved decisions, and Z
 The production-artifact section now includes a practical Jena walkthrough built from three checked-in, illustrative files:
 
 - [`artifacts/jena/customer-policy.ttl`](artifacts/jena/customer-policy.ttl) models the fictional Acme customer and the approved NET 30 5% ratio policy as RDF resources.
-- [`artifacts/jena/customer-policy-shapes.ttl`](artifacts/jena/customer-policy-shapes.ttl) uses SHACL Core constraints to check required cardinalities, RDF datatypes, numeric ranges, and allowed payment terms.
+- [`artifacts/jena/customer-policy-shapes.ttl`](artifacts/jena/customer-policy-shapes.ttl) uses SHACL Core constraints to check required cardinalities, RDF datatypes, numeric ranges, and the same allowed payment-term enum for customer facts and policy scopes.
 - [`artifacts/jena/breached-ratio-policies.rq`](artifacts/jena/breached-ratio-policies.rq) joins customers to ratio policies by payment terms, calculates `pastDueAmount / arBalance`, and returns breached applicable policies.
 
 With Apache Jena command-line tools installed, run the examples from the repository root:
@@ -59,7 +59,7 @@ arq \
   --query artifacts/jena/breached-ratio-policies.rq
 ```
 
-The supplied graph is expected to conform. The query is expected to return `customer-1001`, `NET_30_PAST_DUE_MAX_5`, ratio `0.12`, and maximum `0.05`. These files are executable **when run with external Jena tooling**, but the static browser demo only presents excerpts and expected results—it does not bundle or invoke Jena. In a production architecture, SHACL belongs on the ontology/policy authoring and publication path. A successful SHACL report proves graph conformance, not policy compatibility or customer approval. SPARQL can support policy discovery and preflight analysis; the pinned, approved DMN release remains responsible for review-time evaluation and stable reason codes.
+The supplied graph is expected to conform. A policy scoped to an unsupported term such as `ax:NET_90` fails publication validation even if that resource is asserted to be an `ax:PaymentTerms`; `sh:class` verifies its type while `sh:in` enforces the supported enum. The query is expected to return `customer-1001`, `NET_30_PAST_DUE_MAX_5`, ratio `0.12`, and maximum `0.05`. These files are executable **when run with external Jena tooling**, but the static browser demo only presents excerpts and expected results—it does not bundle or invoke Jena. In a production architecture, SHACL belongs on the ontology/policy authoring and publication path. A successful SHACL report proves graph conformance, not policy compatibility or customer approval. SPARQL can support policy discovery and preflight analysis; the pinned, approved DMN release remains responsible for review-time evaluation and stable reason codes.
 
 ## DMN example: transparent customer-review dry run
 
