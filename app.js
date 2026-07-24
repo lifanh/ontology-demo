@@ -323,6 +323,80 @@ function renderAnalysis(result, ast) {
   setProgress(4);
 }
 
+function evaluateDmnDemo(facts) {
+  const ratio = facts.ar_balance > 0 ? facts.past_due_amount / facts.ar_balance : null;
+  const checks = [
+    {
+      id: "R1_RESTRICTED_STATUS",
+      scope: "ALL CUSTOMERS",
+      input: `restricted_status = \"${facts.restricted_status}\"`,
+      comparison: `\"${facts.restricted_status}\" == \"Y\"`,
+      matched: facts.restricted_status === "Y",
+      finding: "Customer has restricted status and requires referral.",
+      reasonCode: "RESTRICTED_CUSTOMER"
+    },
+    {
+      id: "R2_GENERAL_PAST_DUE_RATIO",
+      scope: "ALL CUSTOMERS",
+      input: `${formatValue("past_due_amount", facts.past_due_amount)} ÷ ${formatValue("ar_balance", facts.ar_balance)}`,
+      comparison: ratio === null ? "undefined (AR balance is zero)" : `${(ratio * 100).toFixed(1)}% > 10.0%`,
+      matched: ratio === null || ratio > 0.10,
+      finding: ratio === null ? "General past-due ratio cannot be calculated." : "General past-due ratio exceeds the 10% maximum.",
+      reasonCode: ratio === null ? "PAST_DUE_RATIO_INDETERMINATE" : "GENERAL_PAST_DUE_LIMIT_EXCEEDED"
+    },
+    {
+      id: "R3_NET_30_PAST_DUE_RATIO",
+      scope: 'payment_terms = "NET_30"',
+      input: `payment_terms = \"${facts.payment_terms}\"; ratio = ${ratio === null ? "undefined" : `${(ratio * 100).toFixed(1)}%`}`,
+      comparison: facts.payment_terms !== "NET_30" ? "scope not applicable" : ratio === null ? "undefined > 5.0%" : `${(ratio * 100).toFixed(1)}% > 5.0%`,
+      applicable: facts.payment_terms === "NET_30",
+      matched: facts.payment_terms === "NET_30" && (ratio === null || ratio > 0.05),
+      finding: ratio === null ? "NET 30 past-due ratio cannot be calculated." : "NET 30 past-due ratio exceeds the scoped 5% maximum.",
+      reasonCode: ratio === null ? "NET_30_RATIO_INDETERMINATE" : "NET_30_PAST_DUE_LIMIT_EXCEEDED"
+    },
+    {
+      id: "R4_UNRESTRICTED_ADP",
+      scope: 'restricted_status = "N"',
+      input: `restricted_status = \"${facts.restricted_status}\"; adp_days = ${facts.adp_days}`,
+      comparison: facts.restricted_status !== "N" ? "scope not applicable" : `${facts.adp_days} >= 30`,
+      applicable: facts.restricted_status === "N",
+      matched: facts.restricted_status === "N" && facts.adp_days >= 30,
+      finding: "Average Days to Pay does not meet the under-30-day requirement.",
+      reasonCode: "ADP_LIMIT_EXCEEDED"
+    }
+  ];
+  const findings = checks.filter(check => check.matched);
+  return {
+    reviewResult: findings.length ? "REVIEW_REQUIRED" : "NO_POLICY_EXCEPTIONS_FOUND",
+    ratio,
+    checks,
+    findings,
+    matchedRules: findings.map(finding => finding.id),
+    reasonCodes: findings.map(finding => finding.reasonCode)
+  };
+}
+
+function renderDmnDryRun() {
+  const result = evaluateDmnDemo(customer);
+  const resultElement = document.querySelector("#dmnDryRunResult");
+  const checkRows = result.checks.map(check => {
+    const state = check.matched ? "matched" : check.applicable === false ? "not-applicable" : "not-matched";
+    const label = check.matched ? "Finding" : check.applicable === false ? "Not applicable" : "No finding";
+    return `<article class="trace-row ${state}"><div class="trace-rule"><b>${escapeHtml(check.id)}</b><span>${label}</span></div><div><small>Input / comparison</small><code>${escapeHtml(check.input)} → ${escapeHtml(check.comparison)}</code><small>Scope</small><p>${escapeHtml(check.scope)}</p></div></article>`;
+  }).join("");
+  const findingRows = result.findings.map(finding => `<li><b>${escapeHtml(finding.reasonCode)}</b><span>${escapeHtml(finding.finding)}</span><small>${escapeHtml(finding.id)} · ${escapeHtml(finding.scope)}</small></li>`).join("");
+  const groundedExplanation = result.findings.length
+    ? `${customer.name} requires review because its ${result.ratio === null ? "past-due ratio could not be calculated" : `${(result.ratio * 100).toFixed(1)}% past-due ratio exceeds both the 10% general limit and the 5% NET 30 limit`}. Its ${customer.restricted_status === "N" ? "unrestricted" : "restricted"} status and ${customer.adp_days}-day average payment time produced no additional findings.`
+    : "No policy exceptions were found for the evaluated facts. This does not constitute final customer approval.";
+
+  resultElement.innerHTML = `<div class="decision-result-heading warning"><span class="decision-result-icon" aria-hidden="true">!</span><div><span>Deterministic rule-engine result</span><h5 id="dmnResultTitle">${escapeHtml(result.reviewResult.replaceAll("_", " "))}</h5><p>${result.findings.length} policy finding${result.findings.length === 1 ? "" : "s"}; ${result.checks.length} rules evaluated.</p></div></div>
+    <div class="engine-summary"><div><span>Matched rules</span><code>${escapeHtml(result.matchedRules.join(", ") || "None")}</code></div><div><span>Reason codes</span><code>${escapeHtml(result.reasonCodes.join(", ") || "None")}</code></div></div>
+    <div class="trace-list"><h6>Inputs and comparisons</h6>${checkRows}</div>
+    <div class="scoped-findings"><h6>Scoped findings</h6><ul>${findingRows || "<li>No policy findings.</li>"}</ul></div>
+    <p class="decision-scope"><b>Overall review boundary:</b> <code>${escapeHtml(result.reviewResult)}</code> routes this example for review because policy exceptions were found. It does not reject or approve the customer; final disposition remains with the authorized customer-review process.</p>
+    <aside class="llm-explanation"><div><span>Mocked output · LLM-polished explanation</span><b>Non-authoritative presentation layer</b></div><p>${escapeHtml(groundedExplanation)}</p><small>Grounded only in the evaluated facts and displayed rules. The mock LLM did not calculate, match, or decide the result.</small></aside>`;
+}
+
 document.querySelector("#generatePrompt").addEventListener("click", () => {
   els.promptOutput.textContent = makePrompt();
   reveal(els.promptSection);
@@ -380,6 +454,9 @@ document.querySelector("#resetButton").addEventListener("click", () => {
   [els.promptSection, els.editorSection, els.resultSection].forEach(item => item.classList.add("hidden"));
   updateCount(); setProgress(1); window.scrollTo({ top: 0, behavior: "smooth" });
 });
+
+document.querySelector("#dmnCustomerObject").textContent = JSON.stringify(customer, null, 2);
+document.querySelector("#runDmnDemo").addEventListener("click", renderDmnDryRun);
 
 const dialog = document.querySelector("#propertyDialog");
 document.addEventListener("click", event => {
