@@ -37,13 +37,17 @@ These technologies are **not used by the current static runtime**. They are an i
 
 Jena and SHACL validate semantic meaning, DMN executes approved decisions, and Z3 proves constraint conflicts. Business precedence and policy activation remain explicit governance decisions rather than engine or LLM judgments.
 
-## DMN example: from an approved rule to a decision result
+## DMN example: transparent customer-review dry run
 
-The expanded DMN artifact in the demo shows how the active global ADP rule can cross the runtime boundary. It is intentionally more explicit than a policy spreadsheet:
+The expanded DMN artifact shows how a fictional customer ontology object can cross the runtime boundary and be evaluated against four approved checks:
 
-- **Typed inputs:** the customer-facts adapter supplies `restricted_status` as a string and converts ontology-backed `adp_days` from DAYS into a DMN number.
-- **Complete `UNIQUE` table:** mutually exclusive rows cover restricted customers, unrestricted customers below 30 days, and unrestricted customers at or above 30 days. Exactly one rule should match every valid request.
-- **Stable typed outputs:** the decision returns an ADP-specific result (`REFER`, `ADP_REQUIREMENT_MET`, or `ADP_REQUIREMENT_NOT_MET`) and a machine-readable reason code instead of mixing numeric limits and workflow instructions in one output column.
-- **Evaluation trace:** for the sample customer (`restricted_status = "N"`, `adp_days = 28`), rule 2 matches and returns `ADP_REQUIREMENT_MET / ADP_WITHIN_LIMIT`. The demo shows both successful input comparisons and explains the result in business language; a production audit record would also retain the release ID and decision ID.
+- restricted status routes restricted customers for referral;
+- the general past-due ratio may not exceed 10% of AR balance;
+- the scoped NET 30 past-due ratio may not exceed 5% of AR balance; and
+- unrestricted customers must have Average Days to Pay below 30 days.
 
-The table represents an **approved executable release**, not an LLM response. Candidate rules are first parsed and validated, checked for conflicts, reviewed, and published. Only then are deterministic DMN artifacts loaded by the decision runtime. This result is deliberately scoped: meeting the ADP requirement does not mean that the customer passed other decisions or that the review was approved. DMN reports policy findings; the surrounding customer-review service remains responsible for combining findings and changing workflow state.
+The example Acme object has a $15,000 past-due amount and $125,000 AR balance, so its ratio is 12%. The deterministic dry run therefore returns `REVIEW_REQUIRED`, with matched rule IDs and stable reason codes for both the general and NET 30 limits. Restricted-status and ADP checks produce no findings. The trace displays every normalized input, comparison, scope, matched rule, scoped finding, and reason code rather than presenting only a summary.
+
+The table represents an **approved executable release**, not an LLM response. Candidate rules are first parsed and validated, checked for conflicts, reviewed, and published. Only then are deterministic DMN artifacts loaded by the decision runtime. `REVIEW_REQUIRED` is a policy-review result, not a final rejection or approval; the surrounding customer-review service owns workflow state and final disposition.
+
+The demo also renders a clearly labeled **mocked LLM-polished explanation** after deterministic evaluation. It is presentation-only, uses no model or network call, and is grounded exclusively in the displayed facts and rule results. It does not calculate ratios, match rules, produce reason codes, or act as the rule engine.
