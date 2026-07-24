@@ -11,8 +11,9 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
+    <a class="skip-link" href="#mainContent">Skip to policy workshop</a>
     <header class="topbar">
-      <a class="brand" href="#" aria-label="Axiom home">
+      <a class="brand" href="#mainContent" aria-label="Axiom policy workshop">
         <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
         <span>Axiom</span>
         <small>Policy Reasoner</small>
@@ -25,55 +26,7 @@
       </div>
     </header>
 
-    <main class="app-shell">
-      <aside class="context-panel">
-        <div class="context-heading">
-          <p class="eyebrow">Active context</p>
-          <h2>Customer credit</h2>
-          <span>v1.4</span>
-        </div>
-
-        <section class="aside-section">
-          <div class="section-title-row">
-            <h3>Customer ontology</h3>
-            <span class="count">9</span>
-          </div>
-          <div class="property-list" id="sidebarProperties"></div>
-        </section>
-
-        <section class="aside-section existing-rules">
-          <div class="section-title-row">
-            <h3>Existing policies</h3>
-            <span class="count">2</span>
-          </div>
-          <article class="rule-card">
-            <span class="rule-number">01</span>
-            <div><strong>Payment speed</strong><p>Average Days to Pay <b>&lt; 30 days</b></p><small>Scope · ALL CUSTOMERS</small></div>
-          </article>
-          <article class="rule-card">
-            <span class="rule-number">02</span>
-            <div><strong>Past due exposure</strong><p>Past Due Amount <b>≤ 10% of AR Balance</b></p><small>Scope · ALL CUSTOMERS</small></div>
-          </article>
-        </section>
-
-        <section class="sample-card">
-          <div class="sample-head">
-            <span class="avatar">AS</span>
-            <div><strong>Acme Systems Inc.</strong><small>Customer #1001</small></div>
-            <span class="live-chip">Sample</span>
-          </div>
-          <dl>
-            <div><dt>AR Balance</dt><dd>$125,000</dd></div>
-            <div><dt>Past Due</dt><dd>$15,000</dd></div>
-            <div><dt>ADP</dt><dd>28 days</dd></div>
-            <div><dt>Credit Limit</dt><dd>$200,000</dd></div>
-            <div><dt>Terms</dt><dd><span class="term-chip">NET 30</span></dd></div>
-            <div><dt>Restricted</dt><dd><span class="term-chip">N</span></dd></div>
-            <div><dt>Discontinued</dt><dd><span class="term-chip">N</span></dd></div>
-          </dl>
-        </section>
-      </aside>
-
+    <main class="app-shell" id="mainContent" tabindex="-1">
       <section class="workspace">
         <div class="workspace-header">
           <div>
@@ -102,7 +55,8 @@
             <div>
               <p class="eyebrow">Shared semantic layer</p>
               <h2>Customer Ontology</h2>
-              <p>One schema powers the interface, LLM prompt, validator, and reasoner.</p>
+              <p class="ontology-description">One schema powers the interface, LLM prompt, validator, and reasoner.</p>
+              <p class="ontology-meta"><span>Schema v1.4</span><span>9 properties</span><span>2 active policies</span></p>
             </div>
             <div class="ontology-customer"><span class="avatar">AS</span><div><strong>Acme Systems Inc.</strong><small>Customer #1001 · unrestricted</small></div></div>
           </div>

@@ -71,15 +71,6 @@ function renderOntology() {
       <small>customer.${key} · ${property.type}${property.unit ? ` · ${property.unit}` : ""}</small>
       <em>${escapeHtml(formatValue(key, customer[key]))}</em>
     </button>`).join("");
-
-  document.querySelector("#sidebarProperties").innerHTML = entries
-    .filter(([key]) => !["customer_number", "name"].includes(key))
-    .map(([key, property]) => {
-      const iconClass = property.unit === "USD" ? "currency" : property.unit === "DAYS" ? "days" : "enum";
-      const icon = property.unit === "USD" ? "$" : property.unit === "DAYS" ? "#" : "Aa";
-      const detail = property.values ? `enum · ${property.values.length} values` : `${property.type} · ${property.unit || "text"}`;
-      return `<button class="property-row" data-property="${key}"><span class="property-icon ${iconClass}">${icon}</span><span><strong>${escapeHtml(property.displayName)}</strong><small>${detail}</small></span><span class="required-dot"></span></button>`;
-    }).join("");
 }
 
 function ontologyPrompt() {
