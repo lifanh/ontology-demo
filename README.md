@@ -36,3 +36,14 @@ These technologies are **not used by the current static runtime**. They are an i
 4. **Expand conflict analysis:** use Z3 for nested conditions, exceptions, effective dates, multiple dimensions, and conflict witnesses.
 
 Jena and SHACL validate semantic meaning, DMN executes approved decisions, and Z3 proves constraint conflicts. Business precedence and policy activation remain explicit governance decisions rather than engine or LLM judgments.
+
+## DMN example: from an approved rule to a decision result
+
+The expanded DMN artifact in the demo shows how the active global ADP rule can cross the runtime boundary. It is intentionally more explicit than a policy spreadsheet:
+
+- **Typed inputs:** the customer-facts adapter supplies `restricted_status` as a string and converts ontology-backed `adp_days` from DAYS into a DMN number.
+- **Complete `UNIQUE` table:** mutually exclusive rows cover restricted customers, unrestricted customers below 30 days, and unrestricted customers at or above 30 days. Exactly one rule should match every valid request.
+- **Stable typed outputs:** the decision returns an ADP-specific result (`REFER`, `ADP_REQUIREMENT_MET`, or `ADP_REQUIREMENT_NOT_MET`) and a machine-readable reason code instead of mixing numeric limits and workflow instructions in one output column.
+- **Evaluation trace:** for the sample customer (`restricted_status = "N"`, `adp_days = 28`), rule 2 matches and returns `ADP_REQUIREMENT_MET / ADP_WITHIN_LIMIT`. The demo shows both successful input comparisons and explains the result in business language; a production audit record would also retain the release ID and decision ID.
+
+The table represents an **approved executable release**, not an LLM response. Candidate rules are first parsed and validated, checked for conflicts, reviewed, and published. Only then are deterministic DMN artifacts loaded by the decision runtime. This result is deliberately scoped: meeting the ADP requirement does not mean that the customer passed other decisions or that the review was approved. DMN reports policy findings; the surrounding customer-review service remains responsible for combining findings and changing workflow state.

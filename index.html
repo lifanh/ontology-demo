@@ -241,21 +241,39 @@ ax:CreditPolicyShape a sh:NodeShape ;
               <article class="artifact-card">
                 <div class="artifact-meta">
                   <span class="artifact-tool">DMN + Kogito/Drools</span>
-                  <h4>Executable decision table</h4>
-                  <p>Policy owners review a standard decision table. The runtime records the matching row and returns a typed decision.</p>
+                  <h4>Executable decision and trace</h4>
+                  <p>The approved global ADP policy becomes a complete decision contract. FEEL evaluates normalized values, the unique hit policy selects exactly one row, and the runtime returns stable outcome and reason codes.</p>
                   <span class="artifact-file">customer-credit-policy.dmn</span>
                 </div>
                 <div class="decision-artifact">
-                  <div class="decision-title"><span>Decision</span><strong>Maximum ADP Days</strong><em>U · Unique hit</em></div>
+                  <div class="decision-title"><span>Decision</span><strong>Customer ADP Policy</strong><em>U · Unique hit</em></div>
+                  <div class="decision-contract" aria-label="DMN decision contract">
+                    <div><span>Inputs</span><code>restricted_status: string</code><code>adp_days: number</code></div>
+                    <div><span>Outputs</span><code>decision: string</code><code>reason_code: string</code></div>
+                  </div>
                   <div class="decision-table-wrap">
                     <table>
-                      <thead><tr><th>#</th><th>Restricted status</th><th>AR balance</th><th>Maximum ADP</th></tr></thead>
+                      <thead><tr><th>#</th><th>Restricted status</th><th>ADP days</th><th>Decision</th><th>Reason code</th></tr></thead>
                       <tbody>
-                        <tr><td>1</td><td>"N"</td><td>&gt; 100,000 USD</td><td>&lt; 30 DAYS</td></tr>
-                        <tr><td>2</td><td>"Y"</td><td>—</td><td>Manual review</td></tr>
+                        <tr><td>1</td><td>"Y"</td><td>—</td><td>REFER</td><td>RESTRICTED_CUSTOMER</td></tr>
+                        <tr class="matched-rule"><td>2</td><td>"N"</td><td>&lt; 30</td><td>ADP_REQUIREMENT_MET</td><td>ADP_WITHIN_LIMIT</td></tr>
+                        <tr><td>3</td><td>"N"</td><td>&gt;= 30</td><td>ADP_REQUIREMENT_NOT_MET</td><td>ADP_LIMIT_EXCEEDED</td></tr>
                       </tbody>
                     </table>
                   </div>
+                  <section class="decision-result" aria-labelledby="dmnResultTitle">
+                    <div class="decision-result-heading">
+                      <span class="decision-result-icon" aria-hidden="true">✓</span>
+                      <div><span>Decision reached · Rule 2 matched</span><h5 id="dmnResultTitle">ADP requirement met</h5><p>Acme is unrestricted and its 28-day ADP is below the active 30-day limit.</p></div>
+                    </div>
+                    <dl class="decision-evidence">
+                      <div><dt>Restricted status</dt><dd><code>"N"</code><b>matches "N"</b></dd></div>
+                      <div><dt>Average days to pay</dt><dd><code>28</code><b>matches &lt; 30</b></dd></div>
+                      <div><dt>Reason code</dt><dd><code>ADP_WITHIN_LIMIT</code></dd></div>
+                    </dl>
+                    <p class="decision-scope"><b>Outcome detail:</b> This result applies only to the ADP decision. It does not approve the overall customer review; other active decisions, including past-due exposure, are evaluated separately.</p>
+                  </section>
+                  <p class="decision-note"><b>Unit boundary:</b> the fact adapter converts the ontology’s DAYS value to the numeric DMN input. Units remain release metadata and are not embedded in FEEL numeric literals.</p>
                 </div>
               </article>
 
