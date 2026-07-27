@@ -56,7 +56,7 @@
               <p class="eyebrow">Shared semantic layer</p>
               <h2>Customer Ontology</h2>
               <p class="ontology-description">One schema powers the interface, LLM prompt, validator, and reasoner.</p>
-              <p class="ontology-meta"><span>Schema v1.4</span><span>9 properties</span><span>2 active policies</span></p>
+              <p class="ontology-meta"><span>Schema v2.0</span><span>18 source + 10 derived facts</span><span>6 active policies</span><span>FY2025 · fictional · USD</span></p>
             </div>
             <div class="ontology-customer"><span class="avatar">AS</span><div><strong>Acme Systems Inc.</strong><small>Customer #1001 · unrestricted</small></div></div>
           </div>
@@ -174,7 +174,7 @@
                 <div class="artifact-meta">
                   <span class="artifact-tool">Jena + SHACL</span>
                   <h4>Customer-to-policy semantic walkthrough</h4>
-                  <p>Three versionable artifacts show the same Acme facts and NET 30 policy used by the DMN dry run: RDF models them, SHACL checks their shape, and SPARQL identifies the applicable breached ratio policy.</p>
+                  <p>Three versionable artifacts show the same Acme facts and 5% NET 30 candidate used by the compatible-refinement scenario: RDF models them, SHACL checks their shape, and SPARQL identifies the breached candidate policy.</p>
                   <div class="artifact-files" aria-label="Jena example files">
                     <a class="artifact-file" href="artifacts/jena/customer-policy.ttl">customer-policy.ttl</a>
                     <a class="artifact-file" href="artifacts/jena/customer-policy-shapes.ttl">customer-policy-shapes.ttl</a>
@@ -187,7 +187,7 @@
                     <li><b>Model</b><span>Load customer facts and approved policy resources into a Jena dataset.</span></li>
                     <li><b>Validate</b><span>Run SHACL before publication; this fixture conforms to cardinality, datatype, range, and enum rules.</span></li>
                     <li><b>Query</b><span>AR ratio = 15,000 ÷ 125,000 = 0.12. SPARQL returns the NET 30 policy because 0.12 &gt; 0.05.</span></li>
-                    <li><b>Hand off</b><span>Map validated facts and the pinned policy release to DMN, which owns review-time evaluation and stable reason codes.</span></li>
+                    <li><b>Hand off</b><span>After approval and publication, map validated facts and the pinned release to DMN, which owns review-time evaluation and stable reason codes.</span></li>
                   </ol>
 
                   <div class="jena-snippets">
@@ -260,14 +260,14 @@ ax:RatioPolicyShape a sh:NodeShape ;
                 <div class="artifact-meta">
                   <span class="artifact-tool">DMN + Kogito/Drools</span>
                   <h4>Executable customer-review dry run</h4>
-                  <p>Four approved policy checks evaluate one example ontology object. A deterministic aggregator combines scoped findings without claiming to make the final customer approval decision.</p>
+                  <p>Six versioned policy checks evaluate one example ontology object. A deterministic resolver combines findings and an illustrative calculator recommends—but never applies—a credit limit.</p>
                   <span class="artifact-file">customer-credit-policy.dmn</span>
                 </div>
                 <div class="decision-artifact">
                   <div class="decision-title"><span>Decision service</span><strong>Customer Credit Policy Review</strong><em>C · Collect findings</em></div>
                   <div class="decision-contract" aria-label="DMN decision contract">
-                    <div><span>Inputs</span><code>restricted_status: string</code><code>payment_terms: string</code><code>adp_days: number</code><code>past_due_amount: number</code><code>ar_balance: number</code></div>
-                    <div><span>Outputs</span><code>review_result: string</code><code>findings[]</code><code>reason_codes[]</code><code>matched_rules[]</code></div>
+                    <div><span>Inputs</span><code>ontology-backed customer facts</code><code>financial statement metrics</code><code>net_sales_180d / 360d</code><code>pinned policy release</code></div>
+                    <div><span>Outputs</span><code>primary_action</code><code>supporting_actions[]</code><code>findings[]</code><code>credit_limit_recommendation</code></div>
                   </div>
                   <section class="dry-run-object" aria-labelledby="dryRunObjectTitle">
                     <div><span>Example input · ontology-shaped object</span><h5 id="dryRunObjectTitle">Acme Systems Inc.</h5><p>Fictional values for local demonstration only.</p></div>
@@ -277,15 +277,17 @@ ax:RatioPolicyShape a sh:NodeShape ;
                     <table class="policy-check-table">
                       <thead><tr><th>Rule</th><th>Scope</th><th>Comparison / finding</th><th>Reason code</th></tr></thead>
                       <tbody>
-                        <tr><td>R1</td><td>All customers</td><td>Restricted = "Y" → refer</td><td>RESTRICTED_CUSTOMER</td></tr>
-                        <tr><td>R2</td><td>All customers</td><td>Past due ÷ AR ≤ 10%</td><td>GENERAL_PAST_DUE_LIMIT_EXCEEDED</td></tr>
-                        <tr><td>R3</td><td>Payment terms = "NET_30"</td><td>Past due ÷ AR ≤ 5%</td><td>NET_30_PAST_DUE_LIMIT_EXCEEDED</td></tr>
-                        <tr><td>R4</td><td>Not restricted</td><td>ADP &lt; 30 days</td><td>ADP_LIMIT_EXCEEDED</td></tr>
+                        <tr><td>R1</td><td>All customers</td><td>Past due ÷ AR ≤ 10%</td><td>GLOBAL_PAST_DUE_LIMIT_EXCEEDED</td></tr>
+                        <tr><td>R2</td><td>Payment terms = "NET_30"</td><td>Past due ÷ AR ≤ 8%</td><td>NET30_PAST_DUE_LIMIT_EXCEEDED</td></tr>
+                        <tr><td>R3</td><td>All customers</td><td>ADP &lt; 30 days</td><td>ADP_30_LIMIT_EXCEEDED</td></tr>
+                        <tr><td>R4</td><td>Unrestricted, AR &gt; $100k</td><td>ADP ≤ 25 days</td><td>SCOPED_ADP_LIMIT_EXCEEDED</td></tr>
+                        <tr><td>R5</td><td>Credit limit &gt; $50k</td><td>Financial statements must be current</td><td>UPDATED_FINANCIALS_REQUIRED</td></tr>
+                        <tr><td>R6</td><td>Not restricted</td><td>Critical combined financial/payment risk</td><td>CRITICAL_RESTRICTION_TRIGGER</td></tr>
                       </tbody>
                     </table>
                   </div>
                   <div class="dry-run-actions">
-                    <p>Uses only the object above and the four displayed rules.</p>
+                    <p>Uses the active in-memory release, ontology-derived facts, and the same evaluator as the batch run.</p>
                     <button class="primary-button" id="runDmnDemo">Run deterministic dry-run <span>→</span></button>
                   </div>
                   <section class="decision-result" id="dmnDryRunResult" aria-live="polite" aria-label="DMN dry-run result">
@@ -344,6 +346,6 @@ ax:RatioPolicyShape a sh:NodeShape ;
       <h3 id="dialogTitle"></h3>
       <pre id="dialogBody"></pre>
     </dialog>
-    <script src="app.js"></script>
+    <script type="module" src="src/ui/app.js"></script>
   </body>
 </html>
