@@ -37,10 +37,12 @@ The existing service does not need to use these field names. During integration,
 | Conflict analysis | Z3 satisfiability solver | Compares candidate policies with the active set before publication |
 | Assisted authoring | Governed LLM gateway | Creates drafts only; it is not on the review execution path |
 | Governance | Existing identity/workflow conventions plus policy-specific controls | Provides review, approval, publication, rollback, and auditability |
+| Release qualification | Versioned regression corpus and baseline/candidate batch harness | Measures complete-release impact with the same evaluator and blocks errors, indeterminate results, or approved threshold breaches |
+| Recommendation synthesis | Separately versioned decision model and advisory calculators | Combines rule findings only after evaluation; the existing review service retains final workflow and mutation authority |
 
 This is not a proposal to build a general-purpose reasoner, replace a proven customer-review workflow wholesale, or allow arbitrary natural language to become executable.
 
-**Recommended default:** add the customer-facts adapter, `PolicyDecisionPort`, release pinning, and embedded DMN runtime at the existing review decision point. Reuse the service's database, security, audit, feature flags, and operational tooling. Keep Jena/SHACL, Z3, and the optional LLM on the authoring path; move that control plane to a companion Spring Boot deployment if its dependencies, ownership, scaling, or security profile do not belong in the customer-review runtime. Adopt the result through disabled, shadow, advisory, and bounded-enforcement modes.
+**Recommended default:** add the customer-facts adapter, `PolicyDecisionPort`, release pinning, and embedded DMN runtime at the existing review decision point. Model rule evaluation, recommendation synthesis, and advisory calculations as separate typed decisions within the same pinned release so findings remain independently traceable. Reuse the service's database, security, audit, feature flags, and operational tooling. Keep Jena/SHACL, Z3, candidate batch qualification, and the optional LLM on the authoring path; move that control plane to a companion Spring Boot deployment if its dependencies, ownership, scaling, or security profile do not belong in the customer-review runtime. Adopt the result through disabled, shadow, advisory, and bounded-enforcement modes.
 
 ### 1.4 Terms used in this guide
 
@@ -479,8 +481,8 @@ Policy administration may move to a companion control-plane service without chan
 
 ### 4.2 Control-plane and runtime responsibilities
 
-1. **Control plane** — authors drafts, validates them, compares them with active policies, records approvals, and creates immutable releases.
-2. **Decision runtime** — loads only approved releases and evaluates customer facts against a pinned DMN release.
+1. **Control plane** — authors drafts, validates them, compares them with active policies, batch-qualifies complete candidates against a pinned baseline, records approvals, and creates immutable releases.
+2. **Decision runtime** — loads only approved releases, evaluates rules, and then executes separately versioned recommendation and advisory-calculation decisions against the resulting findings and normalized facts.
 3. **Existing review service** — owns customer facts, orchestration, persisted review state, public contracts, and the final use of policy findings.
 
 Do not share mutable engine state between authoring and runtime. Publication should create an immutable release that runtime instances verify and load atomically.
@@ -494,40 +496,42 @@ Do not share mutable engine state between authoring and runtime. Publication sho
 5. A deterministic compiler generates DMN and asks the chosen DMN runtime to compile it. Compilation diagnostics and tests are stored.
 6. The conflict-analysis adapter translates the candidate and active policies from the same canonical model into Z3 constraints.
 7. Analysis returns `NO_CONFLICT`, `COMPATIBLE_REFINEMENT`, `REDUNDANT`, `CONFLICT`, or `INDETERMINATE`, plus a witness when one exists. Timeouts and unsupported constructs are `INDETERMINATE`; they never silently pass.
-8. A reviewer sees the source request, canonical policy, ontology report, DMN artifact, tests, conflict explanation, witness, and warnings.
-9. An authorized approver approves or rejects the exact immutable revision. High-risk policies may require a second approver under existing governance rules.
-10. Publication creates an immutable, checksummed release using the service's existing transaction/outbox conventions. Runtime instances atomically load it or retain the previous release.
-11. Rollback republishes a previous approved release; it never edits policy or audit history.
+8. The candidate release and active baseline run through the same evaluator over a versioned regression corpus and approved historical cases. Persist per-case differences, aggregate impact, corpus version, thresholds, errors, and indeterminate results; any incomplete run or breached gate blocks progression.
+9. A reviewer sees the source request, canonical policy, ontology report, DMN artifacts, tests, conflict explanation, witness, batch impact, and warnings.
+10. An authorized approver approves or rejects the exact immutable revision and its current evidence. High-risk policies may require a second approver under existing governance rules.
+11. Publication creates an immutable, checksummed release using the service's existing transaction/outbox conventions. Runtime instances atomically load it or retain the previous release.
+12. Rollback republishes a previous approved release; it never edits policy or audit history.
 
 ### 4.4 Customer review evaluation flow
 
 1. The existing application service reaches its current policy/decision point.
 2. Its adapter builds a `PolicyEvaluationRequest` from authoritative facts available for that review.
-3. The DMN runtime evaluates a specific active release. No LLM, Jena validation, or Z3 call occurs on this path.
-4. The adapter maps engine output into stable policy findings and reason codes.
-5. The existing application service decides how those findings affect the review workflow.
-6. The service persists the release ID, decision ID, outcome, and reasons with the review or its existing audit record.
+3. The DMN runtime evaluates the rule layer of a specific active release. No LLM, Jena validation, Z3 call, or candidate batch occurs on this path.
+4. A separately versioned recommendation decision combines all findings and normalized facts into a primary recommendation, supporting recommendations, and any advisory calculation. This layer does not mutate customer or review state.
+5. The adapter maps the deterministic result into stable policy findings, reason codes, recommendations, and advisory values.
+6. The existing application service decides how those outputs affect the review workflow and is the only owner of customer-state mutation.
+7. The service persists the release ID, decision ID, outcome, recommendations, and reasons with the review or its existing audit record.
 
 ### 4.5 Keep policy lifecycle separate from review lifecycle
 
 Use explicit policy states and reject attempts to skip them:
 
 ```text
-DRAFT → TRANSLATED → VALIDATED → ANALYZED → PENDING_APPROVAL
-  │          │            │          │              │
-  └──────────┴────────────┴──────────┴──────────────▶ REJECTED
-                                                    │
-                                                    ▼
-                                                APPROVED
-                                                    │
-                                                    ▼
-                                                PUBLISHED
-                                                    │
-                                                    ▼
-                                                 RETIRED
+DRAFT → TRANSLATED → VALIDATED → ANALYZED → BATCH_PASSED → PENDING_APPROVAL
+  │          │            │          │             │               │
+  └──────────┴────────────┴──────────┴─────────────┴───────────────▶ REJECTED
+                                                                  │
+                                                                  ▼
+                                                              APPROVED
+                                                                  │
+                                                                  ▼
+                                                              PUBLISHED
+                                                                  │
+                                                                  ▼
+                                                               RETIRED
 ```
 
-Any material edit creates a new immutable revision and restarts validation. Validation, analysis, or approval of revision 3 must not be reusable for revision 4. Each result must be tied to hashes of the policy revision, ontology version, active-policy release, compiler version, and engine version.
+Any material edit creates a new immutable revision and restarts validation. Validation, analysis, batch evidence, or approval of revision 3 must not be reusable for revision 4. Each result must be tied to hashes of the policy revision, ontology version, active-policy release, compiler version, engine version, regression corpus, and gate configuration.
 
 These states govern policy artifacts only. Do not add them to the customer review entity or couple them to review states such as open, pending, approved, rejected, or escalated.
 
@@ -1054,4 +1058,4 @@ The outcome should be a signed-off integration brief, adapter contract, and fixt
 
 ## 16. Exploration Provenance
 
-This direction was informed by the [Axiom Policy Reasoner exploration](https://ampcode.com/threads/T-019f5ef7-3be2-7009-9cb6-8b19ac6ff953). That prototype demonstrated a browser-only bounded DSL, ontology-aware validation, and deterministic conflict examples. It did **not** integrate Apache Jena, SHACL, DMN/Kogito/Drools, Z3, a backend, an LLM provider, persistence, authentication, or a production approval workflow. Treat its examples as seed fixtures and design evidence, not production code or an integration contract.
+This direction was informed by the [Axiom Policy Reasoner exploration](https://ampcode.com/threads/T-019f5ef7-3be2-7009-9cb6-8b19ac6ff953). The current browser demo demonstrates a bounded DSL, ontology-backed source and derived facts, immutable in-memory revisions, deterministic conflict examples, same-evaluator baseline/candidate batch qualification, complete-release activation, post-rule recommendation synthesis, and an advisory credit-limit calculation. It still does **not** integrate Apache Jena, SHACL, DMN/Kogito/Drools, Z3, a backend, an LLM provider, persistence, authentication, durable audit, or a production approval workflow. Treat its modules and fixtures as design evidence and executable examples, not production code or an integration contract.

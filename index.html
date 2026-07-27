@@ -56,7 +56,7 @@
               <p class="eyebrow">Shared semantic layer</p>
               <h2>Customer Ontology</h2>
               <p class="ontology-description">One schema powers the interface, LLM prompt, validator, and reasoner.</p>
-              <p class="ontology-meta"><span>Schema v1.4</span><span>9 properties</span><span>2 active policies</span></p>
+              <p class="ontology-meta"><span>Schema v2.0</span><span>18 source + 10 derived facts</span><span>6 active policies</span><span>FY2025 · fictional · USD</span></p>
             </div>
             <div class="ontology-customer"><span class="avatar">AS</span><div><strong>Acme Systems Inc.</strong><small>Customer #1001 · unrestricted</small></div></div>
           </div>
@@ -136,7 +136,7 @@
                 <p class="eyebrow">Demo today → production evolution</p>
                 <h2>Keep the trust model. Scale each responsibility.</h2>
               </div>
-              <p>The LLM proposes. Deterministic systems validate and analyze. A human approves what becomes active.</p>
+              <p>The LLM may propose. Deterministic systems validate, analyze, and batch-qualify an exact revision. An authorized human approves the complete release.</p>
             </div>
 
             <div class="stack-grid">
@@ -151,8 +151,8 @@
                 <span class="stack-number">02</span>
                 <p class="stack-role">Executable decisions</p>
                 <h3>DMN + Kogito/Drools</h3>
-                <p>Publish approved policy as auditable decision tables with typed FEEL expressions, versioned deployment, and deterministic execution.</p>
-                <div class="stack-transition"><span>Today</span> Bounded DSL + AST <b>→</b> <span>Scale</span> Standard DMN runtime</div>
+                <p>Generate approved rule, recommendation, and advisory-calculation decisions from one canonical typed model, with traceable findings and pinned versions.</p>
+                <div class="stack-transition"><span>Today</span> Bounded DSL + modular evaluator <b>→</b> <span>Scale</span> Canonical IR + standard DMN runtime</div>
               </article>
               <article class="stack-card">
                 <span class="stack-number">03</span>
@@ -160,6 +160,13 @@
                 <h3>Z3 constraint solver</h3>
                 <p>Prove scope overlap and satisfiability across richer conditions, then return a concrete example that demonstrates each conflict.</p>
                 <div class="stack-transition"><span>Today</span> Interval comparison <b>→</b> <span>Scale</span> Constraint solving</div>
+              </article>
+              <article class="stack-card">
+                <span class="stack-number">04</span>
+                <p class="stack-role">Governance &amp; release qualification</p>
+                <h3>Workflow + artifact registry</h3>
+                <p>Authorize immutable revision transitions, retain exact evidence, batch-compare candidate and baseline, and atomically activate or roll back complete releases.</p>
+                <div class="stack-transition"><span>Today</span> In-memory approval + curated batch <b>→</b> <span>Scale</span> Identity, audit + durable regression gates</div>
               </article>
             </div>
 
@@ -174,7 +181,7 @@
                 <div class="artifact-meta">
                   <span class="artifact-tool">Jena + SHACL</span>
                   <h4>Customer-to-policy semantic walkthrough</h4>
-                  <p>Three versionable artifacts show the same Acme facts and NET 30 policy used by the DMN dry run: RDF models them, SHACL checks their shape, and SPARQL identifies the applicable breached ratio policy.</p>
+                  <p>Three versionable artifacts show the same Acme facts and 5% NET 30 candidate used by the compatible-refinement scenario: RDF models them, SHACL checks their shape, and SPARQL identifies the breached candidate policy.</p>
                   <div class="artifact-files" aria-label="Jena example files">
                     <a class="artifact-file" href="artifacts/jena/customer-policy.ttl">customer-policy.ttl</a>
                     <a class="artifact-file" href="artifacts/jena/customer-policy-shapes.ttl">customer-policy-shapes.ttl</a>
@@ -187,7 +194,7 @@
                     <li><b>Model</b><span>Load customer facts and approved policy resources into a Jena dataset.</span></li>
                     <li><b>Validate</b><span>Run SHACL before publication; this fixture conforms to cardinality, datatype, range, and enum rules.</span></li>
                     <li><b>Query</b><span>AR ratio = 15,000 ÷ 125,000 = 0.12. SPARQL returns the NET 30 policy because 0.12 &gt; 0.05.</span></li>
-                    <li><b>Hand off</b><span>Map validated facts and the pinned policy release to DMN, which owns review-time evaluation and stable reason codes.</span></li>
+                    <li><b>Hand off</b><span>After approval and publication, map validated facts and the pinned release to DMN, which owns review-time evaluation and stable reason codes.</span></li>
                   </ol>
 
                   <div class="jena-snippets">
@@ -260,14 +267,14 @@ ax:RatioPolicyShape a sh:NodeShape ;
                 <div class="artifact-meta">
                   <span class="artifact-tool">DMN + Kogito/Drools</span>
                   <h4>Executable customer-review dry run</h4>
-                  <p>Four approved policy checks evaluate one example ontology object. A deterministic aggregator combines scoped findings without claiming to make the final customer approval decision.</p>
+                  <p>Six versioned policy checks evaluate one example ontology object. A deterministic resolver combines findings and an illustrative calculator recommends—but never applies—a credit limit.</p>
                   <span class="artifact-file">customer-credit-policy.dmn</span>
                 </div>
                 <div class="decision-artifact">
                   <div class="decision-title"><span>Decision service</span><strong>Customer Credit Policy Review</strong><em>C · Collect findings</em></div>
                   <div class="decision-contract" aria-label="DMN decision contract">
-                    <div><span>Inputs</span><code>restricted_status: string</code><code>payment_terms: string</code><code>adp_days: number</code><code>past_due_amount: number</code><code>ar_balance: number</code></div>
-                    <div><span>Outputs</span><code>review_result: string</code><code>findings[]</code><code>reason_codes[]</code><code>matched_rules[]</code></div>
+                    <div><span>Inputs</span><code>ontology-backed customer facts</code><code>financial statement metrics</code><code>net_sales_180d / 360d</code><code>pinned policy release</code></div>
+                    <div><span>Outputs</span><code>primary_action</code><code>supporting_actions[]</code><code>findings[]</code><code>credit_limit_recommendation</code></div>
                   </div>
                   <section class="dry-run-object" aria-labelledby="dryRunObjectTitle">
                     <div><span>Example input · ontology-shaped object</span><h5 id="dryRunObjectTitle">Acme Systems Inc.</h5><p>Fictional values for local demonstration only.</p></div>
@@ -277,15 +284,17 @@ ax:RatioPolicyShape a sh:NodeShape ;
                     <table class="policy-check-table">
                       <thead><tr><th>Rule</th><th>Scope</th><th>Comparison / finding</th><th>Reason code</th></tr></thead>
                       <tbody>
-                        <tr><td>R1</td><td>All customers</td><td>Restricted = "Y" → refer</td><td>RESTRICTED_CUSTOMER</td></tr>
-                        <tr><td>R2</td><td>All customers</td><td>Past due ÷ AR ≤ 10%</td><td>GENERAL_PAST_DUE_LIMIT_EXCEEDED</td></tr>
-                        <tr><td>R3</td><td>Payment terms = "NET_30"</td><td>Past due ÷ AR ≤ 5%</td><td>NET_30_PAST_DUE_LIMIT_EXCEEDED</td></tr>
-                        <tr><td>R4</td><td>Not restricted</td><td>ADP &lt; 30 days</td><td>ADP_LIMIT_EXCEEDED</td></tr>
+                        <tr><td>R1</td><td>All customers</td><td>Past due ÷ AR ≤ 10%</td><td>GLOBAL_PAST_DUE_LIMIT_EXCEEDED</td></tr>
+                        <tr><td>R2</td><td>Payment terms = "NET_30"</td><td>Past due ÷ AR ≤ 8%</td><td>NET30_PAST_DUE_LIMIT_EXCEEDED</td></tr>
+                        <tr><td>R3</td><td>All customers</td><td>ADP &lt; 30 days</td><td>ADP_30_LIMIT_EXCEEDED</td></tr>
+                        <tr><td>R4</td><td>Unrestricted, AR &gt; $100k</td><td>ADP ≤ 25 days</td><td>SCOPED_ADP_LIMIT_EXCEEDED</td></tr>
+                        <tr><td>R5</td><td>Credit limit &gt; $50k</td><td>Financial statements must be current</td><td>UPDATED_FINANCIALS_REQUIRED</td></tr>
+                        <tr><td>R6</td><td>Not restricted</td><td>Critical combined financial/payment risk</td><td>CRITICAL_RESTRICTION_TRIGGER</td></tr>
                       </tbody>
                     </table>
                   </div>
                   <div class="dry-run-actions">
-                    <p>Uses only the object above and the four displayed rules.</p>
+                    <p>Uses the active in-memory release, ontology-derived facts, and the same evaluator as the batch run.</p>
                     <button class="primary-button" id="runDmnDemo">Run deterministic dry-run <span>→</span></button>
                   </div>
                   <section class="decision-result" id="dmnDryRunResult" aria-live="polite" aria-label="DMN dry-run result">
@@ -319,14 +328,17 @@ ax:RatioPolicyShape a sh:NodeShape ;
                 <h3>A phased path—not a platform rewrite</h3>
               </div>
               <ol class="phase-list">
-                <li><b>Productionize</b><span>Versioned policy API, approvals, audit trail, and shadow testing</span></li>
-                <li><b>Standardize</b><span>Execute approved decisions as DMN with regression tests and rollback</span></li>
+                <li><b>Contract</b><span>Map authoritative source data into a versioned fact dictionary and canonical policy model</span></li>
+                <li><b>Govern</b><span>Persist immutable revisions, authorization, evidence, release manifests, and rollback</span></li>
+                <li><b>Qualify</b><span>Gate candidates with same-evaluator baseline comparisons and versioned regression portfolios</span></li>
+                <li><b>Standardize</b><span>Execute pinned rule, recommendation, and advisory decisions as traceable DMN</span></li>
                 <li><b>Formalize</b><span>Add Jena and SHACL when taxonomy and semantic relationships require it</span></li>
-                <li><b>Expand</b><span>Use Z3 for complex overlap, exceptions, dates, and conflict witnesses</span></li>
+                <li><b>Expand</b><span>Use Z3 for complex overlap, exceptions, dates, and synthetic conflict witnesses</span></li>
+                <li><b>Adopt</b><span>Progress through disabled, shadow, advisory, and only then bounded enforcement</span></li>
               </ol>
             </div>
 
-            <p class="roadmap-boundary"><b>Clear boundary:</b> Jena and SHACL validate semantic meaning, DMN executes approved decisions, and Z3 proves constraint conflicts. The LLM is never the policy authority.</p>
+            <p class="roadmap-boundary"><b>Clear boundary:</b> Jena and SHACL validate semantic meaning, DMN executes approved rules and versioned recommendation logic, and Z3 proves constraint conflicts. Batch evaluation qualifies—but never approves—a release. The existing review service owns final disposition and every customer-state mutation; the LLM is never the policy authority.</p>
           </div>
         </details>
 
@@ -344,6 +356,6 @@ ax:RatioPolicyShape a sh:NodeShape ;
       <h3 id="dialogTitle"></h3>
       <pre id="dialogBody"></pre>
     </dialog>
-    <script src="app.js"></script>
+    <script type="module" src="src/ui/app.js"></script>
   </body>
 </html>
