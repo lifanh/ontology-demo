@@ -26,6 +26,15 @@ test("bounded DSL validates ontology properties, units, and round-trips", () => 
   assert.throws(() => parseRule(source.replace("0 USD", "0 DAYS"), registry, { root: "customer" }), /UNIT_ERROR/);
 });
 
+test("bounded DSL accepts ontology property identifiers containing digits", () => {
+  const threshold = parseRule(`RULE SALES_MINIMUM\nSCOPE customer.net_sales_360d >= 100000 USD\nSET_MIN customer.net_sales_180d = 50000 USD\nEND`, registry, { root: "customer" });
+  assert.equal(threshold.scope[0].fact, "net_sales_360d");
+  assert.equal(threshold.effect.fact, "net_sales_180d");
+  const ratio = parseRule(`RULE SALES_TREND_MINIMUM\nSCOPE ALL\nSET_MAX_RATIO customer.net_sales_180d\n    TO customer.net_sales_360d = 0.5\nEND`, registry, { root: "customer" });
+  assert.equal(ratio.effect.numerator, "net_sales_180d");
+  assert.equal(ratio.effect.denominator, "net_sales_360d");
+});
+
 test("financial statement rule observes exact $50k boundary", () => {
   const exact = evaluate(customer({ credit_limit: 50000, financial_statement_status: null }));
   assert.equal(exact.findings.find(x => x.id === "FINANCIAL_STATEMENTS_REQUIRED").status, "NOT_APPLICABLE");
@@ -66,6 +75,14 @@ test("calculator applies nearest 5k, review movement and range guardrails", () =
   assert.equal(c.recommended % 5000, 0);
   assert.ok(c.recommended <= 102000 * 1.25 && c.recommended >= 102000 * .75);
   assert.equal(c.acceptableRange.length, 2);
+});
+
+test("payment cap preserves the absolute minimum and an ordered review range", () => {
+  const c = evaluate(customer({ credit_limit: 1000, past_due_amount: 6000 })).calculation;
+  assert.equal(c.paymentGrade, "watch");
+  assert.equal(c.recommended, 10000);
+  assert.ok(c.acceptableRange[0] <= c.acceptableRange[1]);
+  assert.ok(c.acceptableRange[0] >= 10000);
 });
 
 test("batch compares active and substituted candidate with one evaluator", () => {

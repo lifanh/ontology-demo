@@ -13,7 +13,7 @@ export function parseRule(source, registry, { root = "subject" } = {}) {
     return definition;
   };
   const parseCondition = text => {
-    const match = text.match(new RegExp(`^${root}\\.([a-z_]+)\\s*(==|!=|>=|<=|>|<)\\s*(?:\"([^\"\\r\\n]+)\"|(-?\\d+(?:\\.\\d+)?)\\s*([A-Z]+)?)$`));
+    const match = text.match(new RegExp(`^${root}\\.([a-z][a-z0-9_]*)\\s*(==|!=|>=|<=|>|<)\\s*(?:\"([^\"\\r\\n]+)\"|(-?\\d+(?:\\.\\d+)?)\\s*([A-Z]+)?)$`));
     if (!match) throw new Error(`SYNTAX_ERROR\nInvalid scope condition: ${text}`);
     const [, fact, op, stringValue, numericValue, unit] = match;
     const definition = property(fact);
@@ -37,8 +37,8 @@ export function parseRule(source, registry, { root = "subject" } = {}) {
   const effectLine = lines[effectIndex];
   let effect;
   if (effectLine.startsWith("SET_MAX_RATIO")) {
-    const numerator = effectLine.match(new RegExp(`^SET_MAX_RATIO\\s+${root}\\.([a-z_]+)$`));
-    const ratio = lines[effectIndex + 1]?.match(new RegExp(`^TO\\s+${root}\\.([a-z_]+)\\s*=\\s*(0(?:\\.\\d+)?|1(?:\\.0+)?)$`));
+    const numerator = effectLine.match(new RegExp(`^SET_MAX_RATIO\\s+${root}\\.([a-z][a-z0-9_]*)$`));
+    const ratio = lines[effectIndex + 1]?.match(new RegExp(`^TO\\s+${root}\\.([a-z][a-z0-9_]*)\\s*=\\s*(0(?:\\.\\d+)?|1(?:\\.0+)?)$`));
     if (!numerator || !ratio || effectIndex + 2 !== lines.length - 1) throw new Error("SYNTAX_ERROR\nInvalid SET_MAX_RATIO effect.");
     const numeratorDefinition = property(numerator[1]), denominatorDefinition = property(ratio[1]);
     if (numeratorDefinition.type !== "decimal" || denominatorDefinition.type !== "decimal") throw new Error("TYPE_ERROR\nRatio properties must be decimal values.");
@@ -47,7 +47,7 @@ export function parseRule(source, registry, { root = "subject" } = {}) {
     if (!(value > 0 && value <= 1)) throw new Error("DOMAIN_ERROR\nRatio must be greater than 0 and no more than 1.");
     effect = { type: "SET_MAX_RATIO", numerator: numerator[1], denominator: ratio[1], value };
   } else {
-    const match = effectLine.match(new RegExp(`^SET_(MAX|MIN)\\s+${root}\\.([a-z_]+)\\s*=\\s*(-?\\d+(?:\\.\\d+)?)\\s*([A-Z]+)?$`));
+    const match = effectLine.match(new RegExp(`^SET_(MAX|MIN)\\s+${root}\\.([a-z][a-z0-9_]*)\\s*=\\s*(-?\\d+(?:\\.\\d+)?)\\s*([A-Z]+)?$`));
     if (!match || effectIndex + 1 !== lines.length - 1) throw new Error("SYNTAX_ERROR\nInvalid SET_MAX or SET_MIN effect.");
     const [, kind, fact, rawValue, unit] = match;
     const definition = property(fact);

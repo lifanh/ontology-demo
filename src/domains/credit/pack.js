@@ -72,7 +72,7 @@ export const calculator = {
       const upperMovementLimit = Math.floor(current * 1.25 / 5000) * 5000;
       guarded = Math.min(upperMovementLimit, Math.max(lowerMovementLimit, guarded));
     }
-    if (["watch", "severe"].includes(paymentGrade)) guarded = Math.min(guarded, Math.floor(current / 5000) * 5000);
+    if (["watch", "severe"].includes(paymentGrade)) guarded = Math.max(10000, Math.min(guarded, Math.floor(current / 5000) * 5000));
     const delta = guarded - current, deltaPercent = current === 0 ? null : delta / current;
     const material = Math.abs(delta) >= 10000 && (current === 0 || Math.abs(deltaPercent) >= .10);
     const range = [Math.max(10000, Math.round(guarded * .9 / 5000) * 5000), Math.min(1000000, Math.round(guarded * 1.1 / 5000) * 5000)];
