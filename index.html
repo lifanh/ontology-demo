@@ -136,7 +136,7 @@
                 <p class="eyebrow">Demo today → production evolution</p>
                 <h2>Keep the trust model. Scale each responsibility.</h2>
               </div>
-              <p>The LLM proposes. Deterministic systems validate and analyze. A human approves what becomes active.</p>
+              <p>The LLM may propose. Deterministic systems validate, analyze, and batch-qualify an exact revision. An authorized human approves the complete release.</p>
             </div>
 
             <div class="stack-grid">
@@ -151,8 +151,8 @@
                 <span class="stack-number">02</span>
                 <p class="stack-role">Executable decisions</p>
                 <h3>DMN + Kogito/Drools</h3>
-                <p>Publish approved policy as auditable decision tables with typed FEEL expressions, versioned deployment, and deterministic execution.</p>
-                <div class="stack-transition"><span>Today</span> Bounded DSL + AST <b>→</b> <span>Scale</span> Standard DMN runtime</div>
+                <p>Generate approved rule, recommendation, and advisory-calculation decisions from one canonical typed model, with traceable findings and pinned versions.</p>
+                <div class="stack-transition"><span>Today</span> Bounded DSL + modular evaluator <b>→</b> <span>Scale</span> Canonical IR + standard DMN runtime</div>
               </article>
               <article class="stack-card">
                 <span class="stack-number">03</span>
@@ -160,6 +160,13 @@
                 <h3>Z3 constraint solver</h3>
                 <p>Prove scope overlap and satisfiability across richer conditions, then return a concrete example that demonstrates each conflict.</p>
                 <div class="stack-transition"><span>Today</span> Interval comparison <b>→</b> <span>Scale</span> Constraint solving</div>
+              </article>
+              <article class="stack-card">
+                <span class="stack-number">04</span>
+                <p class="stack-role">Governance &amp; release qualification</p>
+                <h3>Workflow + artifact registry</h3>
+                <p>Authorize immutable revision transitions, retain exact evidence, batch-compare candidate and baseline, and atomically activate or roll back complete releases.</p>
+                <div class="stack-transition"><span>Today</span> In-memory approval + curated batch <b>→</b> <span>Scale</span> Identity, audit + durable regression gates</div>
               </article>
             </div>
 
@@ -321,14 +328,17 @@ ax:RatioPolicyShape a sh:NodeShape ;
                 <h3>A phased path—not a platform rewrite</h3>
               </div>
               <ol class="phase-list">
-                <li><b>Productionize</b><span>Versioned policy API, approvals, audit trail, and shadow testing</span></li>
-                <li><b>Standardize</b><span>Execute approved decisions as DMN with regression tests and rollback</span></li>
+                <li><b>Contract</b><span>Map authoritative source data into a versioned fact dictionary and canonical policy model</span></li>
+                <li><b>Govern</b><span>Persist immutable revisions, authorization, evidence, release manifests, and rollback</span></li>
+                <li><b>Qualify</b><span>Gate candidates with same-evaluator baseline comparisons and versioned regression portfolios</span></li>
+                <li><b>Standardize</b><span>Execute pinned rule, recommendation, and advisory decisions as traceable DMN</span></li>
                 <li><b>Formalize</b><span>Add Jena and SHACL when taxonomy and semantic relationships require it</span></li>
-                <li><b>Expand</b><span>Use Z3 for complex overlap, exceptions, dates, and conflict witnesses</span></li>
+                <li><b>Expand</b><span>Use Z3 for complex overlap, exceptions, dates, and synthetic conflict witnesses</span></li>
+                <li><b>Adopt</b><span>Progress through disabled, shadow, advisory, and only then bounded enforcement</span></li>
               </ol>
             </div>
 
-            <p class="roadmap-boundary"><b>Clear boundary:</b> Jena and SHACL validate semantic meaning, DMN executes approved decisions, and Z3 proves constraint conflicts. The LLM is never the policy authority.</p>
+            <p class="roadmap-boundary"><b>Clear boundary:</b> Jena and SHACL validate semantic meaning, DMN executes approved rules and versioned recommendation logic, and Z3 proves constraint conflicts. Batch evaluation qualifies—but never approves—a release. The existing review service owns final disposition and every customer-state mutation; the LLM is never the policy authority.</p>
           </div>
         </details>
 

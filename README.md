@@ -52,22 +52,27 @@ The interface uses a responsive single-column policy workshop. Ontology properti
 
 The browser demo intentionally uses a bounded, custom validator and reasoner. It proves the trust model without implying that an LLM is the authority: **the LLM proposes, deterministic systems validate and analyze, and a human approves activation**.
 
-The production direction separates three responsibilities:
+The production direction preserves the demo's module boundaries while replacing in-memory evidence and handwritten engines with durable, independently versioned production components:
 
 | Demo capability | Production technology | Why |
 | --- | --- | --- |
 | JavaScript ontology and property checks | **Apache Jena + SHACL** | Represent the domain as RDF/OWL and validate types, domains, required properties, and relationships using a W3C standard. |
-| Bounded DSL, AST, and rule execution | **DMN + Kogito/Drools** | Publish approved policies as reviewable decision tables with typed expressions, versioned deployment, and deterministic execution. |
+| Bounded DSL, AST, and rule execution | **Canonical typed policy model + DMN/Kogito/Drools** | Generate every executable artifact from one reviewed representation, then publish approved policies as typed, deterministic decision tables. |
 | Handwritten scope and interval comparison | **Z3 constraint solver** | Prove overlap and satisfiability for richer conditions and produce concrete examples that demonstrate conflicts. |
+| In-memory revisions, evidence, batch gate, and release activation | **Existing identity/workflow/audit services + immutable artifact registry** | Authorize transitions, retain evidence for the exact revision and baseline, qualify a candidate against regression fixtures, and atomically activate or roll back a complete release. |
+| Action resolver and advisory calculator | **Separately versioned decision models behind the review-service boundary** | Collect rule findings first, synthesize recommended actions and advisory values deterministically, and leave final disposition and customer mutation to the system of record. |
 
-These technologies are **not used by the current static runtime**. They are an incremental path for scaling the same architecture:
+These production technologies and durable services are **not used by the current static runtime**. They are an incremental path for scaling the same architecture:
 
-1. **Productionize the bounded service:** add a versioned policy API, approvals, audit records, regression cases, and shadow execution.
-2. **Standardize execution:** deploy approved decisions as DMN through Kogito/Drools with testing and rollback.
-3. **Formalize the ontology:** introduce Jena and SHACL as domain taxonomies and semantic relationships grow beyond the current flat schema.
-4. **Expand conflict analysis:** use Z3 for nested conditions, exceptions, effective dates, multiple dimensions, and conflict witnesses.
+1. **Establish shared contracts:** map authoritative source data into a versioned fact dictionary and canonical typed policy model; preserve types, units, null behavior, freshness, and provenance.
+2. **Durably govern releases:** persist immutable revisions, authorization, approval and audit evidence, release manifests, atomic activation, and rollback.
+3. **Qualify every candidate:** compare the active baseline and candidate with the same evaluator over versioned regression fixtures and approved historical cases; block errors, indeterminate results, and breached impact thresholds.
+4. **Standardize execution and synthesis:** deploy approved rule, action-policy, and advisory-calculation decisions through DMN/Kogito/Drools with pinned versions and traceable intermediate findings.
+5. **Formalize the ontology:** introduce Jena and SHACL as domain taxonomies and semantic relationships grow beyond the current flat schema.
+6. **Expand conflict analysis:** use Z3 for nested conditions, exceptions, effective dates, multiple dimensions, and synthetic conflict witnesses.
+7. **Adopt safely:** run disabled, shadow, and advisory modes before any bounded enforcement; keep customer state changes in the existing review workflow.
 
-Jena and SHACL validate semantic meaning, DMN executes approved decisions, and Z3 proves constraint conflicts. Business precedence and policy activation remain explicit governance decisions rather than engine or LLM judgments.
+Jena and SHACL validate semantic meaning, DMN executes approved decisions, and Z3 proves constraint conflicts. The batch harness qualifies a complete candidate release but does not approve it. Recommendation precedence remains explicit, versioned decision logic, while policy activation, final review disposition, and customer mutation remain authorized workflow decisions rather than engine or LLM judgments.
 
 ## Apache Jena example: model, validate, and query
 
