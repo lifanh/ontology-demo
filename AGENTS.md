@@ -22,3 +22,17 @@
 - Run `npm run export:pdf` after slide-content or theme changes.
 - Visually inspect representative core and appendix slides, plus `/` and `/slides/`, before declaring presentation changes complete.
 - Keep dependencies pinned in `package-lock.json` and generated `dist/` and `build/` output untracked.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs are tracked in GitHub Issues for `lifanh/ontology-demo`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Triage uses the default Matt Pocock skill label vocabulary. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Domain documentation uses the single-context layout. See `docs/agents/domain.md`.
