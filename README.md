@@ -1,6 +1,6 @@
-# Axiom Policy Reasoner Demo
+# Customer Review Ontology
 
-A runtime-dependency-free static-browser demonstration of ontology-backed credit policy authoring, deterministic evaluation, governance, and portfolio impact analysis. It preserves the original Axiom workshop and checked-in Jena/SHACL, DMN, and Z3 production-artifact explanations while adding a complete in-memory flow.
+A runtime-dependency-free static-browser demonstration of ontology-backed credit policy authoring, deterministic evaluation, governance, and portfolio impact analysis. The workbench includes checked-in Jena/SHACL, DMN, and Z3 production-artifact explanations alongside a complete in-memory flow.
 
 ## Capabilities
 
@@ -37,7 +37,7 @@ npm test
 
 The test command runs the Vitest domain suite, checks the JavaScript sources with Oxlint, assembles the combined site, and verifies the copied demo and Slidev output. Oxfmt remains available through `vp fmt`, but is not part of the default check yet because adopting its formatting across the compact legacy demo would create a large, behavior-neutral rewrite.
 
-## TDS-Credit Slidev presentation
+## Customer Review Ontology Slidev presentation
 
 The executive presentation is a separate Slidev application under `slides/`. It introduces the current illustrative demo, provides speaker notes for the 5% compatible-refinement and 15% conflict paths, and presents a possible production direction around CIS. The deck uses repository-bundled fonts and opens the independent demo in a new tab; it does not import or control the demo runtime.
 
@@ -52,7 +52,7 @@ npm run build
 npm run preview
 ```
 
-`npm run preview` uses Wrangler so local behavior matches Cloudflare Workers static assets. Slidev uses hash-based slide routes under `/slides/`, allowing direct links and refreshes without server-side rewrites. Export the complete core deck and appendix to `build/tds-credit-ontology.pdf` with:
+`npm run preview` uses Wrangler so local behavior matches Cloudflare Workers static assets. Slidev uses hash-based slide routes under `/slides/`, allowing direct links and refreshes without server-side rewrites. Export the complete core deck and appendix to `build/customer-review-ontology.pdf` with:
 
 ```sh
 npm run export:pdf
@@ -118,7 +118,7 @@ arq \
   --query artifacts/jena/breached-ratio-policies.rq
 ```
 
-The supplied graph is expected to conform. A policy scoped to an unsupported term such as `ax:NET_90` fails publication validation even if that resource is asserted to be an `ax:PaymentTerms`; `sh:class` verifies its type while `sh:in` enforces the supported enum. The query is expected to return `customer-1001`, `NET_30_PAST_DUE_MAX_5`, ratio `0.12`, and maximum `0.05`. These files are executable **when run with external Jena tooling**, but the static browser demo only presents excerpts and expected results—it does not bundle or invoke Jena. In a production architecture, SHACL belongs on the ontology/policy authoring and publication path. A successful SHACL report proves graph conformance, not policy compatibility or customer approval. SPARQL can support policy discovery and preflight analysis; the pinned, approved DMN release remains responsible for review-time evaluation and stable reason codes.
+The supplied graph is expected to conform. A policy scoped to an unsupported term such as `cro:NET_90` fails publication validation even if that resource is asserted to be a `cro:PaymentTerms`; `sh:class` verifies its type while `sh:in` enforces the supported enum. The query is expected to return `customer-1001`, `NET_30_PAST_DUE_MAX_5`, ratio `0.12`, and maximum `0.05`. These files are executable **when run with external Jena tooling**, but the static browser demo only presents excerpts and expected results—it does not bundle or invoke Jena. In a production architecture, SHACL belongs on the ontology/policy authoring and publication path. A successful SHACL report proves graph conformance, not policy compatibility or customer approval. SPARQL can support policy discovery and preflight analysis; the pinned, approved DMN release remains responsible for review-time evaluation and stable reason codes.
 
 ## DMN example: transparent customer-review dry run
 

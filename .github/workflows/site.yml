@@ -23,8 +23,8 @@ jobs:
       - run: npm run export:pdf
       - uses: actions/upload-artifact@v4
         with:
-          name: tds-credit-ontology-pdf
-          path: build/tds-credit-ontology.pdf
+          name: customer-review-ontology-pdf
+          path: build/customer-review-ontology.pdf
 
       - name: Detect Cloudflare credentials
         id: cloudflare
@@ -54,7 +54,7 @@ jobs:
           WRANGLER_OUTPUT: ${{ steps.preview.outputs.command-output }}
         with:
           script: |
-            const marker = '<!-- tds-credit-worker-preview -->'
+            const marker = '<!-- customer-review-ontology-worker-preview -->'
             const match = process.env.WRANGLER_OUTPUT.match(/https:\/\/[^\s]+\.workers\.dev\/?/)
             if (!match) {
               core.warning('Wrangler did not return a preview URL to comment on the pull request.')
