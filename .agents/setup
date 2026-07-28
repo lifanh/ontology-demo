@@ -6,11 +6,38 @@ cd "$repo_root"
 
 printf '%s\n' 'Preparing the Axiom Policy Reasoner static demo...'
 
-for required_file in index.html app.js styles.css; do
+required_node_version="$(cat .node-version)"
+installed_node_major="$(node --version 2>/dev/null | sed -E 's/^v([0-9]+).*/\1/' || true)"
+if [[ -z "$installed_node_major" || "$installed_node_major" -lt 22 ]]; then
+  case "$(uname -m)" in
+    x86_64) node_arch="x64" ;;
+    aarch64|arm64) node_arch="arm64" ;;
+    *) printf 'Unsupported architecture for Node.js setup: %s\n' "$(uname -m)" >&2; exit 1 ;;
+  esac
+  node_home="$HOME/.local/node-v${required_node_version}"
+  if [[ ! -x "$node_home/bin/node" ]]; then
+    archive="$(mktemp)"
+    curl --fail --silent --show-error --location \
+      "https://nodejs.org/dist/v${required_node_version}/node-v${required_node_version}-linux-${node_arch}.tar.xz" \
+      --output "$archive"
+    mkdir -p "$node_home"
+    tar -xJf "$archive" --strip-components=1 -C "$node_home"
+    rm -f "$archive"
+  fi
+  mkdir -p "$HOME/.local/bin"
+  for executable in node npm npx corepack; do
+    ln -sfn "$node_home/bin/$executable" "$HOME/.local/bin/$executable"
+  done
+  hash -r
+fi
+
+for required_file in index.html styles.css package.json src/ui/app.js; do
   if [[ ! -f "$required_file" ]]; then
     printf 'Required application file is missing: %s\n' "$required_file" >&2
     exit 1
   fi
 done
 
-printf '%s\n' 'No dependencies or external services are required; setup is complete.'
+npm ci
+
+printf '%s\n' 'Dependencies are installed; the static demo and Slidev deck are ready.'

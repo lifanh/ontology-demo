@@ -25,16 +25,37 @@ Then open the served `index.html`. No install or build is required.
 
 ## Test
 
-Requires a current Node.js runtime:
+Requires Node.js 22 or newer. The repository pins the expected version in `.node-version`:
 
 ```sh
-node --test tests/*.test.mjs
-node --check src/core/runtime.js
-node --check src/core/authoring.js
-node --check src/core/governance.js
-node --check src/domains/credit/pack.js
-node --check src/ui/app.js
+npm ci
+npm test
 ```
+
+The test command runs the domain suite, checks the JavaScript entry points, assembles the combined site, verifies that deployed demo files are byte-for-byte copies of their sources, and checks the Slidev output and asset boundary.
+
+## TDS-Credit Slidev presentation
+
+The executive presentation is a separate Slidev application under `slides/`. It introduces the current illustrative demo, provides speaker notes for the 5% compatible-refinement and 15% conflict paths, and presents a possible production direction around CIS. The deck uses repository-bundled fonts and opens the independent demo in a new tab; it does not import or control the demo runtime.
+
+```sh
+npm run slides:dev
+```
+
+The production build preserves the demo at `/` and compiles the deck for `/slides/`:
+
+```sh
+npm run build
+npm run preview
+```
+
+`npm run preview` uses Wrangler so local behavior matches Cloudflare Workers static assets. Slidev uses hash-based slide routes under `/slides/`, allowing direct links and refreshes without server-side rewrites. Export the complete core deck and appendix to `build/tds-credit-ontology.pdf` with:
+
+```sh
+npm run export:pdf
+```
+
+Generated site and PDF output are intentionally not committed. Deploy the assembled `dist/` directory to the configured Cloudflare Worker with `npm run deploy`. Pull requests run the complete validation, retain the PDF as a workflow artifact, and publish a `pr-<number>` Worker preview when Cloudflare credentials are configured.
 
 ## Reusable skeleton boundary
 

@@ -1,7 +1,27 @@
 {
+  "name": "tds-credit-ontology-showcase",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
-    "test": "node --test tests/*.test.mjs"
+    "test": "npm run test:unit && npm run check && npm run build && npm run test:site",
+    "test:unit": "node --test tests/credit.test.mjs",
+    "test:site": "node --test tests/site.test.mjs",
+    "check": "node --check src/core/runtime.js && node --check src/core/authoring.js && node --check src/core/governance.js && node --check src/domains/credit/pack.js && node --check src/ui/app.js && node --check scripts/build-site.mjs && node --check scripts/export-pdf.mjs",
+    "slides:dev": "slidev slides/slides.md --base /slides/",
+    "build": "node scripts/build-site.mjs",
+    "preview": "wrangler dev",
+    "export:pdf": "node scripts/export-pdf.mjs",
+    "deploy": "npm run build && wrangler deploy"
+  },
+  "devDependencies": {
+    "@fontsource/dm-mono": "5.3.0",
+    "@fontsource/manrope": "5.3.0",
+    "@slidev/cli": "52.18.0",
+    "@slidev/theme-default": "0.25.0",
+    "playwright-chromium": "1.62.0",
+    "wrangler": "4.114.0"
   }
 }
