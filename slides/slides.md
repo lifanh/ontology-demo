@@ -1,8 +1,8 @@
 ---
 theme: default
-title: TDS-Credit Ontology
+title: Customer Review Ontology
 titleTemplate: '%s · Governed AI-Assisted Credit Policy Reasoning for CIS'
-author: TDS-Credit
+author: Customer Review Ontology
 info: |
   An illustrative showcase of how governed AI, shared credit semantics,
   and deterministic reasoning could support policy evolution around CIS.
@@ -12,7 +12,7 @@ fonts:
   mono: DM Mono
   local: Manrope,DM Mono
   provider: none
-exportFilename: tds-credit-ontology
+exportFilename: customer-review-ontology
 transition: fade
 mdc: true
 routerMode: hash
@@ -22,9 +22,9 @@ defaults:
 
 <div class="cover-grid">
   <div>
-    <div class="brand-lockup"><span class="brand-symbol"><i></i><i></i><i></i></span><b>TDS-Credit</b></div>
+    <div class="brand-lockup"><span class="brand-symbol"><i></i><i></i><i></i></span><b>Customer Review Ontology</b></div>
     <p class="kicker">Innovation showcase</p>
-    <h1>TDS-Credit<br><span>Ontology</span></h1>
+    <h1>Customer Review<br><span>Ontology</span></h1>
     <p class="subtitle">Governed AI-Assisted Credit Policy Reasoning for CIS</p>
     <p class="trust-line">AI drafts · shared semantics ground · deterministic engines decide · people govern</p>
   </div>
@@ -33,7 +33,7 @@ defaults:
   </div>
 </div>
 
-<div class="slide-footer"><span>Illustrative showcase</span><span>TDS-Credit</span></div>
+<div class="slide-footer"><span>Illustrative showcase</span><span>Customer Review Ontology</span></div>
 
 <!--
 Open by setting expectations: this is an innovation showcase, not a funding request or production commitment.
@@ -75,7 +75,7 @@ The risk is not only malformed rules. A valid rule may still conflict with an ac
 
 <div class="authority-grid">
   <article class="ai"><span>01</span><h3>AI</h3><b>Draft and explain</b><p>Produces a bounded proposal. It remains untrusted input.</p></article>
-  <article class="ontology"><span>02</span><h3>TDS-Credit Ontology</h3><b>Define shared meaning</b><p>Provides facts, types, units, relationships, and provenance.</p></article>
+  <article class="ontology"><span>02</span><h3>Customer Review Ontology</h3><b>Define shared meaning</b><p>Provides facts, types, units, relationships, and provenance.</p></article>
   <article class="engine"><span>03</span><h3>Deterministic engines</h3><b>Validate and execute</b><p>Compare, qualify, calculate, and return stable evidence.</p></article>
   <article class="people"><span>04</span><h3>People + CIS</h3><b>Govern outcomes</b><p>Approve releases and retain authority over customer state.</p></article>
 </div>
@@ -98,7 +98,7 @@ The separation lets us use AI for speed without confusing fluency with authority
   <span>→</span>
   <article class="accent"><small>Translation boundary</small><h3>Facts adapter</h3><p>Names · types · units · nulls · freshness · provenance</p></article>
   <span>→</span>
-  <article><small>Shared contract</small><h3>TDS-Credit Ontology</h3><p>Consistent meaning across authoring and evaluation</p></article>
+  <article><small>Shared contract</small><h3>Customer Review Ontology</h3><p>Consistent meaning across authoring and evaluation</p></article>
 </div>
 
 <div class="fact-examples">
@@ -277,7 +277,7 @@ The browser implementation proves the trust model and workflow boundaries. It do
   <section class="control-plane">
     <label>Policy control plane</label>
     <div><b>Policy owner</b><span>+ governed AI</span></div><i>→</i>
-    <div><b>Typed candidate</b><span>TDS-Credit contract</span></div><i>→</i>
+    <div><b>Typed candidate</b><span>Customer Review Ontology contract</span></div><i>→</i>
     <div><b>Validate + prove</b><span>SHACL · DMN · Z3</span></div><i>→</i>
     <div class="accent"><b>Approved release</b><span>immutable + auditable</span></div>
   </section>
@@ -307,7 +307,7 @@ The exact deployment topology remains a discovery decision. The important contra
 <table class="capability-table">
   <thead><tr><th>Responsibility</th><th>Showcase today</th><th>Production direction</th></tr></thead>
   <tbody>
-    <tr><td>Shared semantics</td><td>JavaScript fact registry</td><td><b>TDS-Credit RDF/OWL vocabulary</b></td></tr>
+    <tr><td>Shared semantics</td><td>JavaScript fact registry</td><td><b>Customer Review Ontology RDF/OWL vocabulary</b></td></tr>
     <tr><td>Semantic conformance</td><td>Custom property checks</td><td><b>Apache Jena + SHACL</b></td></tr>
     <tr><td>Shared policy contract</td><td>Bounded AST</td><td><b>Canonical typed policy model</b></td></tr>
     <tr><td>Deterministic execution</td><td>Modular evaluator</td><td><b>DMN + Kogito/Drools</b></td></tr>
@@ -332,7 +332,7 @@ Jena validates semantic shape. DMN executes approved decisions. Z3 proves satisf
 
 <div class="roadmap">
   <article><b>01</b><h3>Discover</h3><p>Map CIS APIs, current policy, decision ownership, and authoritative facts.</p></article>
-  <article><b>02</b><h3>Contract</h3><p>Define the TDS-Credit fact dictionary and canonical policy model.</p></article>
+  <article><b>02</b><h3>Contract</h3><p>Define the Customer Review Ontology fact dictionary and canonical policy model.</p></article>
   <article><b>03</b><h3>Govern</h3><p>Add immutable revisions, qualification, approval, audit, and rollback.</p></article>
   <article><b>04</b><h3>Shadow</h3><p>Compare with current behavior without changing CIS outcomes.</p></article>
   <article><b>05</b><h3>Advise</h3><p>Expose explainable findings to authorized credit reviewers.</p></article>
@@ -354,7 +354,7 @@ class: closing-slide
 ---
 
 <div class="closing">
-  <p class="kicker">TDS-Credit Ontology</p>
+  <p class="kicker">Customer Review Ontology</p>
   <h1>Accelerate policy work.<br><span>Preserve control.</span></h1>
   <div class="closing-points">
     <article><b>AI</b><span>speeds bounded drafting</span></article>
@@ -397,7 +397,7 @@ class: appendix-title
   </dl>
 </div>
 
-<p class="boundary">A production TDS-Credit dictionary would be confirmed from CIS contracts and credit-owner semantics—not copied from this illustrative example.</p>
+<p class="boundary">A production Customer Review Ontology dictionary would be confirmed from CIS contracts and credit-owner semantics—not copied from this illustrative example.</p>
 
 ---
 
@@ -514,7 +514,7 @@ class: end-slide
 
 <div class="end-mark"><span class="brand-symbol"><i></i><i></i><i></i></span></div>
 
-# TDS-Credit
+# Customer Review Ontology
 
 <p>Governed AI · shared semantics · deterministic reasoning</p>
 

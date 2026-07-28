@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="A deterministic ontology-aware credit policy reasoning demo." />
-    <title>Axiom — Policy Reasoner</title>
+    <title>Customer Review Ontology</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -13,10 +13,10 @@
   <body>
     <a class="skip-link" href="#mainContent">Skip to policy workshop</a>
     <header class="topbar">
-      <a class="brand" href="#mainContent" aria-label="Axiom policy workshop">
+      <a class="brand" href="#mainContent" aria-label="Customer Review Ontology">
         <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
-        <span>Axiom</span>
-        <small>Policy Reasoner</small>
+        <span>Customer Review Ontology</span>
+        <small>Interactive Demo</small>
       </a>
       <div class="topbar-right">
         <span class="status-pill"><span class="pulse"></span> Engine ready</span>
@@ -200,54 +200,54 @@
                   <div class="jena-snippets">
                     <details open>
                       <summary><span>1 · RDF / Turtle</span><code>customer-policy.ttl</code></summary>
-                      <pre class="artifact-code"><code><span class="code-muted">@prefix ax: &lt;https://axiom.example/ontology#&gt; .</span>
+                      <pre class="artifact-code"><code><span class="code-muted">@prefix cro: &lt;https://customer-review-ontology.example/ontology#&gt; .</span>
 
-ax:customer-1001 a ax:Customer ;
-  ax:arBalance 125000.00 ;
-  ax:pastDueAmount 15000.00 ;
-  ax:paymentTerms ax:NET_30 .
+cro:customer-1001 a cro:Customer ;
+  cro:arBalance 125000.00 ;
+  cro:pastDueAmount 15000.00 ;
+  cro:paymentTerms cro:NET_30 .
 
-ax:NET_30_PAST_DUE_MAX_5 a ax:RatioPolicy ;
-  ax:scopePaymentTerms ax:NET_30 ;
-  ax:maxPastDueRatio 0.05 .</code></pre>
+cro:NET_30_PAST_DUE_MAX_5 a cro:RatioPolicy ;
+  cro:scopePaymentTerms cro:NET_30 ;
+  cro:maxPastDueRatio 0.05 .</code></pre>
                     </details>
                     <details>
                       <summary><span>2 · SHACL shape</span><code>customer-policy-shapes.ttl</code></summary>
-                      <pre class="artifact-code"><code>ax:CustomerShape a sh:NodeShape ;
-  sh:targetClass ax:Customer ;
+                      <pre class="artifact-code"><code>cro:CustomerShape a sh:NodeShape ;
+  sh:targetClass cro:Customer ;
   sh:property [
-    sh:path ax:arBalance ;
+    sh:path cro:arBalance ;
     sh:datatype xsd:decimal ;
     sh:minInclusive 0 ;
     sh:minCount 1 ; sh:maxCount 1
   ] ;
   sh:property [
-    sh:path ax:paymentTerms ;
-    sh:in ( ax:NET_15 ax:NET_30
-            ax:NET_45 ax:NET_60 ) ;
+    sh:path cro:paymentTerms ;
+    sh:in ( cro:NET_15 cro:NET_30
+            cro:NET_45 cro:NET_60 ) ;
     sh:minCount 1 ; sh:maxCount 1
   ] .
 
-ax:RatioPolicyShape a sh:NodeShape ;
-  sh:targetClass ax:RatioPolicy ;
+cro:RatioPolicyShape a sh:NodeShape ;
+  sh:targetClass cro:RatioPolicy ;
   sh:property [
-    sh:path ax:scopePaymentTerms ;
-    sh:class ax:PaymentTerms ;
-    sh:in ( ax:NET_15 ax:NET_30
-            ax:NET_45 ax:NET_60 ) ;
+    sh:path cro:scopePaymentTerms ;
+    sh:class cro:PaymentTerms ;
+    sh:in ( cro:NET_15 cro:NET_30
+            cro:NET_45 cro:NET_60 ) ;
     sh:minCount 1 ; sh:maxCount 1
   ] .</code></pre>
                     </details>
                     <details>
                       <summary><span>3 · SPARQL query</span><code>breached-ratio-policies.rq</code></summary>
                       <pre class="artifact-code"><code>SELECT ?customer ?policy ?ratio ?maximum WHERE {
-  ?customer a ax:Customer ;
-    ax:paymentTerms ?terms ;
-    ax:pastDueAmount ?pastDue ;
-    ax:arBalance ?balance .
-  ?policy a ax:RatioPolicy ;
-    ax:scopePaymentTerms ?terms ;
-    ax:maxPastDueRatio ?maximum .
+  ?customer a cro:Customer ;
+    cro:paymentTerms ?terms ;
+    cro:pastDueAmount ?pastDue ;
+    cro:arBalance ?balance .
+  ?policy a cro:RatioPolicy ;
+    cro:scopePaymentTerms ?terms ;
+    cro:maxPastDueRatio ?maximum .
   FILTER (?balance &gt; 0)
   BIND (?pastDue / ?balance AS ?ratio)
   FILTER (?ratio &gt; ?maximum)
@@ -343,7 +343,7 @@ ax:RatioPolicyShape a sh:NodeShape ;
         </details>
 
         <footer class="workspace-footer">
-          <span><b>Axiom</b> / Ontology Policy Demo</span>
+          <span><b>Customer Review Ontology</b> / Interactive Demo</span>
           <span>Deterministic by design <i></i> No customer data transmitted</span>
         </footer>
       </section>

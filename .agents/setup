@@ -4,7 +4,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
-printf '%s\n' 'Preparing the Axiom Policy Reasoner static demo...'
+printf '%s\n' 'Preparing the Customer Review Ontology static demo...'
 
 for required_file in index.html src/ui/app.js styles.css package.json slides/slides.md scripts/build-site.mjs; do
   if [[ ! -f "$required_file" ]]; then

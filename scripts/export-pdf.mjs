@@ -5,7 +5,7 @@ import path from "node:path";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const outputDirectory = path.join(root, "build");
-const output = path.join(outputDirectory, "tds-credit-ontology.pdf");
+const output = path.join(outputDirectory, "customer-review-ontology.pdf");
 await mkdir(outputDirectory, { recursive: true });
 
 const slidev = path.join(root, "node_modules", ".bin", process.platform === "win32" ? "slidev.cmd" : "slidev");

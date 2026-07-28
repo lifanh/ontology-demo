@@ -1,20 +1,20 @@
-@prefix ax:  <https://axiom.example/ontology#> .
+@prefix cro: <https://customer-review-ontology.example/ontology#> .
 
-ax:NET_15 a ax:PaymentTerms .
-ax:NET_30 a ax:PaymentTerms .
-ax:NET_45 a ax:PaymentTerms .
-ax:NET_60 a ax:PaymentTerms .
+cro:NET_15 a cro:PaymentTerms .
+cro:NET_30 a cro:PaymentTerms .
+cro:NET_45 a cro:PaymentTerms .
+cro:NET_60 a cro:PaymentTerms .
 
-ax:customer-1001 a ax:Customer ;
-  ax:customerNumber 1001 ;
-  ax:customerName "Acme Systems Inc." ;
-  ax:arBalance 125000.00 ;
-  ax:pastDueAmount 15000.00 ;
-  ax:averageDaysToPay 28 ;
-  ax:paymentTerms ax:NET_30 ;
-  ax:restrictedStatus ax:NotRestricted .
+cro:customer-1001 a cro:Customer ;
+  cro:customerNumber 1001 ;
+  cro:customerName "Acme Systems Inc." ;
+  cro:arBalance 125000.00 ;
+  cro:pastDueAmount 15000.00 ;
+  cro:averageDaysToPay 28 ;
+  cro:paymentTerms cro:NET_30 ;
+  cro:restrictedStatus cro:NotRestricted .
 
-ax:NET_30_PAST_DUE_MAX_5 a ax:RatioPolicy ;
-  ax:scopePaymentTerms ax:NET_30 ;
-  ax:maxPastDueRatio 0.05 ;
-  ax:unit ax:Ratio .
+cro:NET_30_PAST_DUE_MAX_5 a cro:RatioPolicy ;
+  cro:scopePaymentTerms cro:NET_30 ;
+  cro:maxPastDueRatio 0.05 ;
+  cro:unit cro:Ratio .

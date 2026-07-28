@@ -1,9 +1,9 @@
-# TDS-Credit showcase maintenance
+# Customer Review Ontology showcase maintenance
 
 ## Ownership boundaries
 
-- `index.html`, `styles.css`, `src/`, and `artifacts/` are the independent Axiom browser demo served at `/`.
-- `slides/` is the TDS-Credit Slidev presentation served at `/slides/`.
+- `index.html`, `styles.css`, `src/`, and `artifacts/` are the independent Customer Review Ontology browser demo served at `/`.
+- `slides/` is the Customer Review Ontology Slidev presentation served at `/slides/`.
 - Do not make Slidev import, wrap, or boot the demo. The deck may link to `/` in a new tab.
 - `NEXT_STEPS.md` is the detailed production integration reference. Slides should summarize it, not duplicate it wholesale.
 - `scripts/build-site.mjs` owns the allowlisted deployment assembly. Do not serve the repository root from Cloudflare.
@@ -12,7 +12,7 @@
 
 - Describe the current application as an illustrative static-browser showcase using fictional data and in-memory state.
 - Do not imply that CIS APIs, an external AI model, Jena, SHACL, DMN, Drools/Kogito, or Z3 run in the current browser demo.
-- CIS APIs supply authoritative fact values; TDS-Credit Ontology defines their shared meaning, types, units, provenance, and permitted policy use.
+- CIS APIs supply authoritative fact values; Customer Review Ontology defines their shared meaning, types, units, provenance, and permitted policy use.
 - AI drafts and explains only. Deterministic systems validate, compare, qualify, calculate, and execute. Authorized people and the CIS workflow retain approval and customer-state authority.
 - Do not add timelines, funding requests, compliance claims, or autonomous-decision claims without an explicit maintainer request.
 

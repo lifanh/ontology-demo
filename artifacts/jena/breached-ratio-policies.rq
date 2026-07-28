@@ -1,15 +1,15 @@
-PREFIX ax: <https://axiom.example/ontology#>
+PREFIX cro: <https://customer-review-ontology.example/ontology#>
 
 SELECT ?customer ?policy ?ratio ?maximum
 WHERE {
-  ?customer a ax:Customer ;
-    ax:paymentTerms ?terms ;
-    ax:pastDueAmount ?pastDue ;
-    ax:arBalance ?balance .
+  ?customer a cro:Customer ;
+    cro:paymentTerms ?terms ;
+    cro:pastDueAmount ?pastDue ;
+    cro:arBalance ?balance .
 
-  ?policy a ax:RatioPolicy ;
-    ax:scopePaymentTerms ?terms ;
-    ax:maxPastDueRatio ?maximum .
+  ?policy a cro:RatioPolicy ;
+    cro:scopePaymentTerms ?terms ;
+    cro:maxPastDueRatio ?maximum .
 
   FILTER (?balance > 0)
   BIND (?pastDue / ?balance AS ?ratio)
