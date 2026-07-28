@@ -3,13 +3,16 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=22"
+    "node": ">=24.11 <25"
   },
   "scripts": {
     "test": "npm run test:unit && npm run check && npm run build && npm run test:site",
-    "test:unit": "node --test tests/credit.test.mjs",
+    "test:unit": "vp test --run tests/credit.test.mjs",
     "test:site": "node --test tests/site.test.mjs",
-    "check": "node --check src/core/runtime.js && node --check src/core/authoring.js && node --check src/core/governance.js && node --check src/domains/credit/pack.js && node --check src/ui/app.js && node --check scripts/build-site.mjs && node --check scripts/export-pdf.mjs",
+    "check": "vp check",
+    "lint": "vp lint",
+    "format": "vp fmt",
+    "dev": "vp dev",
     "slides:dev": "slidev slides/slides.md --base /slides/",
     "build": "node scripts/build-site.mjs",
     "preview": "wrangler dev",
@@ -21,7 +24,12 @@
     "@fontsource/manrope": "5.3.0",
     "@slidev/cli": "52.18.0",
     "@slidev/theme-default": "0.25.0",
+    "@voidzero-dev/vite-plus-core": "^0.2.6",
     "playwright-chromium": "1.62.0",
+    "vite-plus": "0.2.6",
     "wrangler": "4.114.0"
+  },
+  "overrides": {
+    "vite": "npm:@voidzero-dev/vite-plus-core@0.2.6"
   }
 }

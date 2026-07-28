@@ -1,5 +1,5 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import { test } from "vite-plus/test";
 import { FactRegistry, createEvaluator, compareBatch } from "../src/core/runtime.js";
 import { parseRule, formatRule } from "../src/core/authoring.js";
 import { Governance } from "../src/core/governance.js";
