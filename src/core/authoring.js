@@ -13,7 +13,7 @@ export function parseRule(source, registry, { root = "subject" } = {}) {
     return definition;
   };
   const parseCondition = text => {
-    const match = text.match(new RegExp(`^${root}\\.([a-z][a-z0-9_]*)\\s*(==|!=|>=|<=|>|<)\\s*(?:\"([^\"\\r\\n]+)\"|(-?\\d+(?:\\.\\d+)?)\\s*([A-Z]+)?)$`));
+    const match = text.match(new RegExp(`^${root}\\.([a-z][a-z0-9_]*)\\s*(==|!=|>=|<=|>|<)\\s*(?:"([^"\\r\\n]+)"|(-?\\d+(?:\\.\\d+)?)\\s*([A-Z]+)?)$`));
     if (!match) throw new Error(`SYNTAX_ERROR\nInvalid scope condition: ${text}`);
     const [, fact, op, stringValue, numericValue, unit] = match;
     const definition = property(fact);

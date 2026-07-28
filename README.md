@@ -1,6 +1,6 @@
 # Axiom Policy Reasoner Demo
 
-A dependency-free static-browser demonstration of ontology-backed credit policy authoring, deterministic evaluation, governance, and portfolio impact analysis. It preserves the original Axiom workshop and checked-in Jena/SHACL, DMN, and Z3 production-artifact explanations while adding a complete in-memory flow.
+A runtime-dependency-free static-browser demonstration of ontology-backed credit policy authoring, deterministic evaluation, governance, and portfolio impact analysis. It preserves the original Axiom workshop and checked-in Jena/SHACL, DMN, and Z3 production-artifact explanations while adding a complete in-memory flow.
 
 ## Capabilities
 
@@ -13,26 +13,29 @@ A dependency-free static-browser demonstration of ontology-backed credit policy 
 
 Everything resets on refresh. There is no backend, persistence, user model, external model call, or automatic mutation of customer state or credit limits.
 
-## Run
+## Toolchain
 
-Serve the repository so native ES modules have an HTTP origin:
+The project uses [Vite+](https://viteplus.dev/) for its Node.js runtime, Vite development, Vitest tests, and Oxlint checks. Node.js `24.18.0` (Krypton LTS) is pinned in `.node-version`; Vite+ installs and selects it automatically. npm is intentionally not version-pinned so deployment platforms can use the npm release they provide for Node.js 24.
+
+Install Vite+, then install this project's dependencies:
 
 ```sh
-python3 -m http.server 8000
+curl -fsSL https://vite.plus | bash
+export PATH="$HOME/.vite-plus/bin:$PATH"
+npm clean-install
 ```
 
-Then open the served `index.html`. No install or build is required.
+Start the demo development server with `vp dev`. The combined production build is assembled separately so the unchanged demo remains at `/` and Slidev is available at `/slides/`.
 
-## Test
+## Validate
 
-Requires Node.js 22 or newer. The repository pins the expected version in `.node-version`:
+Run the complete validation workflow:
 
 ```sh
-npm ci
 npm test
 ```
 
-The test command runs the domain suite, checks the JavaScript entry points, assembles the combined site, verifies that deployed demo files are byte-for-byte copies of their sources, and checks the Slidev output and asset boundary.
+The test command runs the Vitest domain suite, checks the JavaScript sources with Oxlint, assembles the combined site, and verifies the copied demo and Slidev output. Oxfmt remains available through `vp fmt`, but is not part of the default check yet because adopting its formatting across the compact legacy demo would create a large, behavior-neutral rewrite.
 
 ## TDS-Credit Slidev presentation
 

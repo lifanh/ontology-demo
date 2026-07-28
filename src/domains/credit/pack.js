@@ -103,7 +103,7 @@ export const scenarios = {
 export function compileCandidate(ast, revision) {
   const active = activeRules.find(existing => existing.id === ast.id);
   if (!active) throw new Error(`No active logical rule named ${ast.id} can be revised`);
-  const ids = [...ast.scope.map(condition => condition.fact)];
+  const ids = ast.scope.map(condition => condition.fact);
   let when, comparison;
   if (ast.effect.type === "SET_MAX_RATIO") {
     ids.push(ast.effect.numerator, ast.effect.denominator);
