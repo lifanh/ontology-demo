@@ -1,4 +1,4 @@
-const text = (minLength, maxLength) => ({ type: "string", minLength, maxLength, pattern: "^[^<>\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F]*$" });
+const text = (minLength, maxLength) => ({ type: "string", minLength, maxLength, pattern: "^[^\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F]*$" });
 const reference = { type: "string", minLength: 3, maxLength: 180, pattern: "^[A-Za-z0-9_:/@.\\-]+$" };
 const closed = properties => ({ type: "object", additionalProperties: false, required: Object.keys(properties), properties });
 const explanation = closed({

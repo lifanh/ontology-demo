@@ -52,7 +52,7 @@ test("closed request and response schemas reject extras, bounds, markup, and par
     { ...requests.draft_rule, extra: true },
     { ...requests.draft_rule, schemaVersion: "2" },
     { ...requests.draft_rule, policyText: "" },
-    { ...requests.draft_rule, policyText: "<script>not plain text</script>" }
+    { ...requests.draft_rule, policyText: "not plain\u0000text" }
   ]) {
     const response = await call(context, "draft_rule", invalid);
     assert.equal(response.status, 400);

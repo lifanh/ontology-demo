@@ -19,6 +19,8 @@ const unlock = async status => {
   $("#accessGate").classList.add("hidden");
   $("#logoutButton").classList.toggle("hidden", !status.aiEnabled);
   $("#aiStatus").innerHTML = `<span class="pulse"></span>${status.aiEnabled ? `Real ${status.modelDisplayName} calls` : "AI features disabled"}`;
+  document.documentElement.dataset.aiEnabled = String(status.aiEnabled);
+  if (status.aiEnabled) $("#simulateResponse").classList.add("hidden");
   document.querySelector("#reviewView .workspace-header .eyebrow").textContent = status.aiEnabled ? `Illustrative POC · Fictional customer data · Real ${status.modelDisplayName} calls` : "Illustrative POC · Fictional customer data · AI features disabled";
   await import("./app.js");
 };

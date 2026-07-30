@@ -13,7 +13,7 @@ const actionOptions = dispositionActions;
 const dispositionStore = createDispositionStore(sessionStorage);
 const STUDIO_STORAGE_KEY = "customer-review:policy-studio:v1";
 let reviewContext;
-let selected = "ratio5", governance, activeRuleSet, batch, disposition, releaseRuleSets = {};
+let selected = "ratio5", governance, activeRuleSet, batch, disposition, releaseRuleSets = {}, draftRequestVersion = 0;
 
 const labels = { AUTO_REVIEW_PASS: "Auto review pass", NEED_CREDIT_MANAGER_REVIEW: "Credit manager review", REQUEST_UPDATED_FINANCIAL_STATEMENTS: "Request updated financial statements", NEED_TO_RESTRICT: "Restrict customer", NEED_MANUAL_REVIEW: "Manual review", RECOMMEND_CREDIT_LIMIT_REASSESSMENT: "Reassess credit limit" };
 const operator = { "==": "is", "!=": "is not", ">": "is greater than", ">=": "is at least", "<": "is less than", "<=": "is at most" };
@@ -94,6 +94,55 @@ function renderOntology() {
 function promptText() {
   const ontology = Object.entries({ ...properties, ...derived }).map(([id, definition]) => `customer.${id}: ${definition.type}${definition.unit ? ` [${definition.unit}]` : ""}${definition.values ? ` {${definition.values.join("|")}}` : ""}`).join("\n");
   return `MOCKED TRANSLATION PROMPT — non-authoritative\nCreate one draft only. Never validate, calculate, approve, activate, or select a customer action.\n\nONTOLOGY v2.0\n${ontology}\n\nDSL\nRULE <STABLE_ID>\nSCOPE ALL | customer.<property> <operator> <typed value> [AND ...]\nSET_MAX customer.<numeric_property> = <value> [unit]\nSET_MIN customer.<numeric_property> = <value> [unit]\nSET_MAX_RATIO customer.<decimal_property>\n  TO customer.<decimal_property> = <ratio>\nEND\n\nBUSINESS POLICY\n${$("#policyInput").value.trim()}`;
+}
+
+async function generateDraft() {
+  const button = $("#generatePrompt");
+  const requestedRelease = governance.activeRelease.id;
+  const policyText = $("#policyInput").value.trim();
+  const requestVersion = ++draftRequestVersion;
+  const scenario = scenarios[selected];
+  governance.startDraft({ logicalId: scenario.logicalId, revision: (activeRuleSet.find(rule => rule.id === scenario.logicalId)?.revision || scenario.revision - 1) + 1, sourcePolicy: policyText, sourceDsl: "", ast: null });
+  batch = null;
+  disposition = null;
+  button.disabled = true;
+  $("#promptOutput").textContent = "Drafting with GPT-5.6 Luna…";
+  $("#promptSection").classList.remove("hidden");
+  $("#editorSection").classList.add("hidden");
+  $("#resultSection").classList.add("hidden");
+  try {
+    const response = await fetch("/api/ai/draft_rule", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify({ schemaVersion: "1", policyText, activeReleaseId: requestedRelease }) });
+    const payload = await response.json();
+    if (!response.ok) {
+      const failure = new Error(`${payload.error?.message || "Drafting failed"} · ${payload.error?.correlationId || "no correlation ID"}`);
+      failure.retryable = payload.error?.retryable;
+      throw failure;
+    }
+    if (draftRequestVersion !== requestVersion || governance.activeRelease.id !== requestedRelease || $("#policyInput").value.trim() !== policyText) throw new Error("The policy intent or active Demo Release changed while drafting. Retry against the current state.");
+    const result = payload.result;
+    $("#draftBadge").textContent = result.outcome.replaceAll("_", " ");
+    if (result.outcome === "CANDIDATE") {
+      $("#promptOutput").textContent = result.summary;
+      $("#dslInput").value = result.dsl;
+      const activeRevision = activeRuleSet.find(rule => rule.id === result.family)?.revision;
+      if (!Number.isInteger(activeRevision)) throw new Error("The candidate family is not present in the active Demo Release.");
+      selected = result.family === "NET30_PAST_DUE_MAX" ? "ratio5" : "adp20";
+      document.querySelectorAll(".scenario").forEach(item => item.classList.toggle("active", item.dataset.scenario === selected));
+      governance.startDraft({ logicalId: result.family, revision: activeRevision + 1, sourcePolicy: policyText, sourceDsl: result.dsl, ast: null });
+      batch = null;
+      disposition = null;
+      $("#editorSection").classList.remove("hidden");
+      setProgress(3);
+    } else if (result.outcome === "NEEDS_CLARIFICATION") {
+      $("#promptOutput").textContent = `${result.question}\n\nMissing: ${result.missingFields.join(", ")}`;
+    } else {
+      $("#promptOutput").textContent = result.summary;
+    }
+  } catch (error) {
+    $("#draftBadge").textContent = "Draft unavailable";
+    $("#promptOutput").textContent = error instanceof Error ? error.message : "Drafting failed";
+    button.textContent = error?.retryable ? "Retry draft candidate →" : "Draft candidate →";
+  } finally { button.disabled = false; }
 }
 
 function updateDraft(changes) {
@@ -184,6 +233,7 @@ function renderGovernance(message = "") {
 }
 
 function setScenario(id, { resetReleases = false } = {}) {
+  draftRequestVersion += 1;
   selected = id;
   const scenario = scenarios[selected], sourceDsl = formatRule(scenario.ast, { root: "customer" });
   if (!governance || resetReleases) resetState();
@@ -214,7 +264,10 @@ document.addEventListener("click", event => {
   }
   const scenario = event.target.closest(".scenario");
   if (scenario) setScenario(scenario.dataset.scenario);
-  if (event.target.closest("#generatePrompt")) { $("#promptOutput").textContent = promptText(); $("#promptSection").classList.remove("hidden"); setProgress(2); }
+  if (event.target.closest("#generatePrompt")) {
+    if (document.documentElement.dataset.aiEnabled === "true") generateDraft();
+    else { $("#promptOutput").textContent = promptText(); $("#promptSection").classList.remove("hidden"); $("#simulateResponse").classList.remove("hidden"); setProgress(2); }
+  }
   if (event.target.closest("#simulateResponse")) { const sourceDsl = formatRule(scenarios[selected].ast, { root: "customer" }); $("#dslInput").value = sourceDsl; updateDraft({ sourceDsl, ast: null }); $("#editorSection").classList.remove("hidden"); setProgress(3); }
   if (event.target.closest("#validateButton")) {
     try {
@@ -278,13 +331,14 @@ document.addEventListener("click", event => {
 });
 
 $("#releaseSelector").addEventListener("change", event => {
+  draftRequestVersion += 1;
   governance.selectRelease(event.target.value);
   activeRuleSet = releaseRuleSets[governance.activeRelease.id] || activeRules;
   persistStudio();
   renderReview(narrativeCustomers.find(item => item.customer_number === reviewContext.customerNumber));
 });
 
-$("#policyInput").addEventListener("input", () => { updateDraft({ sourcePolicy: $("#policyInput").value, ast: null }); persistStudio(); $("#charCount").textContent = `${$("#policyInput").value.length} characters`; if (!$("#resultSection").classList.contains("hidden")) renderGovernance("Business-intent edit created or updated a draft; regenerate and validate its executable DSL."); });
+$("#policyInput").addEventListener("input", () => { draftRequestVersion += 1; updateDraft({ sourcePolicy: $("#policyInput").value, ast: null }); persistStudio(); $("#charCount").textContent = `${$("#policyInput").value.length} characters`; if (!$("#resultSection").classList.contains("hidden")) renderGovernance("Business-intent edit created or updated a draft; regenerate and validate its executable DSL."); });
 $("#dslInput").addEventListener("input", () => { updateDraft({ sourceDsl: $("#dslInput").value, ast: null }); persistStudio(); if (!$("#resultSection").classList.contains("hidden")) renderGovernance("DSL edit created or updated a draft revision; prior evidence is stale."); });
 $("#copyPrompt").addEventListener("click", async () => { try { await navigator.clipboard.writeText($("#promptOutput").textContent); showToast("Prompt copied"); } catch { showToast("Select the prompt text to copy"); } });
 document.querySelectorAll("[data-view]").forEach(button => button.addEventListener("click", () => {
