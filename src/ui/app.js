@@ -1,7 +1,7 @@
-import { createEvaluator, compareBatch } from "../core/runtime.js";
+import { createEvaluator, assessReviewImpact } from "../core/runtime.js";
 import { parseRule, formatRule } from "../core/authoring.js";
 import { Governance, STATES } from "../core/governance.js";
-import { properties, derived, registry, creditPack, activeRules, compileCandidate, analyzeCandidate, nextReleaseId, scenarios, fixtures, narrativeCustomers, eligibleEvidenceTools, demoCustomer, release } from "../domains/credit/pack.js";
+import { properties, derived, registry, creditPack, activeRules, compileCandidate, analyzeCandidate, nextReleaseId, scenarios, narrativeCustomers, policyImpactCohort, eligibleEvidenceTools, demoCustomer, release } from "../domains/credit/pack.js";
 import { createDispositionStore, dispositionActions } from "../domains/credit/dispositions.js";
 
 const $ = selector => document.querySelector(selector);
@@ -125,11 +125,22 @@ function singleResult() {
 
 function renderBatch() {
   const summary = batch.summary;
-  const rows = batch.rows.map(row => row.error
-    ? `<tr class="batch-error"><td>${escapeHtml(row.customer.name)}</td><td colspan="3"><b>Evaluation error:</b> ${escapeHtml(row.error)}</td></tr>`
-    : `<tr><td><details><summary>${escapeHtml(row.customer.name)}</summary><pre>${escapeHtml(JSON.stringify({ baseline: row.baseline.findings, candidate: row.candidate.findings, action: row.candidate.action, calculation: row.candidate.calculation }, null, 2))}</pre></details></td><td>${escapeHtml(row.baseline.action.primary)}<br>${money(row.baseline.calculation.recommended)}</td><td>${escapeHtml(row.candidate.action.primary)}<br>${money(row.candidate.calculation.recommended)}</td><td>+ ${escapeHtml(row.added.join(", ") || "none")}<br>− ${escapeHtml(row.resolved.join(", ") || "none")}</td></tr>`).join("");
+  const metrics = [
+    ["Newly Required Reviews", summary.newlyRequiredReviews],
+    ["Reviews Cleared", summary.reviewsCleared],
+    ["Changed Primary Actions", summary.changedPrimaryActions],
+    ["Added Findings", summary.addedFindings],
+    ["Resolved Findings", summary.resolvedFindings],
+    ["Complete", summary.complete ? "Yes" : "No"],
+    ["Indeterminate Evaluations", summary.indeterminateEvaluations],
+    ["Errors", summary.errors],
+    ["Cohort Size", summary.evaluated]
+  ];
+  const rows = batch.changedRows.map(row => row.error
+    ? `<tr class="batch-error"><td>${escapeHtml(row.label)}</td><td colspan="3"><b>Evaluation error:</b> ${escapeHtml(row.error)}</td></tr>`
+    : `<tr><td>${escapeHtml(row.label)}</td><td>${escapeHtml(labels[row.baselineAction] || row.baselineAction)}</td><td>${escapeHtml(labels[row.candidateAction] || row.candidateAction)}</td><td><b>Added:</b> ${row.addedFindingDetails.map(item => `${escapeHtml(item.policyTitle)} <small>(${escapeHtml(item.reasonCode)})</small>`).join(" · ") || "none"}<br><b>Resolved:</b> ${row.resolvedFindingDetails.map(item => `${escapeHtml(item.policyTitle)} <small>(${escapeHtml(item.reasonCode)})</small>`).join(" · ") || "none"}<br><small>${row.evidenceRefs.map(escapeHtml).join(" · ")}</small></td></tr>`).join("");
   const baselineReleaseId = governance.evidence.batch?.releaseId || governance.activeRelease.id;
-  return `<section class="batch-panel"><p class="eyebrow">Portfolio comparison · same evaluator · baseline ${escapeHtml(baselineReleaseId)}</p><h3>Candidate impact batch</h3><div class="metric-grid">${Object.entries(summary).map(([key, value]) => `<div><small>${escapeHtml(key)}</small><b>${key.toLowerCase().includes("delta") ? money(value) : escapeHtml(value)}</b></div>`).join("")}</div><div class="batch-table"><table><thead><tr><th>Customer</th><th>Baseline action / limit</th><th>Candidate action / limit</th><th>Finding changes</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
+  return `<section class="batch-panel"><p class="eyebrow">Deterministic Review impact · illustrative Policy Impact Cohort · baseline ${escapeHtml(baselineReleaseId)}</p><h3>${escapeHtml(batch.headline)}</h3><p>Compared with the active release in this illustrative ${summary.evaluated}-record cohort.</p><div class="metric-grid">${metrics.map(([label, value]) => `<div><small>${escapeHtml(label)}</small><b>${escapeHtml(value)}</b></div>`).join("")}</div><div class="batch-table"><table><thead><tr><th>Record</th><th>Baseline action</th><th>Candidate action</th><th>Finding changes and evidence</th></tr></thead><tbody>${rows}</tbody></table></div><details><summary>Show all ${summary.evaluated}</summary><pre>${escapeHtml(JSON.stringify(batch.rows, null, 2))}</pre></details></section>`;
 }
 
 function renderGovernance(message = "") {
@@ -194,10 +205,10 @@ document.addEventListener("click", event => {
   if (event.target.closest("#runBatch")) {
     try {
       const candidateSet = candidateRules();
-      const candidateBatch = compareBatch(fixtures, customer => evaluate(customer, activeRuleSet, governance.activeRelease), customer => evaluate(customer, candidateSet, candidateRelease(candidateSet)));
+      const candidateBatch = assessReviewImpact(policyImpactCohort, customer => evaluate(customer, activeRuleSet, governance.activeRelease), customer => evaluate(customer, candidateSet, candidateRelease(candidateSet)));
       governance.record("batch", candidateBatch);
       batch = candidateBatch;
-      renderGovernance(candidateBatch.complete ? "Current revision/current release batch passed." : "Batch has blocking errors or applicable indeterminate results.");
+      renderGovernance(candidateBatch.summary.complete ? "Review impact assessment complete." : "Impact assessment incomplete: errors or indeterminate evaluations block a definitive result.");
     } catch (error) { renderGovernance(error.message); }
   }
   if (event.target.closest("#publish")) {

@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "vite-plus/test";
-import { FactRegistry, createEvaluator, compareBatch } from "../src/core/runtime.js";
+import { FactRegistry, createEvaluator, compareBatch, assessReviewImpact } from "../src/core/runtime.js";
 import { parseRule, formatRule } from "../src/core/authoring.js";
 import { Governance } from "../src/core/governance.js";
-import { registry, creditPack, fixtures, narrativeCustomers, eligibleEvidenceTools, activeRules, compileCandidate, analyzeCandidate, nextReleaseId, scenarios, release } from "../src/domains/credit/pack.js";
+import { registry, creditPack, fixtures, narrativeCustomers, policyImpactCohort, eligibleEvidenceTools, activeRules, compileCandidate, analyzeCandidate, nextReleaseId, scenarios, release } from "../src/domains/credit/pack.js";
 import { createDisposition, createDispositionStore } from "../src/domains/credit/dispositions.js";
 
 const evaluate = createEvaluator(creditPack);
@@ -302,6 +302,55 @@ test("batch retains successful rows and blocks on evaluator errors", () => {
   assert.equal(batch.summary.errors, 1);
   assert.equal(batch.complete, false);
   assert.match(batch.rows[1].error, /fixture failure/);
+});
+
+test("Policy Impact Cohort is a separate exact 12-record boundary set", () => {
+  assert.equal(policyImpactCohort.id, "illustrative-policy-impact-1");
+  assert.deepEqual(policyImpactCohort.records.map(({ customer_number, name, past_due_amount, adp_days }) => [customer_number, name, past_due_amount, adp_days]), [
+    [3001, "Impact NET30 4%", 4000, 25], [3002, "Impact NET30 5%", 5000, 25], [3003, "Impact NET30 6%", 6000, 25],
+    [3004, "Impact NET30 7%", 7000, 25], [3005, "Impact NET30 8%", 8000, 25], [3006, "Impact NET30 9%", 9000, 25],
+    [3007, "Impact ADP 20", 0, 20], [3008, "Impact ADP 22", 0, 22], [3009, "Impact ADP 24", 0, 24],
+    [3010, "Impact ADP 25", 0, 25], [3011, "Impact ADP 26", 0, 26], [3012, "Impact ADP 28", 0, 28]
+  ]);
+  assert.ok(policyImpactCohort.records.every(record => !fixtures.includes(record) && !narrativeCustomers.includes(record)));
+});
+
+test("Review impact reports exact NET 30 equality boundaries and changed evidence", () => {
+  const replacement = compileCandidate(scenarios.ratio5.ast, scenarios.ratio5.revision);
+  const candidate = activeRules.map(rule => rule.id === replacement.id ? replacement : rule);
+  const result = assessReviewImpact(policyImpactCohort, value => evaluate(value), value => evaluate(value, candidate, candidateRelease(candidate)));
+  assert.deepEqual(result.summary, { cohortId: "illustrative-policy-impact-1", evaluated: 12, newlyRequiredReviews: 3, reviewsCleared: 0, changedPrimaryActions: 3, addedFindings: 3, resolvedFindings: 0, indeterminateEvaluations: 0, errors: 0, complete: true });
+  assert.equal(result.headline, "3 additional records require review");
+  assert.deepEqual(result.changedRows.map(row => [row.customerId, row.label, row.baselineAction, row.candidateAction, row.addedFindings]), [
+    [3003, "Impact NET30 6%", "AUTO_REVIEW_PASS", "NEED_MANUAL_REVIEW", ["NET30_PAST_DUE_LIMIT_EXCEEDED"]],
+    [3004, "Impact NET30 7%", "AUTO_REVIEW_PASS", "NEED_MANUAL_REVIEW", ["NET30_PAST_DUE_LIMIT_EXCEEDED"]],
+    [3005, "Impact NET30 8%", "AUTO_REVIEW_PASS", "NEED_MANUAL_REVIEW", ["NET30_PAST_DUE_LIMIT_EXCEEDED"]]
+  ]);
+  assert.ok(result.changedRows.every(row => row.evidenceRefs.length === 1 && row.evidenceRefs[0].includes("/NET30_PAST_DUE_MAX@5")));
+  assert.ok(result.rows.every(row => row.baselineCalculation === "NO_CHANGE_RECOMMENDED" && row.candidateCalculation === "NO_CHANGE_RECOMMENDED"));
+});
+
+test("Review impact reports exact high-balance ADP equality boundaries", () => {
+  const replacement = compileCandidate(scenarios.adp20.ast, scenarios.adp20.revision);
+  const candidate = activeRules.map(rule => rule.id === replacement.id ? replacement : rule);
+  const result = assessReviewImpact(policyImpactCohort, value => evaluate(value), value => evaluate(value, candidate, candidateRelease(candidate)));
+  assert.deepEqual(result.changedRows.map(row => row.customerId), [3008, 3009, 3010]);
+  assert.deepEqual(result.summary, { cohortId: "illustrative-policy-impact-1", evaluated: 12, newlyRequiredReviews: 3, reviewsCleared: 0, changedPrimaryActions: 3, addedFindings: 3, resolvedFindings: 0, indeterminateEvaluations: 0, errors: 0, complete: true });
+  assert.ok(result.rows.every(row => row.baselineCalculation === "NO_CHANGE_RECOMMENDED" && row.candidateCalculation === "NO_CHANGE_RECOMMENDED"));
+});
+
+test("incomplete Review impact never produces a definitive headline", () => {
+  const result = assessReviewImpact({ id: "illustrative-policy-impact-1", records: policyImpactCohort.records.slice(0, 2) }, value => evaluate(value), value => {
+    if (value.customer_number === 3001) throw new Error("candidate unavailable");
+    return evaluate({ ...value, adp_days: null });
+  });
+  assert.deepEqual([result.summary.errors, result.summary.indeterminateEvaluations, result.summary.complete], [1, 1, false]);
+  assert.equal(result.headline, "Impact assessment incomplete");
+});
+
+test("complete Review impact qualifies a no-boundary-change headline", () => {
+  const result = assessReviewImpact(policyImpactCohort, value => evaluate(value), value => evaluate(value));
+  assert.equal(result.headline, "No records cross the automatic-review boundary. Findings or review paths may still have changed.");
 });
 
 test("parsed threshold controls candidate evaluation and analysis", () => {

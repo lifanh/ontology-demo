@@ -150,3 +150,50 @@ export function compareBatch(fixtures, evaluateBaseline, evaluateCandidate) {
   };
   return { rows, summary, complete: summary.errors === 0 && summary.indeterminate === 0 };
 }
+
+export function assessReviewImpact(cohort, evaluateBaseline, evaluateCandidate) {
+  const comparison = compareBatch(cohort.records, evaluateBaseline, evaluateCandidate);
+  const indeterminateEvaluations = comparison.rows.filter(row => !row.error && (row.candidate.traces.some(trace => trace.outcome === "INDETERMINATE") || row.candidate.calculation.status === "INDETERMINATE")).length;
+  const complete = comparison.summary.errors === 0 && indeterminateEvaluations === 0;
+  const summary = {
+    cohortId: cohort.id,
+    evaluated: comparison.summary.evaluated,
+    newlyRequiredReviews: comparison.summary.newlyReviewed,
+    reviewsCleared: comparison.summary.cleared,
+    changedPrimaryActions: comparison.summary.changedPrimaryAction,
+    addedFindings: comparison.summary.addedFindings,
+    resolvedFindings: comparison.summary.resolvedFindings,
+    indeterminateEvaluations,
+    errors: comparison.summary.errors,
+    complete
+  };
+  const rows = comparison.rows.map(row => {
+    const base = { customerId: row.customer.customer_number, label: row.customer.name };
+    if (row.error) return { ...base, error: row.error, addedFindings: [], resolvedFindings: [], evidenceRefs: [] };
+    const changedCodes = new Set([...row.added, ...row.resolved]);
+    const findingChanges = (result, codes) => codes.map(reasonCode => {
+      const trace = result.findings.find(item => item.finding.reasonCode === reasonCode);
+      return { reasonCode, policyTitle: trace.policy.title, evidenceRef: trace.evaluationRef };
+    });
+    return {
+      ...base,
+      baselineAction: row.baseline.action.primary,
+      candidateAction: row.candidate.action.primary,
+      addedFindings: row.added,
+      resolvedFindings: row.resolved,
+      addedFindingDetails: findingChanges(row.candidate, row.added),
+      resolvedFindingDetails: findingChanges(row.baseline, row.resolved),
+      evidenceRefs: [...row.baseline.traces, ...row.candidate.traces].filter(trace => trace.finding && changedCodes.has(trace.finding.reasonCode)).map(trace => trace.evaluationRef).filter((value, index, values) => values.indexOf(value) === index),
+      baselineCalculation: row.baseline.calculation.status,
+      candidateCalculation: row.candidate.calculation.status,
+      indeterminate: row.candidate.traces.some(trace => trace.outcome === "INDETERMINATE") || row.candidate.calculation.status === "INDETERMINATE"
+    };
+  });
+  const changedRows = rows.filter(row => row.error || row.indeterminate || row.baselineAction !== row.candidateAction || row.addedFindings.length || row.resolvedFindings.length);
+  const headline = !complete ? "Impact assessment incomplete"
+    : summary.newlyRequiredReviews && summary.reviewsCleared ? `${summary.newlyRequiredReviews} records enter review; ${summary.reviewsCleared} ${summary.reviewsCleared === 1 ? "leaves" : "leave"} review`
+      : summary.newlyRequiredReviews ? `${summary.newlyRequiredReviews} additional records require review`
+        : summary.reviewsCleared ? `${summary.reviewsCleared} records no longer require review`
+          : "No records cross the automatic-review boundary. Findings or review paths may still have changed.";
+  return deepFreeze({ summary, headline, changedRows, rows, complete });
+}

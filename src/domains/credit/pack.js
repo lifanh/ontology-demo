@@ -112,6 +112,7 @@ const adpAst = (id, value) => ({ id, scope: [{ fact: "restricted_status", op: "=
 export const scenarios = {
   ratio5: { policy: "Customers with NET 30 payment terms cannot have more than 5% of their AR balance past due.", logicalId: "NET30_PAST_DUE_MAX", revision: 5, ast: ratioAst("NET30_PAST_DUE_MAX", .05) },
   ratio15: { policy: "Customers with NET 30 payment terms may have up to 15% of their AR balance past due.", logicalId: "NET30_PAST_DUE_MAX", revision: 5, ast: ratioAst("NET30_PAST_DUE_MAX", .15) },
+  adp20: { policy: "For unrestricted customers with AR above $100,000, allow Average Days to Pay up to 20 days.", logicalId: "HIGH_BALANCE_ADP_MAX", revision: 3, ast: adpAst("HIGH_BALANCE_ADP_MAX", 20) },
   adp45: { policy: "For unrestricted customers with AR above $100,000, allow Average Days to Pay up to 45 days.", logicalId: "HIGH_BALANCE_ADP_MAX", revision: 3, ast: adpAst("HIGH_BALANCE_ADP_MAX", 45) }
 };
 
@@ -168,6 +169,15 @@ export const narrativeCustomers = [
   fixture(2003, "Meridian Industrial", { ar_balance: 40000, past_due_amount: 1000, credit_limit: 90000, payment_terms: "NET_30", net_sales_180d: 540000, net_sales_360d: 960000, financial_statement_status: "STALE" }),
   fixture(2004, "Ironclad Manufacturing", { ar_balance: 100000, past_due_amount: 20000, credit_limit: 100000, payment_terms: "NET_45", net_sales_180d: 540000, net_sales_360d: 960000, ebitda: -10000, net_income: -20000, operating_cash_flow: -50000, current_ratio: .8, debt_to_equity_ratio: 4 })
 ];
+
+// Fixed fictional boundary records for Review impact only. This cohort is not
+// the regression corpus, the Narrative Customer set, or a production portfolio.
+const impactNet30 = (id, percent) => fixture(id, `Impact NET30 ${percent}%`, { ar_balance: 100000, past_due_amount: percent * 1000, adp_days: 25, credit_limit: 60000, payment_terms: "NET_30", net_sales_180d: 300000, net_sales_360d: 600000 });
+const impactAdp = (id, days) => fixture(id, `Impact ADP ${days}`, { ar_balance: 120000, past_due_amount: 0, adp_days: days, credit_limit: 60000, payment_terms: "NET_45", net_sales_180d: 198000, net_sales_360d: 396000 });
+export const policyImpactCohort = Object.freeze({
+  id: "illustrative-policy-impact-1",
+  records: Object.freeze([impactNet30(3001, 4), impactNet30(3002, 5), impactNet30(3003, 6), impactNet30(3004, 7), impactNet30(3005, 8), impactNet30(3006, 9), impactAdp(3007, 20), impactAdp(3008, 22), impactAdp(3009, 24), impactAdp(3010, 25), impactAdp(3011, 26), impactAdp(3012, 28)].map(Object.freeze))
+});
 
 const toolsByReason = Object.freeze({
   GLOBAL_PAST_DUE_LIMIT_EXCEEDED: ["get_payment_history", "get_open_disputes"],
