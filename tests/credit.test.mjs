@@ -3,7 +3,7 @@ import { test } from "vite-plus/test";
 import { FactRegistry, createEvaluator, compareBatch } from "../src/core/runtime.js";
 import { parseRule, formatRule } from "../src/core/authoring.js";
 import { Governance } from "../src/core/governance.js";
-import { registry, creditPack, fixtures, activeRules, compileCandidate, analyzeCandidate, nextReleaseId, scenarios, release } from "../src/domains/credit/pack.js";
+import { registry, creditPack, fixtures, narrativeCustomers, eligibleEvidenceTools, activeRules, compileCandidate, analyzeCandidate, nextReleaseId, scenarios, release } from "../src/domains/credit/pack.js";
 
 const evaluate = createEvaluator(creditPack);
 const customer = changes => ({ ...fixtures[0], ...changes });
@@ -186,6 +186,36 @@ test("declarative migration preserves all regression fixture outcomes and action
     return [value.customer_number, result.traces.map(trace => trace.outcome), result.action.primary];
   }), expected);
   for (const value of fixtures) assert.deepEqual(evaluate(value).traces.map(trace => trace.outcome), legacyOutcomes(value));
+});
+
+test("Narrative Customers match the exact deterministic review matrix", () => {
+  assert.equal(fixtures.length, 13);
+  assert.deepEqual(narrativeCustomers.map(({ customer_number, name }) => [customer_number, name]), [[2001, "Northwind Components"], [2002, "Cascade Freight"], [2003, "Meridian Industrial"], [2004, "Ironclad Manufacturing"]]);
+  const sourceIds = ["customer_number","name","ar_balance","past_due_amount","adp_days","credit_limit","payment_terms","restricted_status","discontinued_status","annual_revenue","ebitda","net_income","operating_cash_flow","current_ratio","debt_to_equity_ratio","financial_statement_status","net_sales_180d","net_sales_360d"];
+  assert.deepEqual(narrativeCustomers.map(value => sourceIds.map(id => value[id])), [
+    [2001,"Northwind Components",40000,0,25,60000,"NET_30","N","N",2400000,240000,96000,180000,1.6,1.2,"CURRENT",300000,600000],
+    [2002,"Cascade Freight",100000,18000,25,100000,"NET_30","N","N",2400000,240000,96000,180000,1.6,1.2,"CURRENT",1080000,2160000],
+    [2003,"Meridian Industrial",40000,1000,25,90000,"NET_30","N","N",2400000,240000,96000,180000,1.6,1.2,"STALE",540000,960000],
+    [2004,"Ironclad Manufacturing",100000,20000,25,100000,"NET_45","N","N",2400000,-10000,-20000,-50000,.8,4,"CURRENT",540000,960000]
+  ]);
+  const expected = [
+    { derived: [50000,50000,50000,1,0,2/3,.1,.04,.075,30], outcomes: ["PASS","PASS","PASS","NOT_APPLICABLE","PASS","PASS"], reasons: [], calculation: ["NO_CHANGE_RECOMMENDED",60000], action: ["AUTO_REVIEW_PASS",[]], tools: [] },
+    { derived: [180000,180000,180000,1,.18,1,.1,.04,.075,30], outcomes: ["FINDING","FINDING","PASS","NOT_APPLICABLE","PASS","PASS"], reasons: ["GLOBAL_PAST_DUE_LIMIT_EXCEEDED","NET30_PAST_DUE_LIMIT_EXCEEDED"], calculation: ["NO_CHANGE_RECOMMENDED",100000], action: ["NEED_CREDIT_MANAGER_REVIEW",["NEED_MANUAL_REVIEW"]], tools: ["get_payment_history","get_open_disputes"] },
+    { derived: [90000,80000,90000,1.125,.025,4/9,.1,.04,.075,30], outcomes: ["PASS","PASS","PASS","NOT_APPLICABLE","FINDING","PASS"], reasons: ["UPDATED_FINANCIALS_REQUIRED"], calculation: ["BLOCKED_FINANCIALS_REQUIRED",null], action: ["REQUEST_UPDATED_FINANCIAL_STATEMENTS",[]], tools: [] },
+    { derived: [90000,80000,90000,1.125,.2,1,-10000/2400000,-20000/2400000,-50000/2400000,45], outcomes: ["FINDING","NOT_APPLICABLE","PASS","NOT_APPLICABLE","PASS","FINDING"], reasons: ["GLOBAL_PAST_DUE_LIMIT_EXCEEDED","CRITICAL_RESTRICTION_TRIGGER"], calculation: ["CALCULATED",75000], action: ["NEED_TO_RESTRICT",["NEED_MANUAL_REVIEW","RECOMMEND_CREDIT_LIMIT_REASSESSMENT"]], tools: ["get_payment_history","get_open_disputes","get_recent_orders"] }
+  ];
+  const derivedIds = ["monthly_net_sales_180d","monthly_net_sales_360d","monthly_net_sales_run_rate","net_sales_trend_ratio","past_due_ratio","credit_utilization","ebitda_margin","net_income_margin","operating_cash_flow_margin","payment_term_days"];
+  narrativeCustomers.forEach((value, index) => {
+    assert.equal(Object.keys(value).length, 18);
+    const context = registry.context(value), result = evaluate(value), expectation = expected[index];
+    derivedIds.forEach((id, derivedIndex) => assert.ok(Math.abs(context.get(id) - expectation.derived[derivedIndex]) < Number.EPSILON * 4, `${value.name} ${id}`));
+    assert.deepEqual(result.traces.map(trace => trace.outcome), expectation.outcomes);
+    assert.deepEqual(result.findings.map(trace => trace.finding.reasonCode), expectation.reasons);
+    assert.deepEqual([result.calculation.status, result.calculation.recommended], expectation.calculation);
+    assert.deepEqual([result.action.primary, result.action.supporting], expectation.action);
+    assert.deepEqual(eligibleEvidenceTools(result.findings), expectation.tools);
+  });
+  assert.equal(evaluate(narrativeCustomers[3]).calculation.delta, -25000);
 });
 
 test("candidate evaluation rejects release provenance that omits its revision", () => {

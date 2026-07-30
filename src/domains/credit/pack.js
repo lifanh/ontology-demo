@@ -160,5 +160,22 @@ export const fixtures = [
   fixture(1009, "Large Missing", { credit_limit: 75000, financial_statement_status: "MISSING" }), fixture(1010, "Large Stale", { credit_limit: 90000, financial_statement_status: "STALE" }), fixture(1011, "Large Current", { credit_limit: 90000 }),
   fixture(1012, "Adverse Financials", { past_due_amount: 6000, operating_cash_flow: -50000, current_ratio: .8, debt_to_equity_ratio: 4, ebitda: -10000, net_income: -20000 }), fixture(1013, "Optional Financial Inputs Unavailable", { credit_limit: 40000, financial_statement_status: "MISSING", net_sales_180d: null })
 ];
+// Deliberately engineered fictional records for the guided product story. These
+// supplement the regression corpus above and must not be used as a portfolio.
+export const narrativeCustomers = [
+  fixture(2001, "Northwind Components", { ar_balance: 40000, past_due_amount: 0, credit_limit: 60000, payment_terms: "NET_30", net_sales_180d: 300000, net_sales_360d: 600000 }),
+  fixture(2002, "Cascade Freight", { ar_balance: 100000, past_due_amount: 18000, credit_limit: 100000, payment_terms: "NET_30", net_sales_180d: 1080000, net_sales_360d: 2160000 }),
+  fixture(2003, "Meridian Industrial", { ar_balance: 40000, past_due_amount: 1000, credit_limit: 90000, payment_terms: "NET_30", net_sales_180d: 540000, net_sales_360d: 960000, financial_statement_status: "STALE" }),
+  fixture(2004, "Ironclad Manufacturing", { ar_balance: 100000, past_due_amount: 20000, credit_limit: 100000, payment_terms: "NET_45", net_sales_180d: 540000, net_sales_360d: 960000, ebitda: -10000, net_income: -20000, operating_cash_flow: -50000, current_ratio: .8, debt_to_equity_ratio: 4 })
+];
+
+const toolsByReason = Object.freeze({
+  GLOBAL_PAST_DUE_LIMIT_EXCEEDED: ["get_payment_history", "get_open_disputes"],
+  NET30_PAST_DUE_LIMIT_EXCEEDED: ["get_payment_history", "get_open_disputes"],
+  CRITICAL_RESTRICTION_TRIGGER: ["get_payment_history", "get_open_disputes", "get_recent_orders"]
+});
+export function eligibleEvidenceTools(findings) {
+  return [...new Set(findings.flatMap(finding => toolsByReason[finding.finding?.reasonCode] || []))];
+}
 export const demoCustomer = fixture(1001, "Acme Systems Inc.", { ar_balance: 125000, past_due_amount: 15000, credit_limit: 200000, net_sales_180d: 1200000, net_sales_360d: 2100000 });
 export const creditPack = { registry, rules: activeRules, calculator, resolveAction, resolverVersion: "credit-actions-1.0", release };

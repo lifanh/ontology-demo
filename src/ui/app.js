@@ -1,14 +1,34 @@
 import { createEvaluator, compareBatch } from "../core/runtime.js";
 import { parseRule, formatRule } from "../core/authoring.js";
 import { Governance, STATES } from "../core/governance.js";
-import { properties, derived, registry, creditPack, activeRules, compileCandidate, analyzeCandidate, nextReleaseId, scenarios, fixtures, demoCustomer, release } from "../domains/credit/pack.js";
+import { properties, derived, registry, creditPack, activeRules, compileCandidate, analyzeCandidate, nextReleaseId, scenarios, fixtures, narrativeCustomers, eligibleEvidenceTools, demoCustomer, release } from "../domains/credit/pack.js";
 
 const $ = selector => document.querySelector(selector);
 const escapeHtml = value => String(value ?? "—").replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
 const money = value => value == null ? "—" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
+const number = value => new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value);
 const evaluate = createEvaluator(creditPack);
 const actionOptions = ["AUTO_REVIEW_PASS", "REQUEST_UPDATED_FINANCIAL_STATEMENTS", "NEED_MANUAL_REVIEW", "NEED_CREDIT_MANAGER_REVIEW", "RECOMMEND_CREDIT_LIMIT_REASSESSMENT", "NEED_TO_RESTRICT"];
 let selected = "ratio5", governance, activeRuleSet, batch, disposition;
+
+const labels = { AUTO_REVIEW_PASS: "Auto review pass", NEED_CREDIT_MANAGER_REVIEW: "Credit manager review", REQUEST_UPDATED_FINANCIAL_STATEMENTS: "Request updated financial statements", NEED_TO_RESTRICT: "Restrict customer", NEED_MANUAL_REVIEW: "Manual review", RECOMMEND_CREDIT_LIMIT_REASSESSMENT: "Reassess credit limit" };
+const operator = { "==": "is", "!=": "is not", ">": "is greater than", ">=": "is at least", "<": "is less than", "<=": "is at most" };
+const narrativeBands = ["Green", "Yellow", "Orange", "Red"];
+
+function renderReview(customer = narrativeCustomers[0]) {
+  const result = evaluate(customer);
+  const tools = eligibleEvidenceTools(result.findings);
+  document.querySelectorAll("[data-customer]").forEach(button => {
+    const selected = Number(button.dataset.customer) === customer.customer_number;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-pressed", String(selected));
+  });
+  $("#customerSummary").textContent = `Customer ${customer.customer_number} · ${customer.payment_terms.replace("_", " ")} · ${money(customer.credit_limit)} credit limit`;
+  $("#actionOutput").innerHTML = `<p class="eyebrow">Deterministic · Demo Release ${escapeHtml(result.release.id)}</p><h2 id="actionTitle">${escapeHtml(labels[result.action.primary] || result.action.primary)}</h2><div class="reason-codes"><b>Reason codes</b> ${result.action.basedOn.map(escapeHtml).join(" · ") || "No findings"}</div>${result.action.supporting.length ? `<p><b>Supporting:</b> ${result.action.supporting.map(value => escapeHtml(labels[value] || value)).join(" · ")}</p>` : ""}`;
+  $("#traceOutput").innerHTML = result.traces.map(trace => `<article class="trace-card ${trace.outcome.toLowerCase().replace("_", "-")}"><header><div><p class="eyebrow">${escapeHtml(trace.outcome.replace("_", " "))}</p><h3>${escapeHtml(trace.policy.title)}</h3></div><code>${escapeHtml(trace.evaluationRef)}</code></header><p>${escapeHtml(trace.policy.statement)}</p>${trace.observations.map(observation => `<div class="observation"><b>${escapeHtml(observation.role === "APPLICABILITY" ? "Applies when" : observation.factLabel)}</b><span>${escapeHtml(formatFact(observation.factId, observation.actual.value))} ${escapeHtml(operator[observation.comparison.operator] || observation.comparison.operator)} ${escapeHtml(formatFact(observation.factId, observation.comparison.value))}</span><em>${escapeHtml(observation.result.replace("_", " "))}</em></div>`).join("")}${trace.finding ? `<footer>${escapeHtml(trace.finding.reasonCode)}</footer>` : ""}</article>`).join("");
+  $("#aiPlaceholder").innerHTML = `<p><b>AI rationale is not wired yet.</b> The deterministic action and traces above remain complete and usable.</p><p><b>Eligible Tier-2 Evidence:</b> ${tools.length ? tools.map(value => escapeHtml(value.replaceAll("_", " "))).join(" · ") : "No evidence tools are eligible for these findings."}</p><small>Future AI-drafted rationale may use simulated fictional lookups for context only; it cannot change findings, action, or calculation.</small>`;
+  $("#calculatorOutput").innerHTML = `<dl><div><dt>Status</dt><dd>${escapeHtml(result.calculation.status.replaceAll("_", " "))}</dd></div><div><dt>Current limit</dt><dd>${money(result.calculation.current)}</dd></div><div><dt>Recommended limit</dt><dd>${money(result.calculation.recommended)}</dd></div>${result.calculation.delta == null ? "" : `<div><dt>Difference</dt><dd>${money(result.calculation.delta)}</dd></div>`}</dl>`;
+}
 
 function showToast(message) {
   $("#toast").textContent = message;
@@ -32,10 +52,10 @@ function resetState() {
 function formatFact(id, value) {
   const definition = registry.definition(id);
   if (value == null) return "Not available";
-  if (definition.unit === "USD") return money(value);
-  if (definition.unit === "DAYS") return `${value} days`;
-  if (["current_ratio", "debt_to_equity_ratio", "net_sales_trend_ratio"].includes(id)) return `${value.toFixed(2)}×`;
-  if (definition.type === "decimal" && (id.endsWith("_ratio") || id.endsWith("_margin") || id === "credit_utilization")) return `${(value * 100).toFixed(1)}%`;
+  if (definition.format === "CURRENCY") return money(value);
+  if (definition.format === "DAYS") return `${number(value)} days`;
+  if (definition.format === "PERCENT") return `${(value * 100).toFixed(1)}%`;
+  if (definition.format === "NUMBER") return number(value);
   return String(value).replaceAll("_", " ");
 }
 
@@ -193,6 +213,15 @@ document.addEventListener("click", event => {
 $("#policyInput").addEventListener("input", () => { updateDraft({ sourcePolicy: $("#policyInput").value, ast: null }); $("#charCount").textContent = `${$("#policyInput").value.length} characters`; if (!$("#resultSection").classList.contains("hidden")) renderGovernance("Business-intent edit created or updated a draft; regenerate and validate its executable DSL."); });
 $("#dslInput").addEventListener("input", () => { updateDraft({ sourceDsl: $("#dslInput").value, ast: null }); if (!$("#resultSection").classList.contains("hidden")) renderGovernance("DSL edit created or updated a draft revision; prior evidence is stale."); });
 $("#copyPrompt").addEventListener("click", async () => { try { await navigator.clipboard.writeText($("#promptOutput").textContent); showToast("Prompt copied"); } catch { showToast("Select the prompt text to copy"); } });
-$("#dmnCustomerObject").textContent = JSON.stringify(demoCustomer, null, 2);
+document.querySelectorAll("[data-view]").forEach(button => button.addEventListener("click", () => {
+  document.querySelectorAll("[data-view]").forEach(item => item.classList.toggle("active", item === button));
+  document.querySelectorAll(".product-view").forEach(view => view.classList.toggle("hidden", view.id !== `${button.dataset.view}View`));
+}));
+$("#customerSwitcher").addEventListener("click", event => {
+  const button = event.target.closest("[data-customer]");
+  if (button) renderReview(narrativeCustomers.find(customer => customer.customer_number === Number(button.dataset.customer)));
+});
+$("#customerSwitcher").innerHTML = narrativeCustomers.map((customer, index) => `<button data-customer="${customer.customer_number}" aria-pressed="false"><small>${narrativeBands[index]}</small><strong>${escapeHtml(customer.name)}</strong></button>`).join("");
 renderOntology();
 setScenario("ratio5");
+renderReview();

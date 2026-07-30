@@ -47,3 +47,17 @@ test("assembled output excludes package and authoring internals", async () => {
   await assert.rejects(access(path.join(root, "dist", "package.json")));
   await assert.rejects(access(path.join(root, "dist", "slides", "slides.md")));
 });
+
+test("Customer Review is the default semantic sequence and Policy Studio remains separate", async () => {
+  const html = await readFile(path.join(root, "index.html"), "utf8");
+  const stages = ["selector-stage", "action-stage", "traces-stage", "ai-stage", "disposition-stage", "calculator-stage"];
+  assert.ok(stages.every((stage, index) => html.indexOf(stage) > (index ? html.indexOf(stages[index - 1]) : -1)));
+  assert.ok(html.indexOf('id="reviewView"') < html.indexOf('id="studioView"'));
+  assert.match(html, /data-view="review"[^>]*>Customer Review/);
+  assert.match(html, /data-view="studio"[^>]*>Policy Studio/);
+  assert.match(html, /Reviewed 1,247 accounts · 38 flagged · showing 4/);
+  assert.match(html, /id="customerSwitcher"/);
+  assert.match(html, /id="resetButton"/);
+  assert.match(html, /Illustrative POC · Fictional customer data · AI features disabled/);
+  assert.doesNotMatch(html, /get_parent_exposure|production-path|artifact-showcase/);
+});
