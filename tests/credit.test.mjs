@@ -7,6 +7,7 @@ import { registry, creditPack, fixtures, activeRules, compileCandidate, analyzeC
 
 const evaluate = createEvaluator(creditPack);
 const customer = changes => ({ ...fixtures[0], ...changes });
+const candidateRelease = (rules, id = "credit-candidate") => ({ ontologyVersion: release.ontologyVersion, actionPolicyVersion: release.actionPolicyVersion, calculatorVersion: release.calculatorVersion, id, status: "CANDIDATE_PREVIEW", rules: rules.map(({ id: ruleId, revision }) => ({ id: ruleId, revision })) });
 
 test("ontology rejects unknown references and derives deterministic ratios", () => {
   assert.throws(() => new FactRegistry({ properties: { a: { type: "decimal" } }, derived: { b: { type: "decimal", dependencies: ["missing"], derive: () => 1 } } }), /unknown property/);
@@ -37,11 +38,177 @@ test("bounded DSL accepts ontology property identifiers containing digits", () =
 
 test("financial statement rule observes exact $50k boundary", () => {
   const exact = evaluate(customer({ credit_limit: 50000, financial_statement_status: null }));
-  assert.equal(exact.findings.find(x => x.id === "FINANCIAL_STATEMENTS_REQUIRED").status, "NOT_APPLICABLE");
+  assert.equal(exact.traces.find(trace => trace.policyRef.ruleId === "FINANCIAL_STATEMENTS_REQUIRED").outcome, "NOT_APPLICABLE");
   assert.equal(exact.calculation.status, "NOT_AVAILABLE");
   const above = evaluate(customer({ credit_limit: 50001, financial_statement_status: "STALE" }));
-  assert.equal(above.findings.find(x => x.id === "FINANCIAL_STATEMENTS_REQUIRED").status, "FINDING");
+  assert.equal(above.traces.find(trace => trace.policyRef.ruleId === "FINANCIAL_STATEMENTS_REQUIRED").outcome, "FINDING");
   assert.equal(above.calculation.status, "BLOCKED_FINANCIALS_REQUIRED");
+});
+
+test("review exposes a self-contained Rule Evaluation Trace and Findings are only matched traces", () => {
+  const result = evaluate(customer({ ar_balance: 100000, past_due_amount: 18000 }));
+  const trace = result.traces.find(item => item.policyRef.ruleId === "NET30_PAST_DUE_MAX");
+
+  assert.deepEqual(trace, {
+    schemaVersion: "1",
+    evaluationRef: "credit-1.4.0/NET30_PAST_DUE_MAX@4",
+    policyRef: {
+      releaseId: "credit-1.4.0",
+      ontologyVersion: "2.0",
+      ruleId: "NET30_PAST_DUE_MAX",
+      ruleRevision: 4
+    },
+    policy: {
+      title: "NET 30 past-due limit",
+      statement: "Customers on NET 30 terms may not have more than 8% of accounts receivable past due."
+    },
+    outcome: "FINDING",
+    observations: [
+      {
+        role: "APPLICABILITY",
+        factId: "payment_terms",
+        factLabel: "Payment terms",
+        actual: { value: "NET_30", type: "enum", unit: null, format: "TEXT" },
+        comparison: { operator: "==", value: "NET_30", unit: null, format: "TEXT" },
+        result: "MATCH",
+        supportingFactIds: []
+      },
+      {
+        role: "CONDITION",
+        factId: "past_due_ratio",
+        factLabel: "Past due ratio",
+        actual: { value: 0.18, type: "decimal", unit: null, format: "PERCENT" },
+        comparison: { operator: ">", value: 0.08, unit: null, format: "PERCENT" },
+        result: "MATCH",
+        supportingFactIds: ["past_due_amount", "ar_balance"]
+      }
+    ],
+    finding: {
+      reasonCode: "NET30_PAST_DUE_LIMIT_EXCEEDED",
+      material: true,
+      actionHint: "NEED_MANUAL_REVIEW"
+    }
+  });
+  assert.deepEqual(result.findings, result.traces.filter(item => item.outcome === "FINDING"));
+  assert.deepEqual(result.versions, {
+    resolver: "credit-actions-1.0",
+    calculator: "illustrative-credit-limit-1.0"
+  });
+});
+
+test("applicability is fully observed before conditions and a known scope failure wins", () => {
+  const notApplicable = evaluate(customer({ restricted_status: "Y", ar_balance: null, adp_days: null }));
+  const trace = notApplicable.traces.find(item => item.policyRef.ruleId === "HIGH_BALANCE_ADP_MAX");
+
+  assert.equal(trace.outcome, "NOT_APPLICABLE");
+  assert.deepEqual(trace.observations.map(item => [item.role, item.factId, item.result]), [
+    ["APPLICABILITY", "restricted_status", "NO_MATCH"],
+    ["APPLICABILITY", "ar_balance", "UNKNOWN"]
+  ]);
+  assert.equal(trace.finding, null);
+  assert.equal(Object.hasOwn(trace, "missingFactIds"), false);
+});
+
+test("unknown applicability and conditions identify exact missing facts", () => {
+  const unknownScope = evaluate(customer({ restricted_status: "N", ar_balance: null }));
+  const scopedTrace = unknownScope.traces.find(item => item.policyRef.ruleId === "HIGH_BALANCE_ADP_MAX");
+  assert.equal(scopedTrace.outcome, "INDETERMINATE");
+  assert.deepEqual(scopedTrace.missingFactIds, ["ar_balance"]);
+  assert.equal(scopedTrace.observations.some(item => item.role === "CONDITION"), false);
+
+  const unknownCondition = evaluate(customer({ past_due_amount: 6000, operating_cash_flow: null, current_ratio: 1.2 }));
+  const compoundTrace = unknownCondition.traces.find(item => item.policyRef.ruleId === "CRITICAL_RESTRICTION");
+  assert.equal(compoundTrace.outcome, "INDETERMINATE");
+  assert.deepEqual(compoundTrace.missingFactIds, ["operating_cash_flow"]);
+  assert.deepEqual(compoundTrace.observations.map(item => item.factId), ["restricted_status", "past_due_ratio", "operating_cash_flow", "current_ratio"]);
+  assert.equal(compoundTrace.finding, null);
+});
+
+test("applicable compound rules evaluate every condition without short-circuiting", () => {
+  const result = evaluate(customer({ past_due_amount: 1000, operating_cash_flow: -1, current_ratio: .9 }));
+  const trace = result.traces.find(item => item.policyRef.ruleId === "CRITICAL_RESTRICTION");
+  assert.equal(trace.outcome, "PASS");
+  assert.deepEqual(trace.observations.map(item => item.result), ["MATCH", "NO_MATCH", "MATCH", "MATCH"]);
+});
+
+test("Rule Evaluation Traces and nested evidence are immutable", () => {
+  const result = evaluate(customer({ past_due_amount: 5000 }));
+  const trace = result.traces[0];
+  assert.equal(Object.isFrozen(result), true);
+  assert.equal(Object.isFrozen(trace), true);
+  assert.equal(Object.isFrozen(trace.observations), true);
+  assert.equal(Object.isFrozen(trace.observations[0].actual), true);
+  assert.throws(() => { trace.outcome = "PASS"; }, TypeError);
+  assert.throws(() => { trace.observations[0].actual.value = 0; }, TypeError);
+});
+
+test("production rules use declarative conditions and candidates regenerate policy text", () => {
+  assert.ok(activeRules.every(item => !Object.hasOwn(item, "when") && item.conditions.length > 0));
+  const candidate = compileCandidate(scenarios.ratio5.ast, scenarios.ratio5.revision);
+  assert.deepEqual(candidate.conditions, [{ fact: "past_due_ratio", op: ">", value: .05 }]);
+  assert.equal(candidate.policy.statement, "Customers on NET 30 terms may not have more than 5% of accounts receivable past due.");
+  const unsupportedScope = { ...scenarios.ratio5.ast, scope: [{ fact: "payment_terms", op: "==", value: "NET_45" }] };
+  assert.throws(() => compileCandidate(unsupportedScope, 5), /supported policy family/);
+});
+
+test("declarative migration preserves all regression fixture outcomes and actions", () => {
+  const legacyOutcomes = value => {
+    const context = registry.context(value);
+    const condition = (fact, matches) => context.get(fact) === null ? "INDETERMINATE" : matches(context.get(fact)) ? "FINDING" : "PASS";
+    const scoped = (scopeFact, applies, evaluateCondition) => context.get(scopeFact) === null ? "INDETERMINATE" : applies(context.get(scopeFact)) ? evaluateCondition() : "NOT_APPLICABLE";
+    return [
+      condition("past_due_ratio", actual => actual > .10),
+      scoped("payment_terms", actual => actual === "NET_30", () => condition("past_due_ratio", actual => actual > .08)),
+      condition("adp_days", actual => actual >= 30),
+      context.get("restricted_status") === null || context.get("ar_balance") === null ? "INDETERMINATE" : context.get("restricted_status") !== "N" || context.get("ar_balance") <= 100000 ? "NOT_APPLICABLE" : condition("adp_days", actual => actual > 25),
+      scoped("credit_limit", actual => actual > 50000, () => condition("financial_statement_status", actual => actual !== "CURRENT")),
+      scoped("restricted_status", actual => actual === "N", () => ["past_due_ratio", "operating_cash_flow", "current_ratio"].some(id => context.get(id) === null) ? "INDETERMINATE" : context.get("past_due_ratio") > .10 && context.get("operating_cash_flow") < 0 && context.get("current_ratio") < 1 ? "FINDING" : "PASS")
+    ];
+  };
+  const expected = [
+    [1001, ["PASS", "PASS", "PASS", "NOT_APPLICABLE", "PASS", "PASS"], "RECOMMEND_CREDIT_LIMIT_REASSESSMENT"],
+    [1002, ["FINDING", "NOT_APPLICABLE", "PASS", "NOT_APPLICABLE", "PASS", "PASS"], "NEED_MANUAL_REVIEW"],
+    [1003, ["PASS", "PASS", "PASS", "NOT_APPLICABLE", "PASS", "PASS"], "RECOMMEND_CREDIT_LIMIT_REASSESSMENT"],
+    [1004, ["FINDING", "FINDING", "FINDING", "NOT_APPLICABLE", "PASS", "PASS"], "NEED_CREDIT_MANAGER_REVIEW"],
+    [1005, ["PASS", "PASS", "PASS", "NOT_APPLICABLE", "PASS", "NOT_APPLICABLE"], "NEED_MANUAL_REVIEW"],
+    [1006, ["PASS", "PASS", "FINDING", "NOT_APPLICABLE", "PASS", "PASS"], "NEED_MANUAL_REVIEW"],
+    [1007, ["PASS", "PASS", "PASS", "NOT_APPLICABLE", "NOT_APPLICABLE", "PASS"], "AUTO_REVIEW_PASS"],
+    [1008, ["PASS", "PASS", "PASS", "NOT_APPLICABLE", "NOT_APPLICABLE", "PASS"], "AUTO_REVIEW_PASS"],
+    [1009, ["PASS", "PASS", "PASS", "NOT_APPLICABLE", "FINDING", "PASS"], "REQUEST_UPDATED_FINANCIAL_STATEMENTS"],
+    [1010, ["PASS", "PASS", "PASS", "NOT_APPLICABLE", "FINDING", "PASS"], "REQUEST_UPDATED_FINANCIAL_STATEMENTS"],
+    [1011, ["PASS", "PASS", "PASS", "NOT_APPLICABLE", "PASS", "PASS"], "RECOMMEND_CREDIT_LIMIT_REASSESSMENT"],
+    [1012, ["FINDING", "FINDING", "PASS", "NOT_APPLICABLE", "PASS", "FINDING"], "NEED_TO_RESTRICT"],
+    [1013, ["PASS", "PASS", "PASS", "NOT_APPLICABLE", "NOT_APPLICABLE", "PASS"], "AUTO_REVIEW_PASS"]
+  ];
+
+  assert.deepEqual(fixtures.map(value => {
+    const result = evaluate(value);
+    return [value.customer_number, result.traces.map(trace => trace.outcome), result.action.primary];
+  }), expected);
+  for (const value of fixtures) assert.deepEqual(evaluate(value).traces.map(trace => trace.outcome), legacyOutcomes(value));
+});
+
+test("candidate evaluation rejects release provenance that omits its revision", () => {
+  const replacement = compileCandidate(scenarios.ratio5.ast, scenarios.ratio5.revision);
+  const rules = activeRules.map(item => item.id === replacement.id ? replacement : item);
+  assert.throws(() => evaluate(fixtures[0], rules), /credit-1.4.0 does not contain NET30_PAST_DUE_MAX@5/);
+  const result = evaluate(fixtures[0], rules, candidateRelease(rules, "credit-1.4.0-candidate-r5"));
+  assert.equal(result.traces.find(trace => trace.policyRef.ruleId === replacement.id).evaluationRef, "credit-1.4.0-candidate-r5/NET30_PAST_DUE_MAX@5");
+  assert.equal(result.release.status, "CANDIDATE_PREVIEW");
+  assert.equal(Object.hasOwn(result.release, "publishedAt"), false);
+});
+
+test("rule comparisons must satisfy ontology types, enums, and units", () => {
+  const active = activeRules.find(item => item.id === "NET30_PAST_DUE_MAX");
+  const replaceCondition = condition => activeRules.map(item => item.id === active.id ? { ...active, conditions: [condition] } : item);
+  for (const [condition, expected] of [
+    [{ fact: "past_due_ratio", op: ">", value: "8%" }, /numeric comparison value/],
+    [{ fact: "payment_terms", op: "==", value: "NET_90" }, /outside the ontology enum/],
+    [{ fact: "adp_days", op: ">", value: 25, unit: "USD" }, /unit contract/]
+  ]) {
+    const rules = replaceCondition(condition);
+    assert.throws(() => evaluate(fixtures[0], rules, candidateRelease(rules)), expected);
+  }
 });
 
 test("restricted behavior has manual primary, supporting restriction and no limit", () => {
@@ -65,7 +232,7 @@ test("action precedence keeps document collection ahead of a single review findi
 
 test("indeterminate evaluation never resolves to auto pass", () => {
   const result = evaluate(customer({ adp_days: null }));
-  assert.ok(result.findings.some(finding => finding.status === "INDETERMINATE"));
+  assert.ok(result.traces.some(trace => trace.outcome === "INDETERMINATE"));
   assert.equal(result.calculation.status, "INDETERMINATE");
   assert.equal(result.action.primary, "NEED_MANUAL_REVIEW");
 });
@@ -88,7 +255,8 @@ test("payment cap preserves the absolute minimum and an ordered review range", (
 test("batch compares active and substituted candidate with one evaluator", () => {
   const replacement = compileCandidate(scenarios.ratio5.ast, scenarios.ratio5.revision);
   const candidate = activeRules.map(r => r.id === replacement.id ? replacement : r);
-  const batch = compareBatch(fixtures, x => evaluate(x), x => evaluate(x, candidate));
+  const previewRelease = candidateRelease(candidate);
+  const batch = compareBatch(fixtures, x => evaluate(x), x => evaluate(x, candidate, previewRelease));
   assert.equal(batch.summary.evaluated, 13);
   assert.ok(batch.summary.addedFindings > 0);
   assert.equal(batch.complete, true);
@@ -110,8 +278,8 @@ test("parsed threshold controls candidate evaluation and analysis", () => {
   const replacement = compileCandidate(ast, 5);
   const candidate = activeRules.map(rule => rule.id === replacement.id ? replacement : rule);
   const target = customer({ past_due_amount: 5000, ar_balance: 40000 });
-  assert.equal(evaluate(target).findings.find(finding => finding.id === replacement.id).status, "FINDING");
-  assert.equal(evaluate(target, candidate).findings.find(finding => finding.id === replacement.id).status, "PASS");
+  assert.equal(evaluate(target).traces.find(trace => trace.policyRef.ruleId === replacement.id).outcome, "FINDING");
+  assert.equal(evaluate(target, candidate, candidateRelease(candidate)).traces.find(trace => trace.policyRef.ruleId === replacement.id).outcome, "PASS");
   assert.equal(analyzeCandidate(ast).status, "CONFLICT");
 });
 

@@ -63,6 +63,17 @@ function candidateRules() {
   return activeRuleSet.map(existing => existing.id === replacement.id ? replacement : existing);
 }
 
+function candidateRelease(rules) {
+  return {
+    id: `${governance.activeRelease.id}-candidate-r${governance.current.revision}`,
+    ontologyVersion: governance.activeRelease.ontologyVersion,
+    actionPolicyVersion: governance.activeRelease.actionPolicyVersion,
+    calculatorVersion: governance.activeRelease.calculatorVersion,
+    status: "CANDIDATE_PREVIEW",
+    rules: rules.map(({ id, revision }) => ({ id, revision }))
+  };
+}
+
 function renderAuthoringError(error) {
   $("#resultSection").className = "result-section";
   $("#resultSection").innerHTML = `<div class="error-result"><p class="eyebrow">Deterministic validation failed</p><h2>INVALID RULE</h2><pre>${escapeHtml(error instanceof Error ? error.message : error)}</pre></div>`;
@@ -72,9 +83,9 @@ function renderAuthoringError(error) {
 function singleResult() {
   const published = governance.current.state === "APPROVED_AND_PUBLISHED";
   const rules = published ? activeRuleSet : candidateRules();
-  const releaseContext = published ? governance.activeRelease : { id: `${governance.activeRelease.id} + candidate r${governance.current.revision}` };
+  const releaseContext = published ? governance.activeRelease : candidateRelease(rules);
   const result = evaluate(demoCustomer, rules, releaseContext), calculation = result.calculation;
-  const findingCodes = result.findings.filter(finding => finding.status === "FINDING").map(finding => finding.reasonCode);
+  const findingCodes = result.findings.map(trace => trace.finding.reasonCode);
   return `<section class="runtime-panel"><p class="eyebrow">${published ? "Active" : "Candidate preview"} deterministic runtime · ${escapeHtml(releaseContext.id)}</p><h3>${escapeHtml(result.action.primary.replaceAll("_", " "))}</h3>
     <p>${findingCodes.map(escapeHtml).join(" · ") || "No policy findings"}</p>
     <p><b>Supporting actions:</b> ${result.action.supporting.map(action => escapeHtml(action.replaceAll("_", " "))).join(" · ") || "None"}</p>
@@ -148,7 +159,7 @@ document.addEventListener("click", event => {
   if (event.target.closest("#runBatch")) {
     try {
       const candidateSet = candidateRules();
-      const candidateBatch = compareBatch(fixtures, customer => evaluate(customer, activeRuleSet, governance.activeRelease), customer => evaluate(customer, candidateSet, { id: `${governance.activeRelease.id} + candidate r${governance.current.revision}` }));
+      const candidateBatch = compareBatch(fixtures, customer => evaluate(customer, activeRuleSet, governance.activeRelease), customer => evaluate(customer, candidateSet, candidateRelease(candidateSet)));
       governance.record("batch", candidateBatch);
       batch = candidateBatch;
       renderGovernance(candidateBatch.complete ? "Current revision/current release batch passed." : "Batch has blocking errors or applicable indeterminate results.");
@@ -176,7 +187,7 @@ document.addEventListener("click", event => {
   const property = event.target.closest("[data-property]");
   if (property) { const id = property.dataset.property, definition = registry.definition(id), value = registry.context(demoCustomer).get(id); $("#dialogTitle").textContent = definition.displayName; $("#dialogBody").textContent = JSON.stringify({ id: `customer.${id}`, ...definition, exampleValue: value }, null, 2); $("#propertyDialog").showModal(); }
   if (event.target.closest(".dialog-close")) $("#propertyDialog").close();
-  if (event.target.closest("#runDmnDemo")) { const result = evaluate(demoCustomer, activeRuleSet, governance.activeRelease); $("#dmnDryRunResult").innerHTML = `<div class="decision-result-heading"><div><span>Ontology-backed runtime · ${escapeHtml(result.release.id)}</span><h5>${escapeHtml(result.action.primary.replaceAll("_", " "))}</h5><p>${result.findings.filter(finding => finding.status === "FINDING").length} findings · recommended ${money(result.calculation.recommended)}</p></div></div><pre class="artifact-code">${escapeHtml(JSON.stringify({ action: result.action, calculation: result.calculation, findings: result.findings }, null, 2))}</pre>`; }
+  if (event.target.closest("#runDmnDemo")) { const result = evaluate(demoCustomer, activeRuleSet, governance.activeRelease); $("#dmnDryRunResult").innerHTML = `<div class="decision-result-heading"><div><span>Ontology-backed runtime · ${escapeHtml(result.release.id)}</span><h5>${escapeHtml(result.action.primary.replaceAll("_", " "))}</h5><p>${result.findings.length} findings · recommended ${money(result.calculation.recommended)}</p></div></div><pre class="artifact-code">${escapeHtml(JSON.stringify({ action: result.action, calculation: result.calculation, traces: result.traces }, null, 2))}</pre>`; }
 });
 
 $("#policyInput").addEventListener("input", () => { updateDraft({ sourcePolicy: $("#policyInput").value, ast: null }); $("#charCount").textContent = `${$("#policyInput").value.length} characters`; if (!$("#resultSection").classList.contains("hidden")) renderGovernance("Business-intent edit created or updated a draft; regenerate and validate its executable DSL."); });
