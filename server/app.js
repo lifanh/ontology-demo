@@ -1,12 +1,14 @@
 import { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
+import { randomUUID } from "node:crypto";
 import { createAuth, SESSION_COOKIE, SESSION_SECONDS } from "./auth.js";
+import { createAiGateway } from "./ai-gateway.js";
 
 const MAX_BODY_BYTES = 32 * 1024;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const MAX_LOGIN_FAILURES = 10;
 
-const error = (c, status, code, message = "Request could not be completed") => c.json({ error: { code, message } }, status);
+const error = (c, status, code, message = "Request could not be completed", retryable = false, correlationId = randomUUID(), retryAfter = null) => c.json({ error: { code, message, retryable, correlationId, ...(retryAfter ? { retryAfter } : {}) } }, status);
 
 const externalOrigin = (c, trustProxy) => {
   if (!trustProxy) return new URL(c.req.url).origin;
@@ -21,28 +23,33 @@ const requireOrigin = (c, trustProxy) => {
   return Boolean(origin && origin === externalOrigin(c, trustProxy));
 };
 
-async function readJson(c) {
+async function readJson(c, signal) {
   if (!c.req.header("content-type")?.toLowerCase().startsWith("application/json")) throw new Error("UNSUPPORTED_MEDIA_TYPE");
   const declared = Number(c.req.header("content-length") || 0);
   if (declared > MAX_BODY_BYTES) throw new Error("BODY_TOO_LARGE");
   const reader = c.req.raw.body?.getReader();
   if (!reader) throw new Error("INVALID_JSON");
+  const cancel = () => { reader.cancel().catch(() => {}); };
+  if (signal?.aborted) cancel();
+  else signal?.addEventListener("abort", cancel, { once: true });
   const chunks = [];
   let size = 0;
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > MAX_BODY_BYTES) {
-      await reader.cancel();
-      throw new Error("BODY_TOO_LARGE");
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_BODY_BYTES) {
+        await reader.cancel();
+        throw new Error("BODY_TOO_LARGE");
+      }
+      chunks.push(value);
     }
-    chunks.push(value);
-  }
-  const bytes = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
-  try { return JSON.parse(new TextDecoder().decode(bytes)); } catch { throw new Error("INVALID_JSON"); }
+    const bytes = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+    try { return JSON.parse(new TextDecoder().decode(bytes)); } catch { throw new Error("INVALID_JSON"); }
+  } finally { signal?.removeEventListener("abort", cancel); }
 }
 
 const cookieOptions = (c, trustProxy) => ({
@@ -53,7 +60,7 @@ const cookieOptions = (c, trustProxy) => ({
   secure: externalOrigin(c, trustProxy)?.startsWith("https://") || false
 });
 
-export function createApp({ config, now = Date.now, clientIp = () => "unknown" }) {
+export function createApp({ config, now = Date.now, clientIp = () => "unknown", provider = { async complete() { throw new Error("Provider unavailable"); } }, aiLimits, aiExecutors, logger, correlationId }) {
   const app = new Hono();
   const auth = config.aiEnabled ? createAuth({ password: config.demoPassword, secret: config.sessionSecret, now }) : null;
   const failures = new Map();
@@ -73,6 +80,7 @@ export function createApp({ config, now = Date.now, clientIp = () => "unknown" }
     if (recent.length) failures.set(ip, recent); else failures.delete(ip);
     return recent;
   };
+  const ai = createAiGateway({ config, auth, readJson, requireOrigin, error, provider, now, ...(aiLimits ? { limits: aiLimits } : {}), ...(aiExecutors ? { executors: aiExecutors } : {}), ...(logger ? { logger } : {}), ...(correlationId ? { correlationId } : {}) });
 
   app.get("/api/session", c => c.json({ mode: config.mode, aiEnabled: config.aiEnabled, authenticated: !config.aiEnabled || auth.verify(getCookie(c, SESSION_COOKIE)), modelDisplayName: config.aiEnabled ? config.modelDisplayName : null }));
 
@@ -111,7 +119,11 @@ export function createApp({ config, now = Date.now, clientIp = () => "unknown" }
     return c.json({ authenticated: false });
   });
 
+  app.post("/api/ai/draft_rule", c => ai("draft_rule", c));
+  app.post("/api/ai/explain_review", c => ai("explain_review", c));
+  app.post("/api/ai/explain_policy_analysis", c => ai("explain_policy_analysis", c));
+
   app.all("/api/*", c => error(c, 404, "NOT_FOUND"));
-  app.onError(() => new Response(JSON.stringify({ error: { code: "INTERNAL_ERROR", message: "Request could not be completed" } }), { status: 500, headers: { "content-type": "application/json" } }));
+  app.onError(() => new Response(JSON.stringify({ error: { code: "INTERNAL_ERROR", message: "Request could not be completed", retryable: false, correlationId: randomUUID() } }), { status: 500, headers: { "content-type": "application/json" } }));
   return app;
 }

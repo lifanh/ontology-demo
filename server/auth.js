@@ -24,19 +24,19 @@ export function createAuth({ password, secret, now = Date.now, createId = () => 
     return `${payload}.${sign(payload, secret)}`;
   };
 
-  const verify = token => {
-    if (!token) return false;
+  const sessionId = token => {
+    if (!token) return null;
     const pieces = token.split(".");
-    if (pieces.length !== 3) return false;
+    if (pieces.length !== 3) return null;
     const [id, expiresAt, signature] = pieces;
     const expected = sign(`${id}.${expiresAt}`, secret);
-    if (!equal(signature, expected)) return false;
+    if (!equal(signature, expected)) return null;
     const expiry = Number(expiresAt);
     if (!Number.isFinite(expiry) || expiry <= now() || sessions.get(id) !== expiry) {
       sessions.delete(id);
-      return false;
+      return null;
     }
-    return true;
+    return id;
   };
 
   const revoke = token => {
@@ -44,5 +44,5 @@ export function createAuth({ password, secret, now = Date.now, createId = () => 
     if (id) sessions.delete(id);
   };
 
-  return Object.freeze({ passwordMatches: candidate => equal(candidate, password), issue, verify, revoke });
+  return Object.freeze({ passwordMatches: candidate => equal(candidate, password), issue, sessionId, verify: token => Boolean(sessionId(token)), revoke });
 }
