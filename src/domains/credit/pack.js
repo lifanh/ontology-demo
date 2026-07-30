@@ -106,7 +106,12 @@ export function resolveAction(context, findings, calculation, { hasIndeterminate
   return { primary, supporting: actionCandidates.filter((action, index) => action !== primary && actionCandidates.indexOf(action) === index), basedOn: findings.map(finding => finding.reasonCode) };
 }
 
-export const release = Object.freeze({ id: "credit-1.4.0", ontologyVersion: "2.0", actionPolicyVersion: "credit-actions-1.0", calculatorVersion: calculator.version, publishedAt: "2025-12-15T00:00:00Z", rules: activeRules.map(({ id, revision }) => ({ id, revision })) });
+export const release = Object.freeze({ id: "credit-1.4.0", ontologyVersion: "2.0", actionPolicyVersion: "credit-actions-1.0", calculatorVersion: calculator.version, status: "BASELINE", rules: Object.freeze(activeRules.map(({ id, revision }) => Object.freeze({ id, revision }))), compiledRules: Object.freeze([...activeRules]) });
+export const illustrativeOverrideHistory = Object.freeze([
+  Object.freeze({ id: "illustrative-net30-1", ruleId: "NET30_PAST_DUE_MAX", label: "Illustrative history", action: "NEED_MANUAL_REVIEW", reason: "Payment posted after the review snapshot." }),
+  Object.freeze({ id: "illustrative-net30-2", ruleId: "NET30_PAST_DUE_MAX", label: "Illustrative history", action: "NEED_MANUAL_REVIEW", reason: "Pricing dispute was already under active resolution." }),
+  Object.freeze({ id: "illustrative-net30-3", ruleId: "NET30_PAST_DUE_MAX", label: "Illustrative history", action: "NEED_CREDIT_MANAGER_REVIEW", reason: "A documented short-term exception applied." })
+]);
 const ratioAst = (id, value) => ({ id, scope: [{ fact: "payment_terms", op: "==", value: "NET_30" }], effect: { type: "SET_MAX_RATIO", numerator: "past_due_amount", denominator: "ar_balance", value } });
 const adpAst = (id, value) => ({ id, scope: [{ fact: "restricted_status", op: "==", value: "N" }, { fact: "ar_balance", op: ">", value: 100000, unit: "USD" }], effect: { type: "SET_MAX", fact: "adp_days", value, unit: "DAYS" } });
 export const scenarios = {

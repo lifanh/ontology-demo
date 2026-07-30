@@ -50,6 +50,11 @@ export function createDispositionStore(storage) {
         return record.deterministicAction === context.deterministicAction && JSON.stringify(record.evaluationRefs) === JSON.stringify(context.evaluationRefs) ? record : null;
       } catch { return null; }
     },
+    list() {
+      return Object.values(readAll()).flatMap(candidate => {
+        try { return [createDisposition(candidate)]; } catch { return []; }
+      });
+    },
     clear() {
       storage.removeItem(DISPOSITION_STORAGE_KEY);
     }

@@ -50,6 +50,8 @@ test("assembled output excludes package and authoring internals", async () => {
 
 test("Customer Review is the default semantic sequence and Policy Studio remains separate", async () => {
   const html = await readFile(path.join(root, "index.html"), "utf8");
+  const app = await readFile(path.join(root, "src", "ui", "app.js"), "utf8");
+  const productSource = `${html}\n${app}`;
   const stages = ["selector-stage", "action-stage", "traces-stage", "ai-stage", "disposition-stage", "calculator-stage"];
   assert.ok(stages.every((stage, index) => html.indexOf(stage) > (index ? html.indexOf(stages[index - 1]) : -1)));
   assert.ok(html.indexOf('id="reviewView"') < html.indexOf('id="studioView"'));
@@ -61,6 +63,10 @@ test("Customer Review is the default semantic sequence and Policy Studio remains
   assert.match(html, /not an audit trail, identity, role, approval, or production workflow/);
   assert.match(html, /Facts and Findings never change/);
   assert.match(html, /id="resetButton"/);
+  assert.match(productSource, /Approve &amp; activate demo release/);
+  assert.match(productSource, /Active in this browser tab only/);
+  assert.match(html, /Illustrative history/);
+  assert.match(html, /This session/);
   assert.match(html, /Illustrative POC · Fictional customer data · AI features disabled/);
-  assert.doesNotMatch(html, /get_parent_exposure|production-path|artifact-showcase/);
+  assert.doesNotMatch(productSource, /get_parent_exposure|production-path|artifact-showcase|Approve &amp; publish|APPROVED_AND_PUBLISHED/);
 });

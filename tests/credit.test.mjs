@@ -3,7 +3,7 @@ import { test } from "vite-plus/test";
 import { FactRegistry, createEvaluator, compareBatch, assessReviewImpact } from "../src/core/runtime.js";
 import { parseRule, formatRule } from "../src/core/authoring.js";
 import { Governance } from "../src/core/governance.js";
-import { registry, creditPack, fixtures, narrativeCustomers, policyImpactCohort, eligibleEvidenceTools, activeRules, compileCandidate, analyzeCandidate, nextReleaseId, scenarios, release } from "../src/domains/credit/pack.js";
+import { registry, creditPack, fixtures, narrativeCustomers, policyImpactCohort, eligibleEvidenceTools, activeRules, compileCandidate, analyzeCandidate, nextReleaseId, scenarios, release, illustrativeOverrideHistory } from "../src/domains/credit/pack.js";
 import { createDisposition, createDispositionStore } from "../src/domains/credit/dispositions.js";
 
 const evaluate = createEvaluator(creditPack);
@@ -363,18 +363,26 @@ test("parsed threshold controls candidate evaluation and analysis", () => {
   assert.equal(analyzeCandidate(ast).status, "CONFLICT");
 });
 
-test("conflict blocks while compatible current evidence can publish", () => {
+test("activation requires current validation, non-conflicting analysis, and complete Review impact", () => {
   const blocked = new Governance({ activeRelease: release, candidate: scenarios.ratio15 });
+  assert.equal(blocked.canActivate(), false);
   blocked.record("validation", { valid: true });
   assert.equal(blocked.record("analysis", { status: "CONFLICT" }), false);
-  assert.equal(blocked.canPublish(), false);
+  assert.equal(blocked.canActivate(), false);
+  const incomplete = new Governance({ activeRelease: release, candidate: scenarios.ratio5 });
+  incomplete.record("validation", { valid: true }); incomplete.record("analysis", { status: "COMPATIBLE_REFINEMENT" });
+  assert.equal(incomplete.record("batch", { complete: false }), false);
+  assert.equal(incomplete.canActivate(), false);
   const good = new Governance({ activeRelease: release, candidate: scenarios.ratio5 });
   good.record("validation", { valid: true }); good.record("analysis", { status: "COMPATIBLE_REFINEMENT" }); good.record("batch", { complete: true });
-  assert.equal(good.canPublish(), true);
+  assert.equal(good.canActivate(), true);
   const replacement = compileCandidate(scenarios.ratio5.ast, scenarios.ratio5.revision);
   const rules = activeRules.map(rule => rule.id === replacement.id ? replacement : rule);
   const next = { id: nextReleaseId(release.id), rules: rules.map(({ id, revision }) => ({ id, revision })) };
-  assert.equal(good.publish(next).id, "credit-1.5.0");
+  assert.equal(good.activate(next).id, "credit-1.5.0");
+  assert.equal(good.current.state, "APPROVED_AND_ACTIVATED");
+  assert.equal(Object.isFrozen(good.activeRelease), true);
+  assert.equal(Object.isFrozen(good.activeRelease.rules), true);
   assert.equal(good.activeRelease.rules.length, activeRules.length);
   assert.equal(evaluate(customer({ past_due_amount: 2400 }), rules, good.activeRelease).release.id, "credit-1.5.0");
   const nextDraft = { ...scenarios.ratio5.ast, effect: { ...scenarios.ratio5.ast.effect, value: .04 } };
@@ -385,7 +393,45 @@ test("editing creates immutable revision and invalidates evidence", () => {
   const g = new Governance({ activeRelease: release, candidate: { ...scenarios.ratio5, revision: 5, ast: scenarios.ratio5.ast } });
   g.record("validation", { valid: true });
   const old = g.revisions[0]; g.edit({ sourceDsl: "changed" });
-  assert.equal(old.state, "VALIDATED"); assert.equal(g.current.revision, 6); assert.equal(g.current.ast, null); assert.deepEqual(g.evidence, {}); assert.equal(g.canPublish(), false);
+  assert.equal(old.state, "VALIDATED"); assert.equal(g.current.revision, 6); assert.equal(g.current.ast, null); assert.deepEqual(g.evidence, {}); assert.equal(g.canActivate(), false);
+});
+
+test("Demo Release history is immutable and reset restores only baseline", () => {
+  const g = new Governance({ activeRelease: release, candidate: scenarios.ratio5 });
+  g.record("validation", { valid: true }); g.record("analysis", { status: "COMPATIBLE_REFINEMENT" }); g.record("batch", { complete: true });
+  const rules = activeRules.map(rule => rule.id === scenarios.ratio5.logicalId ? compileCandidate(scenarios.ratio5.ast, scenarios.ratio5.revision) : rule);
+  g.activate({ id: "credit-1.5.0", rules: rules.map(({ id, revision }) => ({ id, revision })) });
+  const history = g.releaseHistory;
+  assert.throws(() => history.push(release), TypeError);
+  assert.throws(() => { history[1].rules[0].revision = 999; }, TypeError);
+  g.reset({ activeRelease: release, candidate: scenarios.ratio5 });
+  assert.equal(g.activeRelease.id, "credit-1.4.0");
+  assert.deepEqual(g.releaseHistory.map(item => item.id), ["credit-1.4.0"]);
+  assert.equal(g.current.state, "DRAFT");
+});
+
+test("Demo Releases reject duplicate IDs and incomplete rule sets", () => {
+  const ready = () => {
+    const g = new Governance({ activeRelease: release, candidate: scenarios.ratio5 });
+    g.record("validation", { valid: true }); g.record("analysis", { status: "COMPATIBLE_REFINEMENT" }); g.record("batch", { complete: true });
+    return g;
+  };
+  assert.throws(() => ready().activate({ id: release.id, rules: release.rules }), /unique/);
+  assert.throws(() => ready().activate({ id: "credit-1.5.0", rules: [{ id: scenarios.ratio5.logicalId, revision: scenarios.ratio5.revision }] }), /complete active rule set/);
+});
+
+test("corrupt Policy Studio snapshots do not partially mutate Governance", () => {
+  const g = new Governance({ activeRelease: release, candidate: scenarios.ratio5 });
+  assert.throws(() => g.restore({ activeReleaseId: release.id, releaseHistory: [null], revisions: [{}] }), /Invalid Demo Release/);
+  assert.equal(g.activeRelease.id, release.id);
+  assert.deepEqual(g.releaseHistory.map(item => item.id), [release.id]);
+});
+
+test("seeded override feedback is exactly three immutable NET 30 Illustrative history records", () => {
+  assert.equal(illustrativeOverrideHistory.length, 3);
+  assert.ok(illustrativeOverrideHistory.every(item => item.ruleId === "NET30_PAST_DUE_MAX" && item.label === "Illustrative history" && Object.isFrozen(item)));
+  assert.ok(illustrativeOverrideHistory.every(item => item.action && item.reason));
+  assert.equal(Object.isFrozen(illustrativeOverrideHistory), true);
 });
 
 test("Disposition validation preserves acceptance and constrains overrides", () => {
