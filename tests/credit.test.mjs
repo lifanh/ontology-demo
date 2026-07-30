@@ -4,6 +4,7 @@ import { FactRegistry, createEvaluator, compareBatch } from "../src/core/runtime
 import { parseRule, formatRule } from "../src/core/authoring.js";
 import { Governance } from "../src/core/governance.js";
 import { registry, creditPack, fixtures, narrativeCustomers, eligibleEvidenceTools, activeRules, compileCandidate, analyzeCandidate, nextReleaseId, scenarios, release } from "../src/domains/credit/pack.js";
+import { createDisposition, createDispositionStore } from "../src/domains/credit/dispositions.js";
 
 const evaluate = createEvaluator(creditPack);
 const customer = changes => ({ ...fixtures[0], ...changes });
@@ -336,4 +337,30 @@ test("editing creates immutable revision and invalidates evidence", () => {
   g.record("validation", { valid: true });
   const old = g.revisions[0]; g.edit({ sourceDsl: "changed" });
   assert.equal(old.state, "VALIDATED"); assert.equal(g.current.revision, 6); assert.equal(g.current.ast, null); assert.deepEqual(g.evidence, {}); assert.equal(g.canPublish(), false);
+});
+
+test("Disposition validation preserves acceptance and constrains overrides", () => {
+  const context = { customerNumber: 2002, releaseId: "credit-1.4.0", evaluationRefs: ["credit-1.4.0/RULE_A@1"], deterministicAction: "NEED_CREDIT_MANAGER_REVIEW" };
+  assert.deepEqual(createDisposition({ ...context, status: "ACCEPTED", action: "NEED_TO_RESTRICT", reason: "ignored reason" }), { ...context, status: "ACCEPTED", action: context.deterministicAction, reason: null });
+  const overridden = createDisposition({ ...context, status: "OVERRIDDEN", action: "NEED_MANUAL_REVIEW", reason: "  Needs specialist review.  " });
+  assert.equal(overridden.reason, "Needs specialist review.");
+  assert.throws(() => createDisposition({ ...context, status: "OVERRIDDEN", action: context.deterministicAction, reason: "Long enough reason" }), /different allowed action/);
+  assert.throws(() => createDisposition({ ...context, status: "OVERRIDDEN", action: "UNKNOWN", reason: "Long enough reason" }), /different allowed action/);
+  assert.throws(() => createDisposition({ ...context, status: "OVERRIDDEN", action: "NEED_MANUAL_REVIEW", reason: " too short " }), /10–500/);
+});
+
+test("Disposition store replaces one customer/release record and reloads only exact pinned traces", () => {
+  const values = new Map();
+  const storage = { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: key => values.delete(key) };
+  const context = { customerNumber: 2002, releaseId: "credit-1.4.0", evaluationRefs: ["credit-1.4.0/RULE_A@1"], deterministicAction: "NEED_CREDIT_MANAGER_REVIEW" };
+  createDispositionStore(storage).save({ ...context, status: "ACCEPTED" });
+  const reloaded = createDispositionStore(storage);
+  reloaded.save({ ...context, status: "OVERRIDDEN", action: "NEED_MANUAL_REVIEW", reason: "A reviewed exception" });
+  assert.equal(reloaded.load(context).status, "OVERRIDDEN");
+  assert.equal(reloaded.load({ ...context, customerNumber: 2003 }), null);
+  assert.equal(reloaded.load({ ...context, releaseId: "credit-1.5.0", evaluationRefs: ["credit-1.5.0/RULE_A@1"] }), null);
+  assert.equal(reloaded.load({ ...context, evaluationRefs: ["credit-1.4.0/RULE_A@2"] }), null);
+  assert.equal(reloaded.load({ ...context, deterministicAction: "NEED_TO_RESTRICT" }), null);
+  reloaded.clear();
+  assert.equal(reloaded.load(context), null);
 });

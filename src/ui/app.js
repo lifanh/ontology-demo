@@ -2,13 +2,16 @@ import { createEvaluator, compareBatch } from "../core/runtime.js";
 import { parseRule, formatRule } from "../core/authoring.js";
 import { Governance, STATES } from "../core/governance.js";
 import { properties, derived, registry, creditPack, activeRules, compileCandidate, analyzeCandidate, nextReleaseId, scenarios, fixtures, narrativeCustomers, eligibleEvidenceTools, demoCustomer, release } from "../domains/credit/pack.js";
+import { createDispositionStore, dispositionActions } from "../domains/credit/dispositions.js";
 
 const $ = selector => document.querySelector(selector);
 const escapeHtml = value => String(value ?? "—").replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
 const money = value => value == null ? "—" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
 const number = value => new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value);
 const evaluate = createEvaluator(creditPack);
-const actionOptions = ["AUTO_REVIEW_PASS", "REQUEST_UPDATED_FINANCIAL_STATEMENTS", "NEED_MANUAL_REVIEW", "NEED_CREDIT_MANAGER_REVIEW", "RECOMMEND_CREDIT_LIMIT_REASSESSMENT", "NEED_TO_RESTRICT"];
+const actionOptions = dispositionActions;
+const dispositionStore = createDispositionStore(sessionStorage);
+let reviewContext;
 let selected = "ratio5", governance, activeRuleSet, batch, disposition;
 
 const labels = { AUTO_REVIEW_PASS: "Auto review pass", NEED_CREDIT_MANAGER_REVIEW: "Credit manager review", REQUEST_UPDATED_FINANCIAL_STATEMENTS: "Request updated financial statements", NEED_TO_RESTRICT: "Restrict customer", NEED_MANUAL_REVIEW: "Manual review", RECOMMEND_CREDIT_LIMIT_REASSESSMENT: "Reassess credit limit" };
@@ -17,6 +20,8 @@ const narrativeBands = ["Green", "Yellow", "Orange", "Red"];
 
 function renderReview(customer = narrativeCustomers[0]) {
   const result = evaluate(customer);
+  reviewContext = { customerNumber: customer.customer_number, releaseId: result.release.id, evaluationRefs: result.traces.map(trace => trace.evaluationRef), deterministicAction: result.action.primary };
+  const saved = dispositionStore.load(reviewContext);
   const tools = eligibleEvidenceTools(result.findings);
   document.querySelectorAll("[data-customer]").forEach(button => {
     const selected = Number(button.dataset.customer) === customer.customer_number;
@@ -27,6 +32,7 @@ function renderReview(customer = narrativeCustomers[0]) {
   $("#actionOutput").innerHTML = `<p class="eyebrow">Deterministic · Demo Release ${escapeHtml(result.release.id)}</p><h2 id="actionTitle">${escapeHtml(labels[result.action.primary] || result.action.primary)}</h2><div class="reason-codes"><b>Reason codes</b> ${result.action.basedOn.map(escapeHtml).join(" · ") || "No findings"}</div>${result.action.supporting.length ? `<p><b>Supporting:</b> ${result.action.supporting.map(value => escapeHtml(labels[value] || value)).join(" · ")}</p>` : ""}`;
   $("#traceOutput").innerHTML = result.traces.map(trace => `<article class="trace-card ${trace.outcome.toLowerCase().replace("_", "-")}"><header><div><p class="eyebrow">${escapeHtml(trace.outcome.replace("_", " "))}</p><h3>${escapeHtml(trace.policy.title)}</h3></div><code>${escapeHtml(trace.evaluationRef)}</code></header><p>${escapeHtml(trace.policy.statement)}</p>${trace.observations.map(observation => `<div class="observation"><b>${escapeHtml(observation.role === "APPLICABILITY" ? "Applies when" : observation.factLabel)}</b><span>${escapeHtml(formatFact(observation.factId, observation.actual.value))} ${escapeHtml(operator[observation.comparison.operator] || observation.comparison.operator)} ${escapeHtml(formatFact(observation.factId, observation.comparison.value))}</span><em>${escapeHtml(observation.result.replace("_", " "))}</em></div>`).join("")}${trace.finding ? `<footer>${escapeHtml(trace.finding.reasonCode)}</footer>` : ""}</article>`).join("");
   $("#aiPlaceholder").innerHTML = `<p><b>AI rationale is not wired yet.</b> The deterministic action and traces above remain complete and usable.</p><p><b>Eligible Tier-2 Evidence:</b> ${tools.length ? tools.map(value => escapeHtml(value.replaceAll("_", " "))).join(" · ") : "No evidence tools are eligible for these findings."}</p><small>Future AI-drafted rationale may use simulated fictional lookups for context only; it cannot change findings, action, or calculation.</small>`;
+  $("#dispositionOutput").innerHTML = `<fieldset class="disposition-controls"><legend>Record a choice for ${escapeHtml(customer.name)} · ${escapeHtml(result.release.id)}</legend><label><input type="radio" name="reviewDisposition" value="ACCEPTED" ${saved?.status === "ACCEPTED" ? "checked" : ""}> Accept deterministic action</label><label><input type="radio" name="reviewDisposition" value="OVERRIDDEN" ${saved?.status === "OVERRIDDEN" ? "checked" : ""}> Replace with another allowed action</label><label>Replacement action<select id="reviewOverrideAction">${actionOptions.filter(action => action !== result.action.primary).map(action => `<option value="${action}" ${saved?.action === action ? "selected" : ""}>${escapeHtml(labels[action] || action)}</option>`).join("")}</select></label><label>Reason (10–500 characters)<textarea id="reviewOverrideReason" rows="3" maxlength="500">${escapeHtml(saved?.reason || "")}</textarea></label><button id="saveReviewDisposition" class="primary-button">Save session-only Disposition</button></fieldset>${saved ? `<p class="saved-disposition"><b>${escapeHtml(saved.status === "ACCEPTED" ? "Accepted" : "Overridden")}</b> · ${escapeHtml(labels[saved.action] || saved.action)}${saved.reason ? ` · ${escapeHtml(saved.reason)}` : ""}</p>` : `<p class="disposition-empty">No Disposition recorded for this customer and release.</p>`}`;
   $("#calculatorOutput").innerHTML = `<dl><div><dt>Status</dt><dd>${escapeHtml(result.calculation.status.replaceAll("_", " "))}</dd></div><div><dt>Current limit</dt><dd>${money(result.calculation.current)}</dd></div><div><dt>Recommended limit</dt><dd>${money(result.calculation.recommended)}</dd></div>${result.calculation.delta == null ? "" : `<div><dt>Difference</dt><dd>${money(result.calculation.delta)}</dd></div>`}</dl>`;
 }
 
@@ -157,6 +163,15 @@ function setScenario(id) {
 }
 
 document.addEventListener("click", event => {
+  if (event.target.closest("#saveReviewDisposition")) {
+    try {
+      const status = document.querySelector('input[name="reviewDisposition"]:checked')?.value;
+      const saved = dispositionStore.save({ ...reviewContext, status, action: $("#reviewOverrideAction").value, reason: $("#reviewOverrideReason").value });
+      const customer = narrativeCustomers.find(item => item.customer_number === reviewContext.customerNumber);
+      renderReview(customer);
+      showToast(`${saved.status === "ACCEPTED" ? "Acceptance" : "Override"} saved for this session`);
+    } catch (error) { showToast(error instanceof Error ? error.message : String(error)); }
+  }
   const scenario = event.target.closest(".scenario");
   if (scenario) setScenario(scenario.dataset.scenario);
   if (event.target.closest("#generatePrompt")) { $("#promptOutput").textContent = promptText(); $("#promptSection").classList.remove("hidden"); setProgress(2); }
@@ -203,7 +218,13 @@ document.addEventListener("click", event => {
     disposition = { choice, action: choice === "override" ? $("#overrideAction").value : null, value, reason, summary: choice === "override" ? `Override to ${$("#overrideAction").value.replaceAll("_", " ")}${value == null ? "" : ` at ${money(value)}`} — ${reason}` : `${choice} selected; customer facts remain unchanged` };
     renderGovernance("Human disposition saved in memory; no customer state or credit limit changed.");
   }
-  if (event.target.closest("#resetButton")) setScenario("ratio5");
+  if (event.target.closest("#resetButton")) {
+    const customer = narrativeCustomers.find(item => item.customer_number === reviewContext.customerNumber) || narrativeCustomers[0];
+    dispositionStore.clear();
+    setScenario("ratio5");
+    renderReview(customer);
+    showToast("Demo session state reset");
+  }
   const property = event.target.closest("[data-property]");
   if (property) { const id = property.dataset.property, definition = registry.definition(id), value = registry.context(demoCustomer).get(id); $("#dialogTitle").textContent = definition.displayName; $("#dialogBody").textContent = JSON.stringify({ id: `customer.${id}`, ...definition, exampleValue: value }, null, 2); $("#propertyDialog").showModal(); }
   if (event.target.closest(".dialog-close")) $("#propertyDialog").close();

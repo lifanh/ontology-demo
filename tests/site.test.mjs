@@ -57,6 +57,9 @@ test("Customer Review is the default semantic sequence and Policy Studio remains
   assert.match(html, /data-view="studio"[^>]*>Policy Studio/);
   assert.match(html, /Reviewed 1,247 accounts · 38 flagged · showing 4/);
   assert.match(html, /id="customerSwitcher"/);
+  assert.match(html, /05 · Human choice · Session only/);
+  assert.match(html, /not an audit trail, identity, role, approval, or production workflow/);
+  assert.match(html, /Facts and Findings never change/);
   assert.match(html, /id="resetButton"/);
   assert.match(html, /Illustrative POC · Fictional customer data · AI features disabled/);
   assert.doesNotMatch(html, /get_parent_exposure|production-path|artifact-showcase/);
