@@ -101,3 +101,13 @@ test("maintainer guidance documents both portable modes and exact approved claim
   assert.match(readme, /Cloudflare is optional/);
   assert.match(readme, /deterministic-only static assets/);
 });
+
+test("live provider smoke is explicit opt-in and excluded from the default suite", async () => {
+  const packageJson = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
+  const script = await readFile(path.join(root, "scripts", "live-ai-smoke.mjs"), "utf8");
+  assert.equal(packageJson.scripts["test:live-ai"], "node scripts/live-ai-smoke.mjs");
+  assert.doesNotMatch(packageJson.scripts.test, /live-ai/);
+  assert.match(script, /LIVE_AI_SMOKE !== "true"/);
+  assert.match(script, /content and provider details suppressed/);
+  assert.doesNotMatch(script, /console\.log\([^)]*(?:result|request|config|error)/);
+});

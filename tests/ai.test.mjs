@@ -147,6 +147,21 @@ test("provider concurrency, call maximum, and both deadlines abort without retry
   assert.equal((await (await call(operationContext, "draft_rule")).json()).error.code, "OPERATION_TIMEOUT");
 });
 
+test("client cancellation aborts one provider attempt without retry", async () => {
+  let started;
+  const providerStarted = new Promise(resolve => { started = resolve; });
+  let calls = 0, aborted = false;
+  const context = await authenticatedApp({ provider: { complete({ signal }) { calls += 1; signal.addEventListener("abort", () => { aborted = true; }); started(); return new Promise(() => {}); } } });
+  const controller = new AbortController();
+  const pending = context.app.fetch(new Request(`${origin}/api/ai/draft_rule`, { method: "POST", headers: { origin, cookie: context.cookie, "content-type": "application/json" }, body: JSON.stringify(requests.draft_rule), signal: controller.signal }));
+  await providerStarted;
+  controller.abort();
+  const response = await pending;
+  assert.equal((await response.json()).error.code, "REQUEST_CANCELLED");
+  assert.equal(calls, 1);
+  assert.equal(aborted, true);
+});
+
 test("an operation cannot exceed three provider calls and stale release uses the safe envelope", async () => {
   let providerCalls = 0;
   const context = await authenticatedApp({

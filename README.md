@@ -77,6 +77,14 @@ npm test
 
 `npm test` runs domain and gateway tests, lint, the allowlisted build, site/claim/secret checks, and an isolated Chromium state workflow. Default tests never call a real provider.
 
+An explicit opt-in smoke calls all three operations with fictional inputs and validates the returned schemas and references without printing prompts, generated content, endpoint details, or secrets:
+
+```sh
+LIVE_AI_SMOKE=true AI_ENABLED=true npm run test:live-ai
+```
+
+Supply the same server-side AI configuration names listed above. This command is intentionally excluded from `npm test` and CI.
+
 Build and preview the two applications:
 
 ```sh

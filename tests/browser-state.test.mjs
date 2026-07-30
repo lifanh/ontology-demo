@@ -170,3 +170,91 @@ test("a static asset host with no session API unlocks deterministic-only mode", 
     vite.stderr.destroy();
   }
 });
+
+test("unattended browser flows preserve semantics, accessibility, terminal states, and escaped output", async () => {
+  const port = await freePort();
+  const vite = await startVite(port);
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage({ viewport: { width: 375, height: 900 } });
+    await page.route("**/api/session", route => route.fulfill({ json: { mode: "ai", aiEnabled: true, authenticated: true, modelDisplayName: "GPT-5.6 Luna" } }));
+    let explanationCall = 0;
+    await page.route("**/api/ai/explain_review", route => {
+      explanationCall += 1;
+      if (explanationCall === 1) return route.fulfill({ status: 504, json: { error: { code: "PROVIDER_TIMEOUT", message: "Request could not be completed", retryable: true, correlationId: "safe-test-id" } } });
+      if (explanationCall === 2) return route.fulfill({ json: { schemaVersion: "1", operation: "explain_review", result: {} } });
+      return route.fulfill({ json: { schemaVersion: "1", operation: "explain_review", result: { rationale: { status: "EXPLAINED", summary: "<img src=x onerror=alert(1)>", points: [{ text: "<script>unsafe()</script>", references: ["fact:2002/past_due_amount"] }] }, evidenceResults: [], toolTrace: { eligible: ["get_payment_history", "get_open_disputes"], called: [] } } } });
+    });
+    await page.route("**/api/ai/draft_rule", async route => {
+      const body = route.request().postDataJSON();
+      const ratio = body.policyText.includes("15%") ? "0.15" : body.policyText.includes("9%") ? "0.09" : body.policyText.includes("8%") ? "0.08" : "0.05";
+      await route.fulfill({ json: { schemaVersion: "1", operation: "draft_rule", result: { outcome: "CANDIDATE", family: "NET30_PAST_DUE_MAX", summary: "Bounded candidate.", dsl: `RULE NET30_PAST_DUE_MAX\nSCOPE customer.payment_terms == "NET_30"\nSET_MAX_RATIO customer.past_due_amount\n    TO customer.ar_balance = ${ratio}\nEND` } } });
+    });
+    await page.goto(`http://127.0.0.1:${port}/`);
+
+    const expected = new Map([[2001, "Auto review pass"], [2002, "Credit manager review"], [2003, "Request updated financial statements"], [2004, "Restrict customer"]]);
+    for (const [customer, action] of expected) {
+      await page.locator(`[data-customer="${customer}"]`).click();
+      assert.equal(await page.locator("#actionTitle").textContent(), action);
+    }
+    const positions = await page.locator(".selector-stage, .action-stage, .traces-stage, .ai-stage, .disposition-stage, .calculator-stage").evaluateAll(elements => elements.map(element => element.getBoundingClientRect().top));
+    assert.equal(positions.every((value, index) => index === 0 || value > positions[index - 1]), true);
+
+    await page.locator('[data-view="studio"]').focus();
+    await page.keyboard.press("Enter");
+    assert.equal(await page.locator("#studioView").isVisible(), true);
+    await page.locator('[data-view="review"]').focus();
+    await page.keyboard.press("Enter");
+    assert.equal(await page.locator("#reviewView").isVisible(), true);
+
+    await page.locator('[data-customer="2002"]').click();
+    await page.locator("#generateReviewRationale").click();
+    await page.getByText("AI rationale unavailable.").waitFor();
+    assert.equal(await page.locator("#actionTitle").textContent(), "Credit manager review");
+    await page.locator("#generateReviewRationale").click();
+    await page.getByText("AI rationale unavailable.").waitFor();
+    await page.locator("#generateReviewRationale").click();
+    await page.getByText("<img src=x onerror=alert(1)>").waitFor();
+    assert.equal(await page.locator("#aiPlaceholder img, #aiPlaceholder script").count(), 0);
+
+    await page.locator('[data-view="studio"]').click();
+    await page.locator('[data-scenario="ratio15"]').click();
+    await page.locator("#generatePrompt").click();
+    await page.locator("#editorSection:not(.hidden)").waitFor();
+    await page.locator("#validateButton").click();
+    await page.locator("#analyzeEvidence").click();
+    assert.match(await page.locator("#resultSection").textContent(), /CONFLICT/);
+    assert.equal(await page.locator("#runBatch").isDisabled(), true);
+    assert.equal(await page.locator("#activateRelease").isDisabled(), true);
+
+    await page.locator('[data-scenario="ratio5"]').click();
+    await page.locator("#generatePrompt").click();
+    await page.locator("#editorSection:not(.hidden)").waitFor();
+    await page.locator("#validateButton").click();
+    await page.locator("#analyzeEvidence").click();
+    await page.locator("#runBatch").click();
+    assert.match(await page.locator("#resultSection").textContent(), /BATCH PASSED/);
+    assert.equal(await page.locator("#activateRelease").isEnabled(), true);
+
+    await page.locator("#policyInput").fill("For NET 30 customers, set maximum past due to 8% of AR balance.");
+    await page.locator("#generatePrompt").click();
+    await page.locator("#editorSection:not(.hidden)").waitFor();
+    await page.locator("#validateButton").click();
+    await page.locator("#analyzeEvidence").click();
+    assert.match(await page.locator("#resultSection").textContent(), /REDUNDANT/);
+
+    await page.locator("#policyInput").fill("For NET 30 customers, set maximum past due to 9% of AR balance.");
+    await page.locator("#generatePrompt").click();
+    await page.locator("#editorSection:not(.hidden)").waitFor();
+    await page.locator("#validateButton").click();
+    await page.locator("#analyzeEvidence").click();
+    assert.match(await page.locator("#resultSection").textContent(), /COMPATIBLE RELAXATION/);
+    assert.equal(await page.locator("#runBatch").isEnabled(), true);
+  } finally {
+    await browser.close();
+    try { process.kill(-vite.pid, "SIGTERM"); } catch {}
+    await Promise.race([once(vite, "exit"), new Promise(resolve => setTimeout(resolve, 2_000))]);
+    vite.stdout.destroy();
+    vite.stderr.destroy();
+  }
+});

@@ -10,6 +10,7 @@
     "test:unit": "vp test --run tests/credit.test.mjs tests/server.test.mjs tests/ai.test.mjs tests/draft.test.mjs tests/review-explanation.test.mjs tests/policy-explanation.test.mjs",
     "test:site": "node --test tests/site.test.mjs",
     "test:browser": "node --test tests/browser-state.test.mjs",
+    "test:live-ai": "node scripts/live-ai-smoke.mjs",
     "check": "vp check",
     "lint": "vp lint",
     "format": "vp fmt",

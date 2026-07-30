@@ -35,6 +35,7 @@ button { color: inherit; }
 .status-pill { display: flex; align-items: center; gap: 8px; color: #c8d7d1; font-size: 12px; font-weight: 600; }
 .pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 0 4px rgba(185,227,107,.12); }
 .icon-button { width: 35px; height: 35px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); border-radius: 8px; display: grid; place-items: center; cursor: pointer; }
+#logoutButton { width: auto; min-width: 68px; padding: 0 12px; white-space: nowrap; }
 .icon-button:hover { background: rgba(255,255,255,.13); }.icon-button svg { width: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; }
 
 .app-shell { min-height: calc(100vh - 68px); }
@@ -226,6 +227,7 @@ body { font-size: 20px; }
 .scale-line { margin: 20px 0 8px; color: #60756d; font-size: 11px; font-weight: 800; text-transform: uppercase; }
 .selector-stage > small { color: var(--muted); }
 .action-stage { padding: 34px; color: white; background: var(--navy); border-color: var(--navy); }
+.action-stage > .stage-number { color: var(--lime); }
 .action-stage .eyebrow { color: var(--lime); }.action-stage h2 { margin: 7px 0 12px; color: white; font-size: clamp(31px,5vw,48px); letter-spacing: -1.5px; }
 .reason-codes { display: inline-block; padding: 9px 12px; border: 1px solid rgba(255,255,255,.17); border-radius: 6px; color: #c5d6d0; font: 12px var(--mono); }.reason-codes b { color: var(--lime); }
 #traceOutput { display: grid; gap: 10px; }
