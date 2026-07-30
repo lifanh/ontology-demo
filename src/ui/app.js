@@ -13,7 +13,7 @@ const actionOptions = dispositionActions;
 const dispositionStore = createDispositionStore(sessionStorage);
 const STUDIO_STORAGE_KEY = "customer-review:policy-studio:v1";
 let reviewContext, reviewRequestVersion = 0;
-let selected = "ratio5", governance, activeRuleSet, batch, disposition, releaseRuleSets = {}, draftRequestVersion = 0;
+let selected = "ratio5", governance, activeRuleSet, batch, disposition, releaseRuleSets = {}, draftRequestVersion = 0, policyExplanation, policyRequestVersion = 0;
 
 const labels = { AUTO_REVIEW_PASS: "Auto review pass", NEED_CREDIT_MANAGER_REVIEW: "Credit manager review", REQUEST_UPDATED_FINANCIAL_STATEMENTS: "Request updated financial statements", NEED_TO_RESTRICT: "Restrict customer", NEED_MANUAL_REVIEW: "Manual review", RECOMMEND_CREDIT_LIMIT_REASSESSMENT: "Reassess credit limit" };
 const operator = { "==": "is", "!=": "is not", ">": "is greater than", ">=": "is at least", "<": "is less than", "<=": "is at most" };
@@ -101,6 +101,12 @@ function resetState() {
   governance = new Governance({ activeRelease: release, candidate: { logicalId: scenario.logicalId, revision: scenario.revision, sourcePolicy: scenario.policy, sourceDsl, ast: null } });
   batch = null;
   disposition = null;
+  invalidatePolicyExplanation();
+}
+
+function invalidatePolicyExplanation() {
+  policyExplanation = null;
+  policyRequestVersion += 1;
 }
 
 function formatFact(id, value) {
@@ -178,6 +184,7 @@ function updateDraft(changes) {
   else governance.edit(changes);
   batch = null;
   disposition = null;
+  invalidatePolicyExplanation();
 }
 
 function candidateRules() {
@@ -240,6 +247,53 @@ function renderBatch() {
   return `<section class="batch-panel"><p class="eyebrow">Deterministic Review impact · illustrative Policy Impact Cohort · baseline ${escapeHtml(baselineReleaseId)}</p><h3>${escapeHtml(batch.headline)}</h3><p>Compared with the active release in this illustrative ${summary.evaluated}-record cohort.</p><div class="metric-grid">${metrics.map(([label, value]) => `<div><small>${escapeHtml(label)}</small><b>${escapeHtml(value)}</b></div>`).join("")}</div><div class="batch-table"><table><thead><tr><th>Record</th><th>Baseline action</th><th>Candidate action</th><th>Finding changes and evidence</th></tr></thead><tbody>${rows}</tbody></table></div><details><summary>Show all ${summary.evaluated}</summary><pre>${escapeHtml(JSON.stringify(batch.rows, null, 2))}</pre></details></section>`;
 }
 
+function policyExplanationRequest() {
+  const analysis = governance.evidence.analysis;
+  const impact = governance.evidence.batch;
+  if (!analysis || !batch?.summary.complete || governance.current.state !== "BATCH_PASSED" || analysis.revision !== governance.current.revision || impact?.revision !== governance.current.revision || analysis.releaseId !== governance.activeRelease.id || impact.releaseId !== governance.activeRelease.id) throw new Error("Complete deterministic analysis and Review impact first.");
+  const base = `${governance.activeRelease.id}/${governance.current.logicalId}@${governance.current.revision}`;
+  return {
+    schemaVersion: "1",
+    activeReleaseId: governance.activeRelease.id,
+    candidateRevision: governance.current.revision,
+    analysisStatus: analysis.status,
+    analysisSummary: analysis.summary,
+    impactHeadline: batch.headline,
+    impactComplete: true,
+    evidenceRefs: [`analysis:${base}`, `impact:${policyImpactCohort.id}/${base}`]
+  };
+}
+
+function renderPolicyExplanation() {
+  if (policyExplanation?.status === "ready") return `<section class="runtime-panel" id="policyExplanation"><p class="eyebrow">AI policy explanation · non-authoritative</p><h3>${escapeHtml(policyExplanation.result.summary)}</h3><ul>${policyExplanation.result.points.map(point => `<li>${escapeHtml(point.text)} <small>${point.references.map(escapeHtml).join(" · ")}</small></li>`).join("")}</ul><button id="generatePolicyExplanation" class="secondary-button">Generate again</button><p class="boundary-note">This explanation does not qualify, approve, or activate the candidate.</p></section>`;
+  if (policyExplanation?.status === "loading") return `<section class="runtime-panel" id="policyExplanation"><p class="eyebrow">AI policy explanation · non-authoritative</p><h3 role="status">Generating explanation with GPT-5.6 Luna…</h3><p>Deterministic qualification and activation remain available.</p></section>`;
+  if (policyExplanation?.status === "error") return `<section class="runtime-panel" id="policyExplanation"><p class="eyebrow">AI policy explanation · non-authoritative</p><h3 role="alert">Explanation unavailable</h3><p>${escapeHtml(policyExplanation.message)}</p><button id="generatePolicyExplanation" class="secondary-button">Retry explanation</button><p class="boundary-note">This failure does not block an otherwise-qualified Demo Release activation.</p></section>`;
+  let ready = false;
+  try { policyExplanationRequest(); ready = true; } catch {}
+  return `<section class="runtime-panel" id="policyExplanation"><p class="eyebrow">AI policy explanation · non-authoritative</p><h3>${ready ? "Deterministic evidence is ready to explain" : "Complete deterministic analysis and Review impact first"}</h3><p>The explanation supports deterministic evidence; it never validates or activates a candidate.</p><button id="generatePolicyExplanation" class="secondary-button" ${ready && document.documentElement.dataset.aiEnabled === "true" ? "" : "disabled"}>Generate explanation</button></section>`;
+}
+
+async function generatePolicyExplanation() {
+  let snapshot;
+  try { snapshot = policyExplanationRequest(); } catch (error) { return showToast(error.message); }
+  const version = ++policyRequestVersion;
+  policyExplanation = { status: "loading" };
+  renderGovernance();
+  try {
+    const response = await fetch("/api/ai/explain_policy_analysis", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify(snapshot) });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(`${payload.error?.message || "Explanation unavailable"} · ${payload.error?.correlationId || "no correlation ID"}`);
+    let current;
+    try { current = policyExplanationRequest(); } catch { return; }
+    if (version !== policyRequestVersion || JSON.stringify(current) !== JSON.stringify(snapshot)) return;
+    policyExplanation = { status: "ready", result: payload.result };
+  } catch (error) {
+    if (version !== policyRequestVersion) return;
+    policyExplanation = { status: "error", message: error instanceof Error ? error.message : "Request failed" };
+  }
+  renderGovernance();
+}
+
 function renderGovernance(message = "") {
   const current = governance.current, analysis = governance.evidence.analysis;
   const expectedAnalysis = current.ast ? analyzeCandidate(current.ast, activeRuleSet) : null;
@@ -253,7 +307,7 @@ function renderGovernance(message = "") {
     <div class="governance-actions"><button id="analyzeEvidence" class="secondary-button" ${current.state === "VALIDATED" ? "" : "disabled"}>Analyze compatibility</button><button id="runBatch" class="primary-button" ${current.state === "ANALYZED" ? "" : "disabled"}>Run Review impact</button></div>
     <p class="boundary-note">In-memory simulation: the first edit after validation creates a new revision and stales all evidence. Conflicts, applicable indeterminate results, and batch errors block approval.</p>
     ${current.ast ? singleResult() : `<section class="runtime-panel"><p class="eyebrow">Draft revision ${current.revision}</p><h3>Validation required</h3><p>Regenerate or edit the DSL, then validate it before deterministic preview, impact analysis, or approval.</p></section>`}${batch ? renderBatch() : ""}
-    <section class="runtime-panel"><p class="eyebrow">AI policy explanation · non-authoritative</p><h3>${batch ? "Explanation slot ready" : "Complete deterministic analysis and Review impact first"}</h3><p>${batch ? "A future AI call will explain the compatibility result and workload change without changing either result. Explanation failure will not block activation." : "The explanation will support the deterministic evidence; it will never validate or activate a candidate."}</p></section>
+    ${renderPolicyExplanation()}
     <div class="governance-actions"><button id="activateRelease" class="primary-button" ${governance.canActivate() ? "" : "disabled"}>Approve &amp; activate demo release</button></div>
     <details><summary>Revision, evidence, and release history</summary><pre>${escapeHtml(JSON.stringify({ revisions: governance.revisions, releases: governance.releaseHistory, evidence: governance.evidence }, null, 2))}</pre></details></div>`;
   $("#resultSection").classList.remove("hidden");
@@ -269,6 +323,7 @@ function setScenario(id, { resetReleases = false } = {}) {
     governance.startDraft({ logicalId: scenario.logicalId, revision: scenario.revision, sourcePolicy: scenario.policy, sourceDsl, ast: null });
     batch = null;
     disposition = null;
+    invalidatePolicyExplanation();
   }
   document.querySelectorAll(".scenario").forEach(button => button.classList.toggle("active", button.dataset.scenario === id));
   $("#policyInput").value = scenarios[id].policy;
@@ -282,6 +337,7 @@ function setScenario(id, { resetReleases = false } = {}) {
 
 document.addEventListener("click", event => {
   if (event.target.closest("#generateReviewRationale") && document.documentElement.dataset.aiEnabled === "true") generateReviewRationale();
+  if (event.target.closest("#generatePolicyExplanation") && document.documentElement.dataset.aiEnabled === "true") generatePolicyExplanation();
   if (event.target.closest("#saveReviewDisposition")) {
     try {
       const status = document.querySelector('input[name="reviewDisposition"]:checked')?.value;
@@ -311,7 +367,7 @@ document.addEventListener("click", event => {
     } catch (error) { renderAuthoringError(error); }
   }
   if (event.target.closest("#analyzeEvidence")) {
-    try { const analysis = analyzeCandidate(governance.current.ast, activeRuleSet); governance.record("analysis", analysis); renderGovernance(analysis.status === "CONFLICT" ? "Conflict blocks Review impact and activation." : `${analysis.status.replaceAll("_", " ")} against the active release.`); persistStudio(); setProgress(4); }
+    try { invalidatePolicyExplanation(); const analysis = analyzeCandidate(governance.current.ast, activeRuleSet); governance.record("analysis", analysis); renderGovernance(analysis.status === "CONFLICT" ? "Conflict blocks Review impact and activation." : `${analysis.status.replaceAll("_", " ")} against the active release.`); persistStudio(); setProgress(4); }
     catch (error) { renderGovernance(error.message); }
   }
   if (event.target.closest("#runBatch")) {
@@ -320,12 +376,14 @@ document.addEventListener("click", event => {
       const candidateBatch = assessReviewImpact(policyImpactCohort, customer => evaluate(customer, activeRuleSet, governance.activeRelease), customer => evaluate(customer, candidateSet, candidateRelease(candidateSet)));
       governance.record("batch", candidateBatch);
       batch = candidateBatch;
+      invalidatePolicyExplanation();
       renderGovernance(candidateBatch.summary.complete ? "Review impact assessment complete." : "Impact assessment incomplete: errors or indeterminate evaluations block a definitive result.");
       persistStudio();
     } catch (error) { renderGovernance(error.message); }
   }
   if (event.target.closest("#activateRelease")) {
     try {
+      invalidatePolicyExplanation();
       const activatedRules = candidateRules();
       const manifest = { id: nextReleaseId(governance.releaseHistory.at(-1).id), ontologyVersion: "2.0", actionPolicyVersion: "credit-actions-1.0", calculatorVersion: creditPack.calculator.version, rules: activatedRules.map(({ id, revision }) => ({ id, revision })), compiledRules: activatedRules };
       const next = governance.activate(manifest);
@@ -361,6 +419,7 @@ document.addEventListener("click", event => {
 
 $("#releaseSelector").addEventListener("change", event => {
   draftRequestVersion += 1;
+  invalidatePolicyExplanation();
   governance.selectRelease(event.target.value);
   activeRuleSet = releaseRuleSets[governance.activeRelease.id] || activeRules;
   persistStudio();

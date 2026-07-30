@@ -8,10 +8,11 @@ import { loadConfig } from "./config.js";
 import { createOpenAiProvider } from "./openai-provider.js";
 import { draftRuleExecutor } from "./draft-rule.js";
 import { explainReviewExecutor } from "./review-evidence.js";
+import { explainPolicyAnalysisExecutor } from "./policy-explanation.js";
 
 const config = loadConfig();
 const provider = config.aiEnabled ? createOpenAiProvider(config) : undefined;
-const app = createApp({ config, ...(provider ? { provider, aiExecutors: { draft_rule: draftRuleExecutor, explain_review: explainReviewExecutor } } : {}), clientIp: c => getConnInfo(c).remote.address || "unknown" });
+const app = createApp({ config, ...(provider ? { provider, aiExecutors: { draft_rule: draftRuleExecutor, explain_review: explainReviewExecutor, explain_policy_analysis: explainPolicyAnalysisExecutor } } : {}), clientIp: c => getConnInfo(c).remote.address || "unknown" });
 const dist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../dist");
 app.use("/*", serveStatic({ root: dist }));
 app.get("*", serveStatic({ path: path.join(dist, "index.html") }));

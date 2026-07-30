@@ -57,10 +57,10 @@ const contracts = {
       schemaVersion: { const: "1" },
       activeReleaseId: reference,
       candidateRevision: { type: "integer", minimum: 1, maximum: 10_000 },
-      analysisStatus: { enum: ["CONFLICT", "REDUNDANT", "COMPATIBLE_REFINEMENT", "COMPATIBLE_RELAXATION", "INDETERMINATE"] },
+      analysisStatus: { enum: ["REDUNDANT", "COMPATIBLE_REFINEMENT", "COMPATIBLE_RELAXATION"] },
       analysisSummary: text(1, 1_000),
       impactHeadline: text(1, 500),
-      impactComplete: { type: "boolean" },
+      impactComplete: { const: true },
       evidenceRefs: { type: "array", minItems: 1, maxItems: 30, uniqueItems: true, items: reference }
     }),
     result: explanation

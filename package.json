@@ -7,7 +7,7 @@
   },
   "scripts": {
     "test": "npm run test:unit && npm run check && npm run build && npm run test:site",
-    "test:unit": "vp test --run tests/credit.test.mjs tests/server.test.mjs tests/ai.test.mjs tests/draft.test.mjs tests/review-explanation.test.mjs",
+    "test:unit": "vp test --run tests/credit.test.mjs tests/server.test.mjs tests/ai.test.mjs tests/draft.test.mjs tests/review-explanation.test.mjs tests/policy-explanation.test.mjs",
     "test:site": "node --test tests/site.test.mjs",
     "check": "vp check",
     "lint": "vp lint",

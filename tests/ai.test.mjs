@@ -64,6 +64,21 @@ test("closed request and response schemas reject extras, bounds, markup, and par
   assert.equal((await invalidOutput.json()).error.code, "INVALID_MODEL_RESPONSE");
 });
 
+test("policy explanations reject non-terminal compatibility and incomplete impact before provider use", async () => {
+  let providerCalls = 0;
+  const context = await authenticatedApp({ provider: { async complete() { providerCalls += 1; return outputs.explain_policy_analysis; } } });
+  for (const invalid of [
+    { ...requests.explain_policy_analysis, analysisStatus: "CONFLICT" },
+    { ...requests.explain_policy_analysis, analysisStatus: "INDETERMINATE" },
+    { ...requests.explain_policy_analysis, impactComplete: false }
+  ]) {
+    const response = await call(context, "explain_policy_analysis", invalid);
+    assert.equal(response.status, 400);
+    assert.equal((await response.json()).error.code, "INVALID_REQUEST");
+  }
+  assert.equal(providerCalls, 0);
+});
+
 test("safe error envelopes hide provider details and log metadata only", async () => {
   const logs = [];
   const context = await authenticatedApp({ logger: { info(entry) { logs.push(entry); } }, provider: { async complete() { throw new Error("raw provider body with secret prompt"); } } });
