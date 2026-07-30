@@ -149,3 +149,24 @@ test("tab product state is keyed, reloadable, isolated, resettable, and preserve
     vite.stderr.destroy();
   }
 });
+
+test("a static asset host with no session API unlocks deterministic-only mode", async () => {
+  const port = await freePort();
+  const vite = await startVite(port);
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    await page.route("**/api/session", route => route.fulfill({ status: 404, body: "Not found" }));
+    await page.goto(`http://127.0.0.1:${port}/`);
+    await page.locator("#actionTitle").waitFor();
+    assert.equal(await page.locator("#accessGate").getAttribute("class"), "access-gate hidden");
+    assert.match(await page.locator("#aiStatus").textContent(), /AI features disabled/);
+    assert.equal(await page.locator("#generateReviewRationale").isDisabled(), true);
+  } finally {
+    await browser.close();
+    try { process.kill(-vite.pid, "SIGTERM"); } catch {}
+    await Promise.race([once(vite, "exit"), new Promise(resolve => setTimeout(resolve, 2_000))]);
+    vite.stdout.destroy();
+    vite.stderr.destroy();
+  }
+});

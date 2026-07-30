@@ -23,13 +23,14 @@ const unlock = async status => {
   $("#aiStatus").innerHTML = `<span class="pulse"></span>${status.aiEnabled ? `Real ${status.modelDisplayName} calls` : "AI features disabled"}`;
   document.documentElement.dataset.aiEnabled = String(status.aiEnabled);
   if (status.aiEnabled) $("#simulateResponse").classList.add("hidden");
-  document.querySelector("#reviewView .workspace-header .eyebrow").textContent = status.aiEnabled ? `Illustrative POC · Fictional customer data · Real ${status.modelDisplayName} calls` : "Illustrative POC · Fictional customer data · AI features disabled";
+  document.querySelector("#reviewView .workspace-header .eyebrow").textContent = status.aiEnabled ? "Illustrative POC · Fictional customer data · Real GPT-5.6 Luna calls" : "Illustrative POC · Fictional customer data · AI features disabled";
   await import("./app.js");
 };
 
 const loadSession = async () => {
   try {
     const response = await fetch("/api/session", { credentials: "same-origin" });
+    if (response.status === 404) return unlock({ aiEnabled: false, modelDisplayName: null });
     if (!response.ok) throw new Error();
     const status = await response.json();
     if (status.aiEnabled && !status.authenticated) return showGate("");

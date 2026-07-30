@@ -45,7 +45,14 @@ test("assembled Slidev deck uses the /slides/ base and local assets", async () =
 test("assembled output excludes package and authoring internals", async () => {
   await assert.rejects(access(path.join(root, "dist", "node_modules")));
   await assert.rejects(access(path.join(root, "dist", "package.json")));
+  await assert.rejects(access(path.join(root, "dist", "server")));
+  await assert.rejects(access(path.join(root, "dist", "README.md")));
   await assert.rejects(access(path.join(root, "dist", "slides", "slides.md")));
+});
+
+test("assembled browser assets contain no server-only configuration or credentials", async () => {
+  const contents = (await Promise.all((await filesUnder(path.join(root, "dist"))).map(file => readFile(file)))).map(value => value.toString("utf8")).join("\n");
+  for (const forbidden of ["DEMO_PASSWORD", "SESSION_SECRET", "LLM_CHAT_COMPLETIONS_URL", "LLM_API_KEY", "company-gateway.example"]) assert.doesNotMatch(contents, new RegExp(forbidden));
 });
 
 test("Customer Review is the default semantic sequence and Policy Studio remains separate", async () => {
@@ -74,5 +81,23 @@ test("Customer Review is the default semantic sequence and Policy Studio remains
   assert.match(app, /customer-review:product:v1/);
   assert.match(app, /demo-auth-required/);
   assert.match(html, /Illustrative POC · Fictional customer data · AI features disabled/);
-  assert.doesNotMatch(productSource, /get_parent_exposure|production-path|artifact-showcase|Approve &amp; publish|APPROVED_AND_PUBLISHED/);
+  assert.doesNotMatch(productSource, /get_parent_exposure|production-path|artifact-showcase|Approve &amp; publish|APPROVED_AND_PUBLISHED|Mocked output|MOCKED TRANSLATION/);
+});
+
+test("maintainer guidance documents both portable modes and exact approved claims", async () => {
+  const [readme, html, accessSource] = await Promise.all([
+    readFile(path.join(root, "README.md"), "utf8"),
+    readFile(path.join(root, "index.html"), "utf8"),
+    readFile(path.join(root, "src", "ui", "access.js"), "utf8")
+  ]);
+  const staticClaim = "Illustrative POC · Fictional customer data · AI features disabled";
+  const aiClaim = "Illustrative POC · Fictional customer data · Real GPT-5.6 Luna calls";
+  assert.match(html, new RegExp(staticClaim));
+  assert.match(accessSource, new RegExp(aiClaim));
+  assert.match(readme, new RegExp(staticClaim));
+  assert.match(readme, new RegExp(aiClaim));
+  assert.match(html, /Do not enter production customer data or confidential policy/);
+  assert.match(readme, /canonical full-mode gateway is the Hono application served by Node/);
+  assert.match(readme, /Cloudflare is optional/);
+  assert.match(readme, /deterministic-only static assets/);
 });
