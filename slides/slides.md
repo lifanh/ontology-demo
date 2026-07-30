@@ -1,18 +1,18 @@
 ---
 theme: default
-title: Customer Review Ontology
-titleTemplate: '%s · Governed AI-Assisted Credit Policy Reasoning for CIS'
-author: Customer Review Ontology
+title: AI-Assisted Customer Credit Review
+titleTemplate: '%s · Make review easier without giving AI decision authority'
+author: AI-Assisted Customer Credit Review
 info: |
-  An illustrative showcase of how governed AI, shared credit semantics,
-  and deterministic reasoning could support policy evolution around CIS.
+  A management walkthrough of an illustrative POC in which GPT-5.6 Luna
+  drafts and explains, deterministic controls verify, and a person decides.
 favicon: /slides/favicon.svg
 fonts:
   sans: Manrope
   mono: DM Mono
   local: Manrope,DM Mono
   provider: none
-exportFilename: customer-review-ontology
+exportFilename: ai-assisted-customer-credit-review
 transition: fade
 mdc: true
 routerMode: hash
@@ -20,157 +20,136 @@ defaults:
   layout: default
 ---
 
-<div class="cover-grid">
+<div class="opening-grid">
   <div>
-    <div class="brand-lockup"><span class="brand-symbol"><i></i><i></i><i></i></span><b>Customer Review Ontology</b></div>
-    <p class="kicker">Innovation showcase</p>
-    <h1>Customer Review<br><span>Ontology</span></h1>
-    <p class="subtitle">Governed AI-Assisted Credit Policy Reasoning for CIS</p>
-    <p class="trust-line">AI drafts · shared semantics ground · deterministic engines decide · people govern</p>
+    <p class="kicker">The management problem</p>
+    <h1>AI-Assisted Customer<br><span>Credit Review</span></h1>
+    <p class="subtitle">Make review easier without giving AI decision authority</p>
   </div>
-  <div class="cover-orbit" aria-hidden="true">
-    <span>AI</span><span>ONTOLOGY</span><span>REASONING</span><b>CIS</b>
+  <div class="capacity-funnel" aria-label="Review demand exceeds analyst capacity">
+    <div><b>Many customers may warrant review</b><span>Risk signals and changing conditions create demand</span></div>
+    <i>↓</i>
+    <div class="constraint"><b>Limited analyst capacity</b><span>Human attention must be prioritized</span></div>
+    <i>↓</i>
+    <div class="focus"><b>Current focus: credit limit above $50,000</b><span>Operational prioritization—not a statement of safety or fraud</span></div>
   </div>
 </div>
 
-<div class="slide-footer"><span>Illustrative showcase</span><span>Customer Review Ontology</span></div>
+<p class="takeaway"><b>The gap:</b> prioritization helps manage capacity, but it does not make the remaining review demand disappear.</p>
 
 <!--
-Open by setting expectations: this is an innovation showcase, not a funding request or production commitment.
-The proposition is controlled AI adoption in the credit domain. AI accelerates drafting, while deterministic systems and people retain authority.
+Open with the operating problem, not the technology. Many customers may warrant review, while the available analyst team currently prioritizes customers above the $50,000 credit-limit threshold.
+That threshold does not prove lower-limit customers are safe or higher-limit customers are fraudulent. Do not add volume, time, loss, or cost estimates.
+Likely challenge: “How many reviews are missed?” We have not measured that. The proposal is to establish evidence, not assert an outcome.
 -->
 
 ---
 
-<p class="kicker">The opportunity</p>
+<p class="kicker">The objective</p>
 
-# Credit policy changes cross several worlds
+# Customer review protects both sides of the decision
 
-<div class="problem-flow">
-  <article><small>01</small><b>Business intent</b><span>Policy starts as language, context, and judgment.</span></article>
-  <i>→</i>
-  <article><small>02</small><b>CIS data</b><span>Operational facts arrive through technical API contracts.</span></article>
-  <i>→</i>
-  <article><small>03</small><b>Executable rules</b><span>Scope, thresholds, precedence, and exceptions must be exact.</span></article>
-  <i>→</i>
-  <article><small>04</small><b>Governed change</b><span>Impact must be understood before activation.</span></article>
+<div class="balance-visual">
+  <section class="downside">
+    <small>Protect the business</small>
+    <h3>Reduce avoidable exposure</h3>
+    <ul><li>Bad-debt risk</li><li>Broader fraud risk</li><li>Inconsistent escalation</li></ul>
+  </section>
+  <div class="balance-center"><span></span><b>Better human review</b><i></i></div>
+  <section class="opportunity">
+    <small>Preserve the business</small>
+    <h3>Keep viable opportunity open</h3>
+    <ul><li>Justified credit decisions</li><li>Visible exceptions</li><li>Avoid unnecessary restriction</li></ul>
+  </section>
 </div>
 
-<div class="executive-callout">
-  <b>A locally reasonable change can still contradict the active policy set.</b>
-  <span>Manual translation slows change; opaque automation increases operational and audit risk.</span>
-</div>
+<p class="takeaway"><b>The objective is not stricter rules.</b> It is easier, more consistent review without discarding justified opportunities.</p>
 
 <!--
-Describe the translation problem rather than blaming CIS or current teams.
-Credit policy is expressed by people, but production execution needs exact facts, types, units, scope, and precedence.
-The risk is not only malformed rules. A valid rule may still conflict with an active rule.
+Customer review has two responsibilities: protect against downside and avoid blocking legitimate business.
+AI should make the analyst’s work easier, but policy still needs room for accountable human exceptions.
+Likely challenge: “Does this POC reduce fraud or bad debt?” No. Those are business objectives; the POC demonstrates a control pattern, not measured outcomes or fraud detection.
 -->
 
 ---
 
-<p class="kicker">The trust model</p>
+<p class="kicker">The trust boundary</p>
 
-# Safe AI adoption requires clear authority
+# AI can reduce effort—but fluency is not a control
 
-<div class="authority-grid">
-  <article class="ai"><span>01</span><h3>AI</h3><b>Draft and explain</b><p>Produces a bounded proposal. It remains untrusted input.</p></article>
-  <article class="ontology"><span>02</span><h3>Customer Review Ontology</h3><b>Define shared meaning</b><p>Provides facts, types, units, relationships, and provenance.</p></article>
-  <article class="engine"><span>03</span><h3>Deterministic engines</h3><b>Validate and execute</b><p>Compare, qualify, calculate, and return stable evidence.</p></article>
-  <article class="people"><span>04</span><h3>People + CIS</h3><b>Govern outcomes</b><p>Approve releases and retain authority over customer state.</p></article>
+<div class="can-cannot">
+  <section class="can">
+    <span>AI assistance</span>
+    <h3>Good at making work easier</h3>
+    <div><b>Gather</b><small>Choose from bounded evidence lookups</small></div>
+    <div><b>Draft</b><small>Turn supported intent into a rule candidate</small></div>
+    <div><b>Explain</b><small>Translate deterministic evidence into readable prose</small></div>
+  </section>
+  <section class="cannot">
+    <span>Retained authority</span>
+    <h3>Never delegated to the model</h3>
+    <div><b>Facts</b><small>Typed context and evidence values</small></div>
+    <div><b>Controls</b><small>Validation, comparison, and action resolution</small></div>
+    <div><b>Choice</b><small>Disposition and Demo Release activation</small></div>
+  </section>
 </div>
 
-<p class="principle"><b>AI may propose.</b> It does not validate itself, activate policy, or make the final credit decision.</p>
+<p class="takeaway"><b>Credible prose is not proof.</b> The model cannot validate itself or establish that a decision follows policy.</p>
 
 <!--
-This is the sentence to remember: AI proposes; ontology supplies meaning; deterministic systems validate and execute; people govern.
-The separation lets us use AI for speed without confusing fluency with authority.
+The model contributes where language helps. Deterministic code owns every claim that must be reproducible.
+Likely challenge: “Can the explanation still be wrong?” Yes. It is generated text with validated references, not a semantic guarantee. The authoritative evidence remains visible above it.
 -->
 
 ---
 
-<p class="kicker">Shared semantics</p>
+<p class="kicker">One pattern · Two jobs</p>
 
-# From CIS APIs to governed credit facts
+# The same authority pattern governs review and policy
 
-<div class="fact-pipeline">
-  <article><small>System of record</small><h3>CIS APIs</h3><p>Authoritative customer and credit values</p></article>
-  <span>→</span>
-  <article class="accent"><small>Translation boundary</small><h3>Facts adapter</h3><p>Names · types · units · nulls · freshness · provenance</p></article>
-  <span>→</span>
-  <article><small>Shared contract</small><h3>Customer Review Ontology</h3><p>Consistent meaning across authoring and evaluation</p></article>
+<div class="dual-pattern">
+  <section>
+    <label>Customer Review</label>
+    <div><b>Tier-1 context</b><span>Fictional facts</span></div><i>→</i>
+    <div class="control-step"><b>Findings + action</b><span>Deterministic</span></div><i>→</i>
+    <div class="ai-step"><b>AI assistance</b><span>Bounded evidence + explanation</span></div><i>→</i>
+    <div><b>Disposition</b><span>Person</span></div>
+  </section>
+  <section>
+    <label>Policy Studio</label>
+    <div><b>Policy intent</b><span>Person</span></div><i>→</i>
+    <div class="ai-step"><b>AI candidate</b><span>Bounded draft</span></div><i>→</i>
+    <div class="control-step"><b>Validation + impact</b><span>Deterministic</span></div><i>→</i>
+    <div><b>Demo Release</b><span>Person</span></div>
+  </section>
 </div>
 
-<div class="fact-examples">
-  <div><code>ar_balance</code><b>125,000</b><small>USD · CIS source fact</small></div>
-  <div><code>payment_terms</code><b>NET_30</b><small>Controlled value</small></div>
-  <div><code>past_due_ratio</code><b>12%</b><small>Deterministically derived</small></div>
-  <div><code>adp_days</code><b>28</b><small>DAYS · typed unit</small></div>
-</div>
-
-<p class="boundary"><b>Important distinction:</b> CIS APIs supply fact values. The ontology defines what those facts mean and how policy may use them.</p>
+<p class="pattern-line">AI drafts and explains <b>·</b> deterministic controls verify <b>·</b> a person decides</p>
 
 <!--
-The demo has 18 source facts and 10 derived facts. That is illustrative scale, not a final CIS data dictionary.
-The adapter is important: similarly named fields are not assumed to have identical business meaning.
-Derived facts, such as past-due ratio, are calculated deterministically rather than by the AI.
+The audience will see the same authority boundary twice. In Customer Review, deterministic Findings and action come first; generated rationale may then explain their evidence. In Policy Studio, a generated candidate must pass deterministic gates before a person can activate a Demo Release.
+Likely challenge: “Who is accountable?” This anonymous POC captures a session-scoped choice, not identity or a durable audit. Production ownership and controls require discovery.
 -->
 
 ---
 
-<p class="kicker">Illustrative browser showcase</p>
+<p class="kicker">Claims preview</p>
 
-# One bounded policy lifecycle, end to end
+# What the audience is about to see
 
-<div class="lifecycle">
-  <div><b>1</b><span>Describe</span><small>Human intent</small></div>
-  <i></i>
-  <div><b>2</b><span>Draft</span><small>AI proposal</small></div>
-  <i></i>
-  <div><b>3</b><span>Validate</span><small>Facts + grammar</small></div>
-  <i></i>
-  <div><b>4</b><span>Reason</span><small>Active release</small></div>
-  <i></i>
-  <div><b>5</b><span>Qualify</span><small>13-customer batch</small></div>
-  <i></i>
-  <div><b>6</b><span>Publish</span><small>Human approval</small></div>
+<div class="claims-grid">
+  <article class="real"><span>Real</span><b>GPT-5.6 Luna calls</b><small>Deterministic evaluation, validation, comparison, and resolution</small></article>
+  <article><span>Simulated</span><b>Bounded lookups</b><small>Fixed review context and evidence-tool results</small></article>
+  <article><span>Fictional</span><b>Demo records</b><small>Customers, policies, evidence, cohort, and seeded override history</small></article>
+  <article><span>Session-only</span><b>Browser-tab state</b><small>Dispositions, policy feedback, and activated Demo Releases</small></article>
 </div>
 
-<div class="stat-grid">
-  <article><strong>18</strong><span>source facts</span></article>
-  <article><strong>10</strong><span>derived facts</span></article>
-  <article><strong>6</strong><span>active policies</span></article>
-  <article><strong>13</strong><span>fictional portfolio cases</span></article>
-</div>
-
-<p class="warning"><b>Boundary:</b> static browser showcase, fictional data, in-memory state. No CIS API, external model, production engine, persistence, or automatic customer mutation.</p>
+<p class="warning"><b>Not connected:</b> CIS, Vertica, production data, durable audit, production policy publication, or customer mutation.</p>
 
 <!--
-Orient the audience before leaving the deck.
-The latest showcase is more than prompt generation: it carries an exact revision through validation, conflict analysis, portfolio qualification, and one-session publication.
-Everything resets on refresh and nothing changes a real customer.
--->
-
----
-
-<p class="kicker">Happy path</p>
-
-# A stricter NET 30 policy is a compatible refinement
-
-<blockquote>“Customers with NET 30 payment terms cannot have more than <b>5%</b> of their AR balance past due.”</blockquote>
-
-<div class="thresholds">
-  <article><small>Global ceiling</small><strong>10%</strong><span>All applicable customers</span></article>
-  <article><small>Active NET 30 revision</small><strong>8%</strong><span>Scoped maximum</span></article>
-  <article class="candidate"><small>Candidate NET 30 revision</small><strong>5%</strong><span>Stricter, not contradictory</span></article>
-</div>
-
-<div class="relationship-good"><span>8% active</span><i>→</i><span>5% candidate</span><b>COMPATIBLE REFINEMENT</b></div>
-
-<!--
-This is a revision of the stable NET30 rule, not an unrelated duplicate rule.
-The candidate is stricter than both the active scoped 8% limit and the global 10% maximum.
-Next, open the demo and carry this exact revision through the complete lifecycle.
+Set the boundary before opening the app. In AI-enabled mode, the model calls are real. The customer and policy world around them is deliberately fictional and bounded.
+The app is an illustrative POC, not a production integration or claim about official company policy.
+Likely challenge: “Is this a scripted model response?” No in AI-enabled mode. If credentials are unavailable, static mode truthfully labels AI features disabled.
 -->
 
 ---
@@ -179,343 +158,366 @@ class: live-demo-slide
 ---
 
 <div class="live-demo">
-  <p class="kicker">Live walkthrough · happy path</p>
-  <h1>Qualify the exact revision<br><span>before publication</span></h1>
-  <ol>
-    <li>Generate a bounded, ontology-grounded proposal</li>
-    <li>Validate and compare with the active release</li>
-    <li>Run the same evaluator over 13 fictional customers</li>
-    <li>Approve and publish only after evidence is complete</li>
-  </ol>
-  <a href="/" target="_blank" rel="noopener noreferrer" class="demo-link">Open interactive demo <b>↗</b></a>
-  <p class="demo-note">The demo opens in a separate tab. This deck keeps its current slide and presenter state.</p>
-</div>
-
-<!--
-LIVE DEMO SCRIPT — HAPPY PATH
-1. Open the interactive demo using the button. Confirm “5% refinement” is selected.
-2. Select Generate LLM prompt. Point out that the ontology and bounded grammar are included automatically.
-3. Select Simulate AI response. Emphasize “untrusted input.”
-4. Select Validate syntax. Show that evidence is tied to the exact candidate revision.
-5. Select Analyze conflicts. Expected result: compatible refinement against active release credit-1.4.0.
-6. Select Run current batch. Show the baseline/candidate comparison over 13 fictional customers. The batch qualifies but never approves.
-7. Select Approve & publish. Show the new complete release and pinned runtime context.
-8. Return to this deck tab.
-If time is short, stop after conflict analysis and explain the remaining gates from the displayed workflow.
--->
-
----
-
-<p class="kicker">Conflict path</p>
-
-# A valid rule can still be unsafe to publish
-
-<blockquote>“Customers with NET 30 payment terms may have up to <b>15%</b> of their AR balance past due.”</blockquote>
-
-<div class="conflict-visual">
-  <div class="limit global"><span>Global maximum</span><b>10%</b></div>
-  <div class="limit active"><span>Active NET 30</span><b>8%</b></div>
-  <div class="limit proposed"><span>Candidate allows</span><b>15%</b></div>
-  <div class="conflict-zone"><b>Contradictory overlap</b><span>Candidate permits outcomes the global policy forbids.</span></div>
-</div>
-
-<div class="blocked"><b>CONFLICT</b><span>Batch progression and publication remain blocked.</span></div>
-
-<!--
-LIVE DEMO SCRIPT — CONFLICT PATH
-1. Return to the demo tab and choose “15% conflict.”
-2. Generate the prompt, simulate the response, and validate it.
-3. Select Analyze conflicts.
-4. Show that syntax and ontology validation can succeed while semantic policy compatibility fails.
-5. Point out that Run current batch and Approve & publish cannot progress.
-The important point is the governance boundary, not the percentage arithmetic.
--->
-
----
-
-<p class="kicker">Evidence, not theatre</p>
-
-# What the showcase proves—and what it does not
-
-<div class="proof-grid">
-  <section>
-    <h3><span class="good-dot"></span> Demonstrates</h3>
-    <ul>
-      <li>Ontology-grounded AI drafting</li>
-      <li>Typed and unit-aware validation</li>
-      <li>Revision-aware policy comparison</li>
-      <li>Portfolio impact qualification</li>
-      <li>Stable findings and reason codes</li>
-      <li>Explicit approval and release boundaries</li>
-    </ul>
-  </section>
-  <section>
-    <h3><span class="neutral-dot"></span> Not production evidence</h3>
-    <ul>
-      <li>No live CIS APIs or customer records</li>
-      <li>No production identity or durable audit</li>
-      <li>No production Jena, DMN, or Z3 runtime</li>
-      <li>No availability or performance claim</li>
-      <li>No unrestricted natural-language policies</li>
-      <li>No autonomous customer decision</li>
-    </ul>
-  </section>
-</div>
-
-<!--
-This slide is essential for credibility.
-The browser implementation proves the trust model and workflow boundaries. It does not prove production readiness or imply that named production technologies are already executing.
--->
-
----
-
-<p class="kicker">Target direction</p>
-
-# Integrate around CIS—do not replace it
-
-<div class="architecture">
-  <section class="control-plane">
-    <label>Policy control plane</label>
-    <div><b>Policy owner</b><span>+ governed AI</span></div><i>→</i>
-    <div><b>Typed candidate</b><span>Customer Review Ontology contract</span></div><i>→</i>
-    <div><b>Validate + prove</b><span>SHACL · DMN · Z3</span></div><i>→</i>
-    <div class="accent"><b>Approved release</b><span>immutable + auditable</span></div>
-  </section>
-  <section class="runtime-plane">
-    <label>CIS review runtime</label>
-    <div><b>CIS APIs</b><span>authoritative facts</span></div><i>→</i>
-    <div><b>Facts adapter</b><span>ontology contract</span></div><i>→</i>
-    <div><b>Pinned evaluation</b><span>findings + reasons</span></div><i>→</i>
-    <div class="cis"><b>CIS workflow</b><span>final authority</span></div>
-  </section>
-  <div class="release-arrow">approved release ↓</div>
-</div>
-
-<p class="boundary"><b>Runtime boundary:</b> AI stays off the transaction-time evaluation path. CIS remains the system of record and owns every customer-state mutation.</p>
-
-<!--
-The proposed shape has a control plane for authoring and governance, and a low-latency runtime integrated at the existing CIS credit-review decision point.
-The exact deployment topology remains a discovery decision. The important contracts and authority boundaries remain the same.
--->
-
----
-
-<p class="kicker">Bounded responsibilities</p>
-
-# Scale each capability with the right production tool
-
-<table class="capability-table">
-  <thead><tr><th>Responsibility</th><th>Showcase today</th><th>Production direction</th></tr></thead>
-  <tbody>
-    <tr><td>Shared semantics</td><td>JavaScript fact registry</td><td><b>Customer Review Ontology RDF/OWL vocabulary</b></td></tr>
-    <tr><td>Semantic conformance</td><td>Custom property checks</td><td><b>Apache Jena + SHACL</b></td></tr>
-    <tr><td>Shared policy contract</td><td>Bounded AST</td><td><b>Canonical typed policy model</b></td></tr>
-    <tr><td>Deterministic execution</td><td>Modular evaluator</td><td><b>DMN + Kogito/Drools</b></td></tr>
-    <tr><td>Conflict proof</td><td>Bounded comparison</td><td><b>Z3 constraint solver</b></td></tr>
-    <tr><td>Governed release</td><td>In-memory evidence</td><td><b>CIS identity, audit + artifact registry</b></td></tr>
-    <tr><td>Assisted authoring</td><td>Mocked prompt</td><td><b>Provider-neutral enterprise AI gateway</b></td></tr>
-  </tbody>
-</table>
-
-<p class="table-note">Technology names define responsibilities—not permission to put every component on the CIS transaction path.</p>
-
-<!--
-Keep this at responsibility level. The standards matter because they offer reviewable contracts and established tooling, but product selection comes after CIS discovery.
-Jena validates semantic shape. DMN executes approved decisions. Z3 proves satisfiability and conflict witnesses. None of them approves policy by itself.
--->
-
----
-
-<p class="kicker">Possible evolution path</p>
-
-# Move through evidence gates, not a big-bang replacement
-
-<div class="roadmap">
-  <article><b>01</b><h3>Discover</h3><p>Map CIS APIs, current policy, decision ownership, and authoritative facts.</p></article>
-  <article><b>02</b><h3>Contract</h3><p>Define the Customer Review Ontology fact dictionary and canonical policy model.</p></article>
-  <article><b>03</b><h3>Govern</h3><p>Add immutable revisions, qualification, approval, audit, and rollback.</p></article>
-  <article><b>04</b><h3>Shadow</h3><p>Compare with current behavior without changing CIS outcomes.</p></article>
-  <article><b>05</b><h3>Advise</h3><p>Expose explainable findings to authorized credit reviewers.</p></article>
-  <article><b>06</b><h3>Bound</h3><p>Only if approved, enforce selected policies with a kill switch.</p></article>
-</div>
-
-<div class="gate-line"><span>decision gate</span><span>decision gate</span><span>decision gate</span><span>decision gate</span><span>decision gate</span></div>
-
-<p class="boundary"><b>No timeline implied.</b> Each transition depends on CIS evidence, reconciled outcomes, approved authority, and rollback readiness.</p>
-
-<!--
-This is not a delivery proposal. It shows that the architecture can be adopted incrementally.
-The safest sequence is disabled, shadow, advisory, then narrowly bounded enforcement only if a later decision authorizes it.
--->
-
----
-layout: center
-class: closing-slide
----
-
-<div class="closing">
-  <p class="kicker">Customer Review Ontology</p>
-  <h1>Accelerate policy work.<br><span>Preserve control.</span></h1>
-  <div class="closing-points">
-    <article><b>AI</b><span>speeds bounded drafting</span></article>
-    <article><b>Ontology</b><span>aligns language with CIS facts</span></article>
-    <article><b>Reasoning</b><span>makes policy testable and explainable</span></article>
-    <article><b>Governance</b><span>keeps activation and outcomes authorized</span></article>
+  <p class="kicker">Live · Customer Review</p>
+  <h1>Can AI make the review easier<br><span>without making the decision?</span></h1>
+  <div class="demo-steps">
+    <article><b>1</b><span>Northwind</span><small>Auto pass · no Findings · no eligible tools</small></article>
+    <article><b>2</b><span>Ironclad</span><small>Restrict action and evidence first · rationale second</small></article>
+    <article><b>3</b><span>Cascade</span><small>Manager review · record a justified override</small></article>
   </div>
-  <p class="closing-line">A practical pattern for safer AI adoption in the credit domain.</p>
+  <a href="/" target="_blank" rel="noopener noreferrer" class="demo-link">Open Customer Review <b>↗</b></a>
+  <p class="demo-note">Independent app · opens in a new tab · fictional customer data</p>
 </div>
 
 <!--
-Close without asking for budget or approval.
-The showcase demonstrates a pattern: use AI where it adds speed, and place shared semantics, deterministic evidence, release governance, and human authority between AI output and operational decisions.
+LIVE DEMO SCRIPT — CUSTOMER REVIEW
+1. Open the app in a new tab and sign in if AI-enabled mode is configured.
+2. Select Northwind Components. Show AUTO_REVIEW_PASS, no Findings, and that no Tier-2 tool is eligible.
+3. Select Ironclad Manufacturing. Show the deterministic NEED_TO_RESTRICT action, Findings with actual values and thresholds, then request the GPT-5.6 Luna rationale. Point out which eligible tools the model chose and that their results are fictional evidence, never decision input.
+4. Select Cascade Freight. Show its two Findings and manager-review action. Record a fictional override with a reason so the session association appears in Policy Studio.
+5. If the model fails, do not restart. Show that action, Findings, and Disposition remain usable. The failure demonstrates deterministic continuity.
+Challenge response: the analyst overrides the action, not objective Findings.
 -->
 
 ---
-layout: section
-class: appendix-title
+layout: center
+class: live-demo-slide
 ---
 
-<p class="kicker">Reference</p>
-# Appendix
-<p>Supporting detail for the self-guided deck and PDF export</p>
-
----
-
-<p class="kicker">Appendix · fact contract</p>
-
-# A fact is more than a field name
-
-<div class="contract-card">
-  <div class="contract-head"><code>past_due_amount</code><span>SOURCE FACT</span></div>
-  <dl>
-    <div><dt>Business meaning</dt><dd>Open receivables beyond contractual due date</dd></div>
-    <div><dt>Type and unit</dt><dd>Decimal · USD</dd></div>
-    <div><dt>Source</dt><dd>Named CIS API and response property</dd></div>
-    <div><dt>Null behavior</dt><dd>Explicitly mapped; never silently treated as zero</dd></div>
-    <div><dt>Freshness</dt><dd>Recorded observation time and accepted review window</dd></div>
-    <div><dt>Provenance</dt><dd>Source system, transformation version, correlation ID</dd></div>
-  </dl>
+<div class="live-demo">
+  <p class="kicker">Live · Policy Studio</p>
+  <h1>Can a policy owner change a threshold<br><span>without guessing its effect?</span></h1>
+  <div class="demo-steps policy">
+    <article><b>1</b><span>Draft</span><small>GPT-5.6 Luna proposes a supported candidate</small></article>
+    <article><b>2</b><span>Verify</span><small>Validation, compatibility, and Review impact are deterministic</small></article>
+    <article><b>3</b><span>Activate</span><small>A person activates a Demo Release in this browser tab</small></article>
+  </div>
+  <a href="/" target="_blank" rel="noopener noreferrer" class="demo-link">Open Policy Studio <b>↗</b></a>
+  <p class="demo-note">Illustrative policies and 12-record Policy Impact Cohort · not production publication</p>
 </div>
 
-<p class="boundary">A production Customer Review Ontology dictionary would be confirmed from CIS contracts and credit-owner semantics—not copied from this illustrative example.</p>
+<!--
+LIVE DEMO SCRIPT — POLICY STUDIO
+1. Open Policy Studio and show the session-associated NET 30 override created in Customer Review.
+2. Enter: “For customers on NET 30 terms, reduce the maximum past-due ratio from 8% to 5%.”
+3. Ask GPT-5.6 Luna to draft the bounded candidate.
+4. Run deterministic validation and compatibility analysis.
+5. Show that three additional records require review in the illustrative 12-record Policy Impact Cohort.
+6. Request the grounded policy-analysis explanation. If it fails, continue—the explanation is not an activation gate.
+7. Approve and activate the Demo Release in this browser tab.
+8. Return to Cascade and show release-pinned re-evaluation requiring a fresh Disposition.
+Challenge response: only successful deterministic qualification enables activation; this is not production publication.
+-->
 
 ---
 
-<p class="kicker">Appendix · derived facts</p>
+<p class="kicker">Governed feedback</p>
 
-# Derivations remain deterministic and traceable
+# Two jobs become one improvement loop
 
-<div class="formula-card">
-  <span>past_due_ratio</span>
-  <div><b>past_due_amount</b><i>÷</i><b>ar_balance</b><i>=</i><strong>12%</strong></div>
-  <small>15,000 USD ÷ 125,000 USD · guarded when the denominator is zero or unavailable</small>
+<div class="feedback-loop">
+  <article><span>01</span><b>Customer Review</b><small>Findings, action, and human Disposition</small></article>
+  <i>→</i>
+  <article><span>02</span><b>Visible exceptions</b><small>Repeated overrides become a policy question</small></article>
+  <i>→</i>
+  <article><span>03</span><b>Policy Studio</b><small>Candidate, compatibility, and Review impact</small></article>
+  <i>→</i>
+  <article><span>04</span><b>Demo Release</b><small>Pinned rules return to Customer Review</small></article>
 </div>
 
-<div class="three-columns compact">
-  <article><b>Registered dependencies</b><p>The runtime knows which source facts support each derivation.</p></article>
-  <article><b>One implementation</b><p>Single-customer and portfolio evaluations use the same calculation.</p></article>
-  <article><b>Visible evidence</b><p>Inputs and intermediate values can be retained with the decision trace.</p></article>
-</div>
+<p class="warning"><b>POC boundary:</b> seeded history is fictional and current-session associations are tab-only. This is not production analytics or a durable audit.</p>
+
+<!--
+The product is more than two demos: analyst exceptions create a concrete agenda for policy owners, and every activated Demo Release sends customer review through fresh release-pinned evaluation.
+Likely challenge: “Does an override prove a threshold is wrong?” No. It is evidence for investigation, not a conclusion.
+-->
 
 ---
 
-<p class="kicker">Appendix · candidate lifecycle</p>
+<p class="kicker">First extension</p>
 
-# Evidence belongs to an exact revision and baseline
+# New-customer onboarding can reuse the control pattern
 
-<div class="revision-flow">
-  <article><b>Draft r5</b><span>source intent + generated DSL</span></article><i>→</i>
-  <article><b>Validated r5</b><span>grammar + ontology contracts</span></article><i>→</i>
-  <article><b>Analyzed r5</b><span>against release credit-1.4.0</span></article><i>→</i>
-  <article><b>Batch passed r5</b><span>same baseline + evaluator</span></article><i>→</i>
-  <article class="accent"><b>Published</b><span>complete release credit-1.5.0</span></article>
+<div class="reuse-stack">
+  <section>
+    <label>Reuse</label>
+    <div>Credit vocabulary + fact contracts</div>
+    <div>Bounded AI operations</div>
+    <div>Deterministic controls</div>
+    <div>Release-pinned evidence</div>
+    <div>Human authority</div>
+  </section>
+  <span>+</span>
+  <section class="new-domain">
+    <label>Add for onboarding</label>
+    <div>Onboarding-specific facts</div>
+    <div>Policies and workflow states</div>
+    <div>Evidence sources and owners</div>
+    <div>Escalation and approval controls</div>
+  </section>
 </div>
 
-<div class="edit-rule"><b>Edit after validation?</b><span>Create a new immutable revision and invalidate prior evidence.</span></div>
+<p class="takeaway"><b>Reuse the pattern and credit semantics.</b> Do not force review and onboarding into one undifferentiated model.</p>
+
+<!--
+Onboarding is a plausible second use case because some credit vocabulary and governance concerns carry over. Its workflow and ownership still need separate discovery.
+Likely challenge: “Can we just use the same rules?” Not automatically. Reuse contracts where meaning is shared; keep domain-specific authority explicit.
+-->
 
 ---
 
-<p class="kicker">Appendix · portfolio qualification</p>
+<p class="kicker">Reuse after proof</p>
 
-# The batch gate compares releases, not isolated rules
+# A framework is earned by the second domain
 
-<div class="batch-compare">
-  <article><small>Baseline</small><h3>Active release</h3><p>Same customer fixtures<br>Same evaluator<br>Pinned versions</p></article>
-  <div><span>13 fictional cases</span><b>⇄</b><small>compare findings, actions, limits, errors</small></div>
-  <article><small>Candidate</small><h3>Substituted revision</h3><p>Complete candidate rule set<br>Same resolver<br>Same calculator</p></article>
+<div class="domain-reuse">
+  <section class="shared">
+    <small>Potential shared governed workflow</small>
+    <div>Facts</div><div>Drafts</div><div>Validation</div><div>Comparison</div><div>Releases</div><div>Evidence</div>
+  </section>
+  <section>
+    <article><b>Credit review</b><span>Own vocabulary · rules · evidence · authority</span></article>
+    <article><b>New-customer onboarding</b><span>Own vocabulary · rules · evidence · authority</span></article>
+    <article class="future"><b>Future domain</b><span>Prove the seam before naming a platform</span></article>
+  </section>
 </div>
 
-<p class="warning"><b>Qualification is not approval.</b> Errors and applicable indeterminate results block progression; an authorized person still approves the release.</p>
+<p class="takeaway"><b>Do not call today’s code split a plugin platform.</b> Test reuse through a second bounded use case first.</p>
+
+<!--
+There is a credible reusable pattern, but one implementation does not prove a platform. The second use case should reveal what is genuinely shared and what belongs to each domain.
+Likely challenge: “Why not standardize now?” Premature standardization can encode credit-review assumptions as generic architecture.
+-->
 
 ---
 
-<p class="kicker">Appendix · production engines</p>
+<p class="kicker">Production direction · Not running in this POC</p>
 
-# Each engine answers a different question
+# Integrate around CIS—do not replace its authority
 
-<div class="engine-grid">
-  <article><span>Jena + SHACL</span><h3>Does the graph conform?</h3><p>Validate types, cardinality, enums, units, and allowed semantic relationships.</p><b>Authoring + publication path</b></article>
-  <article><span>DMN + Kogito/Drools</span><h3>What does the approved release return?</h3><p>Execute typed decisions with stable findings, reason codes, and pinned versions.</p><b>Deterministic review runtime</b></article>
-  <article><span>Z3</span><h3>Can these constraints contradict?</h3><p>Prove overlap and satisfiability; produce a concrete conflict witness.</p><b>Authoring conflict analysis</b></article>
+<div class="production-map">
+  <section><small>Authoritative facts</small><b>CIS APIs</b><span>Customer and credit values</span></section><i>→</i>
+  <section class="accent"><small>Shared meaning</small><b>Fact contracts / ontology</b><span>Types, units, provenance, permitted use</span></section><i>→</i>
+  <section><small>Controlled reasoning</small><b>Deterministic engines</b><span>Validation, policy execution, comparison</span></section><i>→</i>
+  <section><small>Operational authority</small><b>CIS workflow</b><span>Identity, approval, audit, customer state</span></section>
 </div>
 
-<p class="boundary">No engine supplies business approval or silently changes CIS workflow state.</p>
+<div class="candidate-tech"><b>Candidate responsibilities—not commitments</b><span>Jena + SHACL · DMN + Drools/Kogito · Z3 · release/artifact registry</span></div>
+
+<div class="evidence-gates"><span>Discovery</span><i>→</i><span>Shadow comparison</span><i>→</i><span>Advisory use</span><i>→</i><span>Separately approved enforcement</span></div>
+
+<!--
+Everything on this slide is production direction and is not running in the POC. CIS remains authoritative for facts, workflow, and customer state.
+Named technologies are candidates by responsibility, not selected architecture or commitments. Discovery must determine what already exists and should be reused.
+Likely challenge: “When could this enforce a decision?” No timeline is proposed. Enforcement would require separate evidence and approval after discovery, shadow, and advisory stages.
+-->
 
 ---
 
-<p class="kicker">Appendix · governed AI</p>
+<p class="kicker">The management decision</p>
 
-# The AI gateway receives a bounded task
+# The next step is bounded evidence—not a platform commitment
 
-<div class="gateway">
-  <section><h3>Provide</h3><ul><li>Allowed ontology subset</li><li>Bounded grammar</li><li>Business intent</li><li>Examples and output schema</li></ul></section>
-  <div><b>Provider-neutral<br>AI gateway</b><span>policy · logging · redaction · versioning</span></div>
-  <section><h3>Never delegate</h3><ul><li>Semantic validation</li><li>Conflict resolution</li><li>Release approval</li><li>Customer disposition</li></ul></section>
+<div class="ask-list">
+  <article><b>01</b><span>Confirm one bounded review policy and scenario</span></article>
+  <article><b>02</b><span>Nominate a credit analyst and policy owner to validate the workflow</span></article>
+  <article><b>03</b><span>Permit read-only discovery of authoritative CIS facts and review states</span></article>
+  <article><b>04</b><span>Agree what evidence is required before shadow comparison</span></article>
+  <article><b>05</b><span>Decide whether onboarding is the second proving use case</span></article>
 </div>
 
-<p class="warning"><b>Data boundary:</b> approved deterministic rules evaluate CIS facts. A model does not need customer records to execute those rules.</p>
+<p class="closing-ask">Prove the control pattern on a real, bounded workflow—then decide what deserves to scale.</p>
+
+<!--
+This is an evidence request, not a funding request, timeline, production commitment, or compliance claim.
+The highest-value input is direct workflow validation from a credit analyst and policy owner, followed by read-only discovery around CIS.
+Likely challenge: “What are you asking us to approve today?” Access to validate the workflow and establish the evidence needed for a shadow comparison—nothing more.
+-->
 
 ---
 
-<p class="kicker">Appendix · CIS discovery assumptions</p>
+<p class="kicker">Appendix · Current boundary</p>
 
-# Questions that production discovery must answer
+# What is real in this POC?
 
-<div class="question-grid">
-  <article><b>Decision point</b><span>Where does CIS currently own review orchestration and state transition?</span></article>
-  <article><b>Authoritative facts</b><span>Which APIs, semantics, units, nulls, freshness, and sensitivity apply?</span></article>
-  <article><b>Current behavior</b><span>Which policies, precedence, reason codes, side effects, and retry rules exist?</span></article>
-  <article><b>Governance</b><span>Which identity, approvals, audit, release, feature flag, and rollback patterns can be reused?</span></article>
-  <article><b>Runtime constraints</b><span>What latency, availability, throughput, and failure behavior are required?</span></article>
-  <article><b>Adoption boundary</b><span>Which policy cohort can be safely compared in shadow mode first?</span></article>
-</div>
-
----
-
-<p class="kicker">Appendix · terminology</p>
-
-# Terms used in this showcase
-
-<table class="terms-table">
+<table class="reality-table">
+  <thead><tr><th>Label</th><th>What it means here</th></tr></thead>
   <tbody>
-    <tr><th>Ontology</th><td>A versioned vocabulary defining credit facts, types, units, and semantic relationships.</td></tr>
-    <tr><th>SHACL</th><td>Standard constraints used to validate RDF data and policy resources against expected shapes.</td></tr>
-    <tr><th>DMN</th><td>A standard representation for reviewable, deterministic business decisions.</td></tr>
-    <tr><th>Constraint solver</th><td>A tool that proves whether conditions can overlap, conflict, or be satisfied.</td></tr>
-    <tr><th>Policy release</th><td>An immutable, approved bundle of exact rule and decision-model versions.</td></tr>
-    <tr><th>Shadow mode</th><td>Evaluate beside current behavior, record comparisons, and do not affect CIS outcomes.</td></tr>
+    <tr><th>Real</th><td>GPT-5.6 Luna calls in AI-enabled mode; Hono gateway; deterministic controls; access gate</td></tr>
+    <tr><th>Simulated</th><td>Fixed Tier-1 Review Context and bounded Tier-2 Evidence lookups</td></tr>
+    <tr><th>Fictional</th><td>Customers, illustrative policies, evidence, cohort, and seeded history</td></tr>
+    <tr><th>Session-only</th><td>Disposition, feedback associations, and Demo Releases in one browser tab</td></tr>
+    <tr><th>Absent</th><td>CIS/Vertica/MCP, production data, identity/roles, durable audit, mutation, production publication</td></tr>
   </tbody>
 </table>
 
+<p class="boundary"><b>Approved claim:</b> a real LLM drafts and explains; deterministic code validates, compares, evaluates, and resolves; a person records the final session-scoped Disposition.</p>
+
+<!--
+This matrix is the source of truth for demo claims. Real refers to the operation, not the surrounding fictional data.
+In static mode, the product label changes to “AI features disabled” and no provider call is made.
+-->
+
 ---
-layout: center
-class: end-slide
+
+<p class="kicker">Appendix · Decision inputs</p>
+
+# What data can influence the action?
+
+<div class="tier-split">
+  <section class="tier-one">
+    <span>Tier 1</span><h3>Tier-1 Review Context</h3>
+    <b>Decision input</b>
+    <p>Complete, typed facts used by deterministic rules and action resolution.</p>
+    <small>Same facts + same Demo Release = same Findings and action</small>
+  </section>
+  <div class="one-way"><b>Findings unlock tools</b><i>→</i><small>Evidence never flows back into action</small></div>
+  <section class="tier-two">
+    <span>Tier 2</span><h3>Tier-2 Evidence</h3>
+    <b>Narrative support only</b>
+    <p>Payment history, open disputes, and recent orders selected from eligible tools.</p>
+    <small>Fictional fixed lookups · model may call zero or several</small>
+  </section>
+</div>
+
+<p class="takeaway"><b>Load-bearing constraint:</b> Tier-2 Evidence can explain an action; it cannot change one.</p>
+
+<!--
+There is no parent-exposure or financial-group relationship tool. Internal financial groups do not imply a parent relationship.
+Tier-1-only action resolution is explicitly checked rather than trusted to prompt instructions.
+-->
+
 ---
 
-<div class="end-mark"><span class="brand-symbol"><i></i><i></i><i></i></span></div>
+<p class="kicker">Appendix · Deterministic evidence</p>
 
-# Customer Review Ontology
+# How is every Finding traceable?
 
-<p>Governed AI · shared semantics · deterministic reasoning</p>
+<div class="trace-card">
+  <header><code>credit-1.4.0/CRITICAL_RESTRICTION@1</code><b>FINDING</b></header>
+  <div class="trace-policy"><small>Illustrative policy</small><strong>Restrict when past due is above 10%, operating cash flow is negative, and current ratio is below 1.</strong></div>
+  <div class="trace-observations">
+    <article><span>Past-due ratio</span><b>20%</b><small>&gt; 10% · PERCENT · matched</small></article>
+    <article><span>Operating cash flow</span><b>−$35,000</b><small>&lt; $0 · CURRENCY · matched</small></article>
+    <article><span>Current ratio</span><b>0.8</b><small>&lt; 1 · NUMBER · matched</small></article>
+  </div>
+  <footer><span>Reason: CRITICAL_RESTRICTION</span><span>Action hint: NEED_TO_RESTRICT</span><span>Ontology + resolver versions pinned</span></footer>
+</div>
 
-<a href="/" target="_blank" rel="noopener noreferrer" class="demo-link small">Open illustrative demo <b>↗</b></a>
+<p class="takeaway">Policy statement, actual values, operators, thresholds, units, dependencies, and provenance travel together.</p>
+
+<!--
+This is representative of the Rule Evaluation Trace shown for fictional Ironclad Manufacturing. The browser formats typed raw values; the model does not calculate them.
+The final action resolver consumes Findings only. Missing or unknown values remain explicit rather than becoming a guessed pass or failure.
+-->
+
+---
+
+<p class="kicker">Appendix · Model contract</p>
+
+# What can the model actually do?
+
+<div class="operation-grid">
+  <article><code>draft_rule</code><b>Draft</b><span>Two supported families only</span><small>NET30_PAST_DUE_MAX<br>HIGH_BALANCE_ADP_MAX</small></article>
+  <article><code>explain_review</code><b>Explain</b><span>References deterministic review evidence</span><small>May call three eligible, zero-argument evidence tools</small></article>
+  <article><code>explain_policy_analysis</code><b>Explain</b><span>References completed deterministic analysis</span><small>Receives summary evidence—not customer rows</small></article>
+</div>
+
+<div class="schema-band"><b>Bounded contract</b><span>Named operations · JSON Schema · closed fields · server-owned prompts/tools · validated references</span></div>
+<div class="forbidden-band"><b>Forbidden authority</b><span>No facts, validation result, action, approval, activation, ontology definition, or Disposition from model output</span></div>
+
+<!--
+There is no generic completion endpoint, free SQL, schema exploration, or arbitrary rule authoring. The gateway validates response shape and references and never silently repairs model output.
+Tool calls are supported only inside explain_review and only when deterministic reason codes make a tool eligible.
+-->
+
+---
+
+<p class="kicker">Appendix · Failure behavior</p>
+
+# What happens when the model fails?
+
+<div class="failure-grid">
+  <article><b>Timeout or unavailable</b><span>Localized retry state; deterministic evidence remains visible</span></article>
+  <article><b>Invalid output</b><span>Rejected whole; no partial generated prose or candidate appears</span></article>
+  <article><b>Needs clarification</b><span>One bounded question; no rule candidate is invented</span></article>
+  <article><b>Unsupported intent</b><span>Stops honestly; no arbitrary policy is drafted</span></article>
+</div>
+
+<div class="continuity-flow"><span>Action</span><span>Rule Evaluation Traces</span><span>Deterministic policy gates</span><span>Disposition / activation choice</span></div>
+
+<p class="takeaway"><b>Continuity is the control.</b> Review and qualified activation do not become unavailable because generated explanation failed.</p>
+
+<!--
+Provider and operation deadlines are bounded, there are no invisible retries, and explicit retry starts a new operation.
+For policy drafting, failure means no candidate. For policy explanation after deterministic qualification, failure does not block activation.
+-->
+
+---
+
+<p class="kicker">Appendix · Review impact</p>
+
+# How is policy impact calculated?
+
+<div class="impact-compare">
+  <section><small>Active Demo Release</small><b>NET 30 maximum: 8%</b><span>Evaluate all 12 fictional cohort records</span></section>
+  <i>vs</i>
+  <section class="candidate"><small>Candidate revision</small><b>NET 30 maximum: 5%</b><span>Evaluate the same records and compare outcomes</span></section>
+  <div><strong>3</strong><b>additional records require review</b><small>Ratios at 6%, 7%, and 8% cross the candidate boundary</small></div>
+</div>
+
+<div class="completeness">evaluated · newly required · cleared · changed actions · added/resolved Findings · indeterminate · errors · <b>complete</b></div>
+
+<p class="warning"><b>Illustrative cohort:</b> no extrapolation to portfolio volume, staffing, time, cost, or loss.</p>
+
+<!--
+Review impact is deterministic workload evidence, not a model estimate. Equality boundaries are explicit and the changed records are shown first.
+Any indeterminate or error makes impact incomplete and blocks activation.
+-->
+
+---
+
+<p class="kicker">Appendix · Production direction · Not running in this POC</p>
+
+# How could this integrate around CIS?
+
+<table class="responsibility-table">
+  <thead><tr><th>Responsibility</th><th>POC today</th><th>Candidate production direction</th></tr></thead>
+  <tbody>
+    <tr><td>Authoritative facts</td><td>Fictional fixtures</td><td>CIS APIs + governed fact adapter</td></tr>
+    <tr><td>Meaning and quality</td><td>JavaScript fact contracts</td><td>Ontology + Jena/SHACL as candidates</td></tr>
+    <tr><td>Policy execution</td><td>Deterministic JavaScript</td><td>DMN + Drools/Kogito as candidates</td></tr>
+    <tr><td>Compatibility</td><td>Bounded comparison code</td><td>Z3 as a candidate for deeper satisfiability checks</td></tr>
+    <tr><td>Workflow and state</td><td>One anonymous browser tab</td><td>Reuse CIS identity, workflow, approval, audit, and customer state</td></tr>
+    <tr><td>AI access</td><td>Hono gateway + GPT-5.6 Luna</td><td>Approved gateway, controls, observability, and release integration</td></tr>
+  </tbody>
+</table>
+
+<p class="boundary">CIS supplies authoritative values and retains operational authority. The ontology defines shared meaning, types, units, provenance, and permitted policy use.</p>
+
+<!--
+These are responsibility mappings, not selected products or architecture commitments. Read-only discovery should first identify existing CIS capabilities and avoid rebuilding them.
+Detailed production questions and phased gates live in NEXT_STEPS.md.
+-->
+
+---
+
+<p class="kicker">Appendix · Production discovery · Not running in this POC</p>
+
+# What must production discovery answer?
+
+<div class="discovery-questions">
+  <article><b>Workflow</b><span>What triggers review, what do analysts inspect, and what does each action mean operationally?</span></article>
+  <article><b>$50,000 prioritization</b><span>Where is it enforced, what exceptions exist, and what lower-limit demand is visible?</span></article>
+  <article><b>Facts and APIs</b><span>Which CIS sources are authoritative, typed, fresh, and available read-only?</span></article>
+  <article><b>Policy ownership</b><span>Who owns thresholds, exceptions, activation, and rollback?</span></article>
+  <article><b>Controls</b><span>Which identity, audit, approval, retention, and segregation controls already exist?</span></article>
+  <article><b>Evidence</b><span>Which sanitized cases and shadow measures would justify moving beyond the POC?</span></article>
+</div>
+
+<a class="next-steps-link" href="https://github.com/lifanh/ontology-demo/blob/main/NEXT_STEPS.md" target="_blank" rel="noopener noreferrer">Read the detailed production integration questions in NEXT_STEPS.md ↗</a>
+
+<!--
+This is the domain-knowledge gap made explicit. Do not delegate it to the model or fill it with generic credit-analysis conventions.
+Start with 30 minutes with the people who run customer reviews, then verify system contracts read-only. Discovery should produce evidence and ownership, not a timeline promise.
+-->
