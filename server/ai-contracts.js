@@ -5,6 +5,28 @@ const explanation = closed({
   summary: text(1, 2_000),
   points: { type: "array", maxItems: 6, items: closed({ text: text(1, 600), references: { type: "array", minItems: 1, maxItems: 8, uniqueItems: true, items: reference } }) }
 });
+const date = { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" };
+const nullable = schema => ({ anyOf: [{ type: "null" }, schema] });
+const factRef = closed({ ref: reference, factId: reference, value: text(1, 200) });
+const reviewTrace = closed({
+  evaluationRef: reference,
+  outcome: { enum: ["PASS", "FINDING", "NOT_APPLICABLE", "INDETERMINATE"] },
+  reasonCode: { anyOf: [{ type: "null" }, { type: "string", minLength: 3, maxLength: 100, pattern: "^[A-Z0-9_]+$" }] },
+  policyStatement: text(1, 500),
+  factRefs: { type: "array", maxItems: 30, uniqueItems: true, items: reference }
+});
+const amount = { type: "number", minimum: 0 };
+const days = { type: "integer", minimum: 0 };
+const paymentRecord = closed({ invoiceRef: reference, invoiceDate: date, dueDate: date, originalAmount: amount, openAmount: amount, currency: { const: "USD" }, status: { enum: ["OPEN", "PAID"] }, paidDate: nullable(date), daysToPay: nullable(days), daysPastDue: days });
+const disputeRecord = closed({ disputeRef: reference, invoiceRef: reference, openedDate: date, reasonCode: { enum: ["PRICING_DIFFERENCE", "FREIGHT_CHARGE", "SHORT_SHIPMENT"] }, reasonLabel: text(1, 100), disputedAmount: amount, currency: { const: "USD" }, status: { const: "OPEN" }, ageDays: days });
+const orderRecord = closed({ orderRef: reference, orderDate: date, amount, currency: { const: "USD" }, status: { enum: ["PENDING_FULFILLMENT", "SHIPPED", "INVOICED"] } });
+const evidenceEnvelope = (toolName, record) => closed({ schemaVersion: { const: "1" }, evidenceRef: reference, toolName: { const: toolName }, fixtureVersion: { const: "1" }, customerNumber: { type: "integer", minimum: 1 }, asOfDate: { const: "2026-06-30" }, records: { type: "array", maxItems: 10, items: record } });
+const evidenceResult = { oneOf: [evidenceEnvelope("get_payment_history", paymentRecord), evidenceEnvelope("get_open_disputes", disputeRecord), evidenceEnvelope("get_recent_orders", orderRecord)] };
+const reviewResult = closed({
+  rationale: closed({ status: { const: "EXPLAINED" }, summary: text(1, 2_000), points: explanation.properties.points }),
+  evidenceResults: { type: "array", maxItems: 3, items: evidenceResult },
+  toolTrace: closed({ eligible: { type: "array", maxItems: 3, uniqueItems: true, items: { enum: ["get_payment_history", "get_open_disputes", "get_recent_orders"] } }, called: { type: "array", maxItems: 3, uniqueItems: true, items: { enum: ["get_payment_history", "get_open_disputes", "get_recent_orders"] } } })
+});
 
 const draftResult = {
   oneOf: [
@@ -22,13 +44,13 @@ const contracts = {
   explain_review: {
     request: closed({
       schemaVersion: { const: "1" },
-      customerNumber: { type: "integer", minimum: 1 },
-      releaseId: reference,
-      deterministicAction: { type: "string", minLength: 3, maxLength: 80, pattern: "^[A-Z0-9_]+$" },
-      evaluationRefs: { type: "array", minItems: 1, maxItems: 20, uniqueItems: true, items: reference },
-      eligibleTools: { type: "array", maxItems: 3, uniqueItems: true, items: { enum: ["get_payment_history", "get_open_disputes", "get_recent_orders"] } }
+      customer: closed({ number: { type: "integer", minimum: 1 }, name: text(1, 100) }),
+      release: closed({ id: reference }),
+      action: { type: "string", minLength: 3, maxLength: 80, pattern: "^[A-Z0-9_]+$" },
+      traces: { type: "array", minItems: 1, maxItems: 20, items: reviewTrace },
+      facts: { type: "array", minItems: 1, maxItems: 60, items: factRef }
     }),
-    result: explanation
+    result: reviewResult
   },
   explain_policy_analysis: {
     request: closed({

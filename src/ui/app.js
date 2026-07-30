@@ -12,7 +12,7 @@ const evaluate = createEvaluator(creditPack);
 const actionOptions = dispositionActions;
 const dispositionStore = createDispositionStore(sessionStorage);
 const STUDIO_STORAGE_KEY = "customer-review:policy-studio:v1";
-let reviewContext;
+let reviewContext, reviewRequestVersion = 0;
 let selected = "ratio5", governance, activeRuleSet, batch, disposition, releaseRuleSets = {}, draftRequestVersion = 0;
 
 const labels = { AUTO_REVIEW_PASS: "Auto review pass", NEED_CREDIT_MANAGER_REVIEW: "Credit manager review", REQUEST_UPDATED_FINANCIAL_STATEMENTS: "Request updated financial statements", NEED_TO_RESTRICT: "Restrict customer", NEED_MANUAL_REVIEW: "Manual review", RECOMMEND_CREDIT_LIMIT_REASSESSMENT: "Reassess credit limit" };
@@ -20,8 +20,14 @@ const operator = { "==": "is", "!=": "is not", ">": "is greater than", ">=": "is
 const narrativeBands = ["Green", "Yellow", "Orange", "Red"];
 
 function renderReview(customer = narrativeCustomers[0]) {
+  reviewRequestVersion += 1;
   const result = governance ? evaluate(customer, activeRuleSet, governance.activeRelease) : evaluate(customer);
-  reviewContext = { customerNumber: customer.customer_number, releaseId: result.release.id, evaluationRefs: result.traces.map(trace => trace.evaluationRef), deterministicAction: result.action.primary };
+  const facts = new Map();
+  for (const trace of result.traces) for (const observation of trace.observations) facts.set(observation.factId, { ref: `fact:${customer.customer_number}/${observation.factId}`, factId: observation.factId, value: formatFact(observation.factId, observation.actual.value) });
+  reviewContext = {
+    customerNumber: customer.customer_number, releaseId: result.release.id, evaluationRefs: result.traces.map(trace => trace.evaluationRef), deterministicAction: result.action.primary,
+    request: { schemaVersion: "1", customer: { number: customer.customer_number, name: customer.name }, release: { id: result.release.id }, action: result.action.primary, traces: result.traces.map(trace => ({ evaluationRef: trace.evaluationRef, outcome: trace.outcome, reasonCode: trace.finding?.reasonCode || null, policyStatement: trace.policy.statement, factRefs: trace.observations.map(observation => `fact:${customer.customer_number}/${observation.factId}`) })), facts: [...facts.values()] }
+  };
   const saved = dispositionStore.load(reviewContext);
   const tools = eligibleEvidenceTools(result.findings);
   document.querySelectorAll("[data-customer]").forEach(button => {
@@ -32,10 +38,32 @@ function renderReview(customer = narrativeCustomers[0]) {
   $("#customerSummary").textContent = `Customer ${customer.customer_number} · ${customer.payment_terms.replace("_", " ")} · ${money(customer.credit_limit)} credit limit`;
   $("#actionOutput").innerHTML = `<p class="eyebrow">Deterministic · Demo Release ${escapeHtml(result.release.id)}</p><h2 id="actionTitle">${escapeHtml(labels[result.action.primary] || result.action.primary)}</h2><div class="reason-codes"><b>Reason codes</b> ${result.action.basedOn.map(escapeHtml).join(" · ") || "No findings"}</div>${result.action.supporting.length ? `<p><b>Supporting:</b> ${result.action.supporting.map(value => escapeHtml(labels[value] || value)).join(" · ")}</p>` : ""}`;
   $("#traceOutput").innerHTML = result.traces.map(trace => `<article class="trace-card ${trace.outcome.toLowerCase().replace("_", "-")}"><header><div><p class="eyebrow">${escapeHtml(trace.outcome.replace("_", " "))}</p><h3>${escapeHtml(trace.policy.title)}</h3></div><code>${escapeHtml(trace.evaluationRef)}</code></header><p>${escapeHtml(trace.policy.statement)}</p>${trace.observations.map(observation => `<div class="observation"><b>${escapeHtml(observation.role === "APPLICABILITY" ? "Applies when" : observation.factLabel)}</b><span>${escapeHtml(formatFact(observation.factId, observation.actual.value))} ${escapeHtml(operator[observation.comparison.operator] || observation.comparison.operator)} ${escapeHtml(formatFact(observation.factId, observation.comparison.value))}</span><em>${escapeHtml(observation.result.replace("_", " "))}</em></div>`).join("")}${trace.finding ? `<footer>${escapeHtml(trace.finding.reasonCode)}</footer>` : ""}</article>`).join("");
-  $("#aiPlaceholder").innerHTML = `<p><b>AI rationale is not wired yet.</b> The deterministic action and traces above remain complete and usable.</p><p><b>Eligible Tier-2 Evidence:</b> ${tools.length ? tools.map(value => escapeHtml(value.replaceAll("_", " "))).join(" · ") : "No evidence tools are eligible for these findings."}</p><small>Future AI-drafted rationale may use simulated fictional lookups for context only; it cannot change findings, action, or calculation.</small>`;
+  const aiEnabled = document.documentElement.dataset.aiEnabled === "true";
+  $("#aiPlaceholder").innerHTML = `<p><b>${aiEnabled ? "Generate a grounded rationale on request." : "AI features are disabled in static mode."}</b> The deterministic action and traces above remain complete and usable.</p><p><b>Eligible Tier-2 Evidence:</b> ${tools.length ? tools.map(value => escapeHtml(value.replaceAll("_", " "))).join(" · ") : "No evidence tools are eligible for these findings."}</p><button id="generateReviewRationale" class="primary-button" ${aiEnabled ? "" : "disabled"}>Generate rationale</button><small>AI-drafted prose may use simulated fictional lookups for context only; it cannot change Findings, action, calculation, or Disposition.</small>`;
   $("#dispositionOutput").innerHTML = `<fieldset class="disposition-controls"><legend>Record a choice for ${escapeHtml(customer.name)} · ${escapeHtml(result.release.id)}</legend><label><input type="radio" name="reviewDisposition" value="ACCEPTED" ${saved?.status === "ACCEPTED" ? "checked" : ""}> Accept deterministic action</label><label><input type="radio" name="reviewDisposition" value="OVERRIDDEN" ${saved?.status === "OVERRIDDEN" ? "checked" : ""}> Replace with another allowed action</label><label>Replacement action<select id="reviewOverrideAction">${actionOptions.filter(action => action !== result.action.primary).map(action => `<option value="${action}" ${saved?.action === action ? "selected" : ""}>${escapeHtml(labels[action] || action)}</option>`).join("")}</select></label><label>Reason (10–500 characters)<textarea id="reviewOverrideReason" rows="3" maxlength="500">${escapeHtml(saved?.reason || "")}</textarea></label><button id="saveReviewDisposition" class="primary-button">Save session-only Disposition</button></fieldset>${saved ? `<p class="saved-disposition"><b>${escapeHtml(saved.status === "ACCEPTED" ? "Accepted" : "Overridden")}</b> · ${escapeHtml(labels[saved.action] || saved.action)}${saved.reason ? ` · ${escapeHtml(saved.reason)}` : ""}</p>` : `<p class="disposition-empty">No Disposition recorded for this customer and release.</p>`}`;
   $("#calculatorOutput").innerHTML = `<dl><div><dt>Status</dt><dd>${escapeHtml(result.calculation.status.replaceAll("_", " "))}</dd></div><div><dt>Current limit</dt><dd>${money(result.calculation.current)}</dd></div><div><dt>Recommended limit</dt><dd>${money(result.calculation.recommended)}</dd></div>${result.calculation.delta == null ? "" : `<div><dt>Difference</dt><dd>${money(result.calculation.delta)}</dd></div>`}</dl>`;
   if (governance) renderReleaseSummary();
+}
+
+function renderReviewExplanation(result) {
+  const evidence = result.evidenceResults.map(item => `<article class="trace-card"><p class="eyebrow">Simulated fictional Tier-2 Evidence · ${escapeHtml(item.asOfDate)}</p><h3>${escapeHtml(item.toolName.replaceAll("_", " "))}</h3><code>${escapeHtml(item.evidenceRef)}</code><pre>${escapeHtml(JSON.stringify(item.records, null, 2))}</pre></article>`).join("");
+  $("#aiPlaceholder").innerHTML = `<section class="generated-rationale"><p class="eyebrow">AI-drafted rationale · non-authoritative</p><h3>${escapeHtml(result.rationale.summary)}</h3><ul>${result.rationale.points.map(point => `<li>${escapeHtml(point.text)} <small>${point.references.map(escapeHtml).join(" · ")}</small></li>`).join("")}</ul></section><section><h3>Deterministic fictional evidence results</h3>${evidence || "<p>No Tier-2 Evidence was requested.</p>"}</section><section><h3>Gateway tool trace</h3><p><b>Eligible:</b> ${result.toolTrace.eligible.map(escapeHtml).join(" · ") || "None"}</p><p><b>Called:</b> ${result.toolTrace.called.map(escapeHtml).join(" · ") || "None"}</p></section><button id="generateReviewRationale" class="secondary-button">Generate again</button>`;
+}
+
+async function generateReviewRationale() {
+  const snapshot = reviewContext.request, version = ++reviewRequestVersion;
+  $("#aiPlaceholder").innerHTML = `<p role="status"><b>Generating rationale with GPT-5.6 Luna…</b></p><small>The deterministic review and Disposition remain available.</small>`;
+  try {
+    const response = await fetch("/api/ai/explain_review", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify(snapshot) });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(`${payload.error?.message || "Rationale unavailable"} · ${payload.error?.correlationId || "no correlation ID"}`);
+    const current = reviewContext.request;
+    if (version !== reviewRequestVersion || current.customer.number !== snapshot.customer.number || current.release.id !== snapshot.release.id || JSON.stringify(current.traces.map(item => item.evaluationRef)) !== JSON.stringify(snapshot.traces.map(item => item.evaluationRef))) return;
+    renderReviewExplanation(payload.result);
+  } catch (error) {
+    if (version !== reviewRequestVersion) return;
+    $("#aiPlaceholder").innerHTML = `<p role="alert"><b>AI rationale unavailable.</b> ${escapeHtml(error instanceof Error ? error.message : "Request failed")}</p><button id="generateReviewRationale" class="primary-button">Retry rationale</button><small>The deterministic action, Rule Evaluation Traces, and Disposition are unchanged.</small>`;
+  }
 }
 
 function renderReleaseSummary() {
@@ -253,6 +281,7 @@ function setScenario(id, { resetReleases = false } = {}) {
 }
 
 document.addEventListener("click", event => {
+  if (event.target.closest("#generateReviewRationale") && document.documentElement.dataset.aiEnabled === "true") generateReviewRationale();
   if (event.target.closest("#saveReviewDisposition")) {
     try {
       const status = document.querySelector('input[name="reviewDisposition"]:checked')?.value;

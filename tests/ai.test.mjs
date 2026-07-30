@@ -16,12 +16,12 @@ const environment = {
 const candidate = { outcome: "CANDIDATE", family: "NET30_PAST_DUE_MAX", summary: "Lower the NET 30 threshold.", dsl: "RULE NET30_PAST_DUE_MAX\nSCOPE customer.payment_terms == NET_30\nSET_MAX_RATIO customer.past_due_amount TO customer.ar_balance = 0.05\nEND" };
 const requests = {
   draft_rule: { schemaVersion: "1", policyText: "Lower NET 30 past due to five percent.", activeReleaseId: "credit-1.4.0" },
-  explain_review: { schemaVersion: "1", customerNumber: 2002, releaseId: "credit-1.4.0", deterministicAction: "NEED_MANUAL_REVIEW", evaluationRefs: ["credit-1.4.0/NET30_PAST_DUE_MAX@4"], eligibleTools: ["get_payment_history"] },
+  explain_review: { schemaVersion: "1", customer: { number: 2002, name: "Cascade Freight" }, release: { id: "credit-1.4.0" }, action: "NEED_MANUAL_REVIEW", traces: [{ evaluationRef: "credit-1.4.0/NET30_PAST_DUE_MAX@4", outcome: "FINDING", reasonCode: "NET30_PAST_DUE_LIMIT_EXCEEDED", policyStatement: "NET 30 customers may not exceed 8% past due.", factRefs: ["fact:2002/past_due_amount"] }], facts: [{ ref: "fact:2002/past_due_amount", factId: "past_due_amount", value: "$18,000" }] },
   explain_policy_analysis: { schemaVersion: "1", activeReleaseId: "credit-1.4.0", candidateRevision: 5, analysisStatus: "COMPATIBLE_REFINEMENT", analysisSummary: "The threshold is stricter.", impactHeadline: "3 additional records require review", impactComplete: true, evidenceRefs: ["credit-1.4.0/NET30_PAST_DUE_MAX@4"] }
 };
 const outputs = {
   draft_rule: candidate,
-  explain_review: { summary: "The account needs review.", points: [{ text: "Past due exceeded the limit.", references: ["credit-1.4.0/NET30_PAST_DUE_MAX@4"] }] },
+  explain_review: { rationale: { status: "EXPLAINED", summary: "The account needs review.", points: [{ text: "Past due exceeded the limit.", references: ["credit-1.4.0/NET30_PAST_DUE_MAX@4"] }] }, evidenceResults: [], toolTrace: { eligible: ["get_open_disputes", "get_payment_history"], called: [] } },
   explain_policy_analysis: { summary: "The candidate is a compatible refinement.", points: [{ text: "Three records cross the review boundary.", references: ["credit-1.4.0/NET30_PAST_DUE_MAX@4"] }] }
 };
 

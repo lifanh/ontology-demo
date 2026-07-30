@@ -67,6 +67,8 @@ test("Customer Review is the default semantic sequence and Policy Studio remains
   assert.match(productSource, /Active in this browser tab only/);
   assert.match(html, /Illustrative history/);
   assert.match(html, /This session/);
+  assert.match(app, /escapeHtml\(result\.rationale\.summary\)/);
+  assert.match(app, /AI rationale unavailable/);
   assert.match(html, /Illustrative POC · Fictional customer data · AI features disabled/);
   assert.doesNotMatch(productSource, /get_parent_exposure|production-path|artifact-showcase|Approve &amp; publish|APPROVED_AND_PUBLISHED/);
 });
