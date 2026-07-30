@@ -50,6 +50,11 @@ function persistStudio() {
   sessionStorage.setItem(STUDIO_STORAGE_KEY, JSON.stringify({ selected, governance: governance.snapshot(), releaseRuleSets, batch, policyInput: $("#policyInput").value, dslInput: $("#dslInput").value }));
 }
 
+function clearDemoStorage() {
+  dispositionStore.clear();
+  sessionStorage.removeItem(STUDIO_STORAGE_KEY);
+}
+
 function showToast(message) {
   $("#toast").textContent = message;
   $("#toast").classList.add("show");
@@ -261,8 +266,7 @@ document.addEventListener("click", event => {
   if (event.target.closest("#resetButton")) {
     if (!window.confirm("Reset this browser tab to credit-1.4.0 and clear mutable demo state?")) return;
     const customer = narrativeCustomers.find(item => item.customer_number === reviewContext.customerNumber) || narrativeCustomers[0];
-    dispositionStore.clear();
-    sessionStorage.removeItem(STUDIO_STORAGE_KEY);
+    clearDemoStorage();
     setScenario("ratio5", { resetReleases: true });
     renderReview(customer);
     showToast("Demo session state reset");
