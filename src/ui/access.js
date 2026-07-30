@@ -14,6 +14,8 @@ const showGate = message => {
   $("#loginPassword").focus();
 };
 
+window.addEventListener("demo-auth-required", () => showGate("Your demo session expired. Sign in again to continue; this tab's product state is preserved."));
+
 const unlock = async status => {
   document.body.classList.remove("auth-pending", "auth-locked");
   $("#accessGate").classList.add("hidden");

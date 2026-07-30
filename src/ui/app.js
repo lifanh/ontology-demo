@@ -12,8 +12,9 @@ const evaluate = createEvaluator(creditPack);
 const actionOptions = dispositionActions;
 const dispositionStore = createDispositionStore(sessionStorage);
 const STUDIO_STORAGE_KEY = "customer-review:policy-studio:v1";
+const PRODUCT_STORAGE_KEY = "customer-review:product:v1";
 let reviewContext, reviewRequestVersion = 0;
-let selected = "ratio5", governance, activeRuleSet, batch, disposition, releaseRuleSets = {}, draftRequestVersion = 0, policyExplanation, policyRequestVersion = 0;
+let selected = "ratio5", selectedCustomerNumber = 2001, activeView = "review", governance, activeRuleSet, batch, disposition, releaseRuleSets = {}, draftRequestVersion = 0, policyExplanation, policyRequestVersion = 0, reviewExplanations = {}, policyExplanations = {};
 
 const labels = { AUTO_REVIEW_PASS: "Auto review pass", NEED_CREDIT_MANAGER_REVIEW: "Credit manager review", REQUEST_UPDATED_FINANCIAL_STATEMENTS: "Request updated financial statements", NEED_TO_RESTRICT: "Restrict customer", NEED_MANUAL_REVIEW: "Manual review", RECOMMEND_CREDIT_LIMIT_REASSESSMENT: "Reassess credit limit" };
 const operator = { "==": "is", "!=": "is not", ">": "is greater than", ">=": "is at least", "<": "is less than", "<=": "is at most" };
@@ -42,7 +43,25 @@ function renderReview(customer = narrativeCustomers[0]) {
   $("#aiPlaceholder").innerHTML = `<p><b>${aiEnabled ? "Generate a grounded rationale on request." : "AI features are disabled in static mode."}</b> The deterministic action and traces above remain complete and usable.</p><p><b>Eligible Tier-2 Evidence:</b> ${tools.length ? tools.map(value => escapeHtml(value.replaceAll("_", " "))).join(" · ") : "No evidence tools are eligible for these findings."}</p><button id="generateReviewRationale" class="primary-button" ${aiEnabled ? "" : "disabled"}>Generate rationale</button><small>AI-drafted prose may use simulated fictional lookups for context only; it cannot change Findings, action, calculation, or Disposition.</small>`;
   $("#dispositionOutput").innerHTML = `<fieldset class="disposition-controls"><legend>Record a choice for ${escapeHtml(customer.name)} · ${escapeHtml(result.release.id)}</legend><label><input type="radio" name="reviewDisposition" value="ACCEPTED" ${saved?.status === "ACCEPTED" ? "checked" : ""}> Accept deterministic action</label><label><input type="radio" name="reviewDisposition" value="OVERRIDDEN" ${saved?.status === "OVERRIDDEN" ? "checked" : ""}> Replace with another allowed action</label><label>Replacement action<select id="reviewOverrideAction">${actionOptions.filter(action => action !== result.action.primary).map(action => `<option value="${action}" ${saved?.action === action ? "selected" : ""}>${escapeHtml(labels[action] || action)}</option>`).join("")}</select></label><label>Reason (10–500 characters)<textarea id="reviewOverrideReason" rows="3" maxlength="500">${escapeHtml(saved?.reason || "")}</textarea></label><button id="saveReviewDisposition" class="primary-button">Save session-only Disposition</button></fieldset>${saved ? `<p class="saved-disposition"><b>${escapeHtml(saved.status === "ACCEPTED" ? "Accepted" : "Overridden")}</b> · ${escapeHtml(labels[saved.action] || saved.action)}${saved.reason ? ` · ${escapeHtml(saved.reason)}` : ""}</p>` : `<p class="disposition-empty">No Disposition recorded for this customer and release.</p>`}`;
   $("#calculatorOutput").innerHTML = `<dl><div><dt>Status</dt><dd>${escapeHtml(result.calculation.status.replaceAll("_", " "))}</dd></div><div><dt>Current limit</dt><dd>${money(result.calculation.current)}</dd></div><div><dt>Recommended limit</dt><dd>${money(result.calculation.recommended)}</dd></div>${result.calculation.delta == null ? "" : `<div><dt>Difference</dt><dd>${money(result.calculation.delta)}</dd></div>`}</dl>`;
+  selectedCustomerNumber = customer.customer_number;
+  const explanationKey = reviewExplanationKey(reviewContext.request);
+  const savedExplanation = reviewExplanations[explanationKey];
+  if (savedExplanation && !isReviewExplanation(savedExplanation)) {
+    delete reviewExplanations[explanationKey];
+    persistProduct();
+  }
+  else if (savedExplanation) renderReviewExplanation(savedExplanation);
+  persistProduct();
   if (governance) renderReleaseSummary();
+}
+
+const reviewExplanationKey = request => `${request.customer.number}::${request.release.id}::${request.traces.map(trace => trace.evaluationRef).join("|")}`;
+const isPoints = value => Array.isArray(value) && value.every(point => point && typeof point.text === "string" && Array.isArray(point.references) && point.references.every(reference => typeof reference === "string"));
+const isReviewExplanation = value => value && value.rationale && typeof value.rationale.summary === "string" && isPoints(value.rationale.points) && Array.isArray(value.evidenceResults) && value.toolTrace && Array.isArray(value.toolTrace.eligible) && Array.isArray(value.toolTrace.called);
+const isPolicyExplanation = value => value && typeof value.summary === "string" && isPoints(value.points);
+
+function persistProduct() {
+  sessionStorage.setItem(PRODUCT_STORAGE_KEY, JSON.stringify({ selectedCustomerNumber, activeView, reviewExplanations }));
 }
 
 function renderReviewExplanation(result) {
@@ -55,15 +74,23 @@ async function generateReviewRationale() {
   $("#aiPlaceholder").innerHTML = `<p role="status"><b>Generating rationale with GPT-5.6 Luna…</b></p><small>The deterministic review and Disposition remain available.</small>`;
   try {
     const response = await fetch("/api/ai/explain_review", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify(snapshot) });
-    const payload = await response.json();
+    const payload = await readAiResponse(response);
     if (!response.ok) throw new Error(`${payload.error?.message || "Rationale unavailable"} · ${payload.error?.correlationId || "no correlation ID"}`);
     const current = reviewContext.request;
     if (version !== reviewRequestVersion || current.customer.number !== snapshot.customer.number || current.release.id !== snapshot.release.id || JSON.stringify(current.traces.map(item => item.evaluationRef)) !== JSON.stringify(snapshot.traces.map(item => item.evaluationRef))) return;
+    reviewExplanations[reviewExplanationKey(snapshot)] = payload.result;
+    persistProduct();
     renderReviewExplanation(payload.result);
   } catch (error) {
     if (version !== reviewRequestVersion) return;
     $("#aiPlaceholder").innerHTML = `<p role="alert"><b>AI rationale unavailable.</b> ${escapeHtml(error instanceof Error ? error.message : "Request failed")}</p><button id="generateReviewRationale" class="primary-button">Retry rationale</button><small>The deterministic action, Rule Evaluation Traces, and Disposition are unchanged.</small>`;
   }
+}
+
+async function readAiResponse(response) {
+  const payload = await response.json();
+  if (response.status === 401) window.dispatchEvent(new Event("demo-auth-required"));
+  return payload;
 }
 
 function renderReleaseSummary() {
@@ -75,12 +102,15 @@ function renderReleaseSummary() {
 }
 
 function persistStudio() {
-  sessionStorage.setItem(STUDIO_STORAGE_KEY, JSON.stringify({ selected, governance: governance.snapshot(), releaseRuleSets, batch, policyInput: $("#policyInput").value, dslInput: $("#dslInput").value }));
+  sessionStorage.setItem(STUDIO_STORAGE_KEY, JSON.stringify({ selected, governance: governance.snapshot(), releaseRuleSets, batch, policyExplanations, policyInput: $("#policyInput").value, dslInput: $("#dslInput").value }));
 }
 
 function clearDemoStorage() {
   dispositionStore.clear();
   sessionStorage.removeItem(STUDIO_STORAGE_KEY);
+  sessionStorage.removeItem(PRODUCT_STORAGE_KEY);
+  reviewExplanations = {};
+  policyExplanations = {};
 }
 
 function showToast(message) {
@@ -139,6 +169,7 @@ async function generateDraft() {
   governance.startDraft({ logicalId: scenario.logicalId, revision: (activeRuleSet.find(rule => rule.id === scenario.logicalId)?.revision || scenario.revision - 1) + 1, sourcePolicy: policyText, sourceDsl: "", ast: null });
   batch = null;
   disposition = null;
+  persistStudio();
   button.disabled = true;
   $("#promptOutput").textContent = "Drafting with GPT-5.6 Luna…";
   $("#promptSection").classList.remove("hidden");
@@ -146,7 +177,7 @@ async function generateDraft() {
   $("#resultSection").classList.add("hidden");
   try {
     const response = await fetch("/api/ai/draft_rule", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify({ schemaVersion: "1", policyText, activeReleaseId: requestedRelease }) });
-    const payload = await response.json();
+    const payload = await readAiResponse(response);
     if (!response.ok) {
       const failure = new Error(`${payload.error?.message || "Drafting failed"} · ${payload.error?.correlationId || "no correlation ID"}`);
       failure.retryable = payload.error?.retryable;
@@ -166,6 +197,7 @@ async function generateDraft() {
       batch = null;
       disposition = null;
       $("#editorSection").classList.remove("hidden");
+      persistStudio();
       setProgress(3);
     } else if (result.outcome === "NEEDS_CLARIFICATION") {
       $("#promptOutput").textContent = `${result.question}\n\nMissing: ${result.missingFields.join(", ")}`;
@@ -273,6 +305,8 @@ function renderPolicyExplanation() {
   return `<section class="runtime-panel" id="policyExplanation"><p class="eyebrow">AI policy explanation · non-authoritative</p><h3>${ready ? "Deterministic evidence is ready to explain" : "Complete deterministic analysis and Review impact first"}</h3><p>The explanation supports deterministic evidence; it never validates or activates a candidate.</p><button id="generatePolicyExplanation" class="secondary-button" ${ready && document.documentElement.dataset.aiEnabled === "true" ? "" : "disabled"}>Generate explanation</button></section>`;
 }
 
+const policyExplanationKey = request => JSON.stringify(request);
+
 async function generatePolicyExplanation() {
   let snapshot;
   try { snapshot = policyExplanationRequest(); } catch (error) { return showToast(error.message); }
@@ -281,12 +315,14 @@ async function generatePolicyExplanation() {
   renderGovernance();
   try {
     const response = await fetch("/api/ai/explain_policy_analysis", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify(snapshot) });
-    const payload = await response.json();
+    const payload = await readAiResponse(response);
     if (!response.ok) throw new Error(`${payload.error?.message || "Explanation unavailable"} · ${payload.error?.correlationId || "no correlation ID"}`);
     let current;
     try { current = policyExplanationRequest(); } catch { return; }
     if (version !== policyRequestVersion || JSON.stringify(current) !== JSON.stringify(snapshot)) return;
     policyExplanation = { status: "ready", result: payload.result };
+    policyExplanations[policyExplanationKey(snapshot)] = payload.result;
+    persistStudio();
   } catch (error) {
     if (version !== policyRequestVersion) return;
     policyExplanation = { status: "error", message: error instanceof Error ? error.message : "Request failed" };
@@ -296,6 +332,12 @@ async function generatePolicyExplanation() {
 
 function renderGovernance(message = "") {
   const current = governance.current, analysis = governance.evidence.analysis;
+  if (!policyExplanation) {
+    try {
+      const saved = policyExplanations[policyExplanationKey(policyExplanationRequest())];
+      if (saved && isPolicyExplanation(saved)) policyExplanation = { status: "ready", result: saved };
+    } catch {}
+  }
   const expectedAnalysis = current.ast ? analyzeCandidate(current.ast, activeRuleSet) : null;
   const headline = analysis?.status || current.state;
   const conflict = analysis?.status === "CONFLICT";
@@ -320,7 +362,8 @@ function setScenario(id, { resetReleases = false } = {}) {
   const scenario = scenarios[selected], sourceDsl = formatRule(scenario.ast, { root: "customer" });
   if (!governance || resetReleases) resetState();
   else {
-    governance.startDraft({ logicalId: scenario.logicalId, revision: scenario.revision, sourcePolicy: scenario.policy, sourceDsl, ast: null });
+    const revision = (activeRuleSet.find(rule => rule.id === scenario.logicalId)?.revision || scenario.revision - 1) + 1;
+    governance.startDraft({ logicalId: scenario.logicalId, revision, sourcePolicy: scenario.policy, sourceDsl, ast: null });
     batch = null;
     disposition = null;
     invalidatePolicyExplanation();
@@ -405,10 +448,12 @@ document.addEventListener("click", event => {
   }
   if (event.target.closest("#resetButton")) {
     if (!window.confirm("Reset this browser tab to credit-1.4.0 and clear mutable demo state?")) return;
-    const customer = narrativeCustomers.find(item => item.customer_number === reviewContext.customerNumber) || narrativeCustomers[0];
     clearDemoStorage();
     setScenario("ratio5", { resetReleases: true });
-    renderReview(customer);
+    activeView = "review";
+    document.querySelectorAll("[data-view]").forEach(button => button.classList.toggle("active", button.dataset.view === activeView));
+    document.querySelectorAll(".product-view").forEach(view => view.classList.toggle("hidden", view.id !== `${activeView}View`));
+    renderReview(narrativeCustomers[0]);
     showToast("Demo session state reset");
   }
   const property = event.target.closest("[data-property]");
@@ -422,6 +467,9 @@ $("#releaseSelector").addEventListener("change", event => {
   invalidatePolicyExplanation();
   governance.selectRelease(event.target.value);
   activeRuleSet = releaseRuleSets[governance.activeRelease.id] || activeRules;
+  batch = null;
+  disposition = null;
+  setScenario(selected);
   persistStudio();
   renderReview(narrativeCustomers.find(item => item.customer_number === reviewContext.customerNumber));
 });
@@ -430,8 +478,10 @@ $("#policyInput").addEventListener("input", () => { draftRequestVersion += 1; up
 $("#dslInput").addEventListener("input", () => { updateDraft({ sourceDsl: $("#dslInput").value, ast: null }); persistStudio(); if (!$("#resultSection").classList.contains("hidden")) renderGovernance("DSL edit created or updated a draft revision; prior evidence is stale."); });
 $("#copyPrompt").addEventListener("click", async () => { try { await navigator.clipboard.writeText($("#promptOutput").textContent); showToast("Prompt copied"); } catch { showToast("Select the prompt text to copy"); } });
 document.querySelectorAll("[data-view]").forEach(button => button.addEventListener("click", () => {
+  activeView = button.dataset.view;
   document.querySelectorAll("[data-view]").forEach(item => item.classList.toggle("active", item === button));
   document.querySelectorAll(".product-view").forEach(view => view.classList.toggle("hidden", view.id !== `${button.dataset.view}View`));
+  persistProduct();
 }));
 $("#customerSwitcher").addEventListener("click", event => {
   const button = event.target.closest("[data-customer]");
@@ -441,6 +491,12 @@ $("#customerSwitcher").innerHTML = narrativeCustomers.map((customer, index) => `
 renderOntology();
 setScenario("ratio5", { resetReleases: true });
 try {
+  const product = JSON.parse(sessionStorage.getItem(PRODUCT_STORAGE_KEY) || "null");
+  if (product) {
+    selectedCustomerNumber = narrativeCustomers.some(item => item.customer_number === product.selectedCustomerNumber) ? product.selectedCustomerNumber : 2001;
+    activeView = ["review", "studio"].includes(product.activeView) ? product.activeView : "review";
+    reviewExplanations = product.reviewExplanations && typeof product.reviewExplanations === "object" && !Array.isArray(product.reviewExplanations) ? Object.fromEntries(Object.entries(product.reviewExplanations).filter(([, value]) => isReviewExplanation(value))) : {};
+  }
   const saved = JSON.parse(sessionStorage.getItem(STUDIO_STORAGE_KEY) || "null");
   if (saved) {
     selected = Object.hasOwn(scenarios, saved.selected) ? saved.selected : "ratio5";
@@ -449,6 +505,7 @@ try {
     releaseRuleSets = saved.releaseRuleSets || { [release.id]: activeRules };
     activeRuleSet = releaseRuleSets[governance.activeRelease.id] || activeRules;
     batch = saved.batch || null;
+    policyExplanations = saved.policyExplanations && typeof saved.policyExplanations === "object" && !Array.isArray(saved.policyExplanations) ? Object.fromEntries(Object.entries(saved.policyExplanations).filter(([, value]) => isPolicyExplanation(value))) : {};
     $("#policyInput").value = saved.policyInput || governance.current.sourcePolicy || scenarios[selected].policy;
     $("#dslInput").value = saved.dslInput || governance.current.sourceDsl || "";
   }
@@ -458,4 +515,6 @@ try {
   sessionStorage.removeItem(STUDIO_STORAGE_KEY);
   setScenario("ratio5", { resetReleases: true });
 }
-renderReview();
+document.querySelectorAll("[data-view]").forEach(button => button.classList.toggle("active", button.dataset.view === activeView));
+document.querySelectorAll(".product-view").forEach(view => view.classList.toggle("hidden", view.id !== `${activeView}View`));
+renderReview(narrativeCustomers.find(item => item.customer_number === selectedCustomerNumber) || narrativeCustomers[0]);
