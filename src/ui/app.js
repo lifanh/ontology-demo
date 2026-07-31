@@ -71,7 +71,7 @@ function renderReviewExplanation(result) {
 
 async function generateReviewRationale() {
   const snapshot = reviewContext.request, version = ++reviewRequestVersion;
-  $("#aiPlaceholder").innerHTML = `<p role="status"><b>Generating rationale with GPT-5.6 Luna…</b></p><small>The deterministic review and Disposition remain available.</small>`;
+  $("#aiPlaceholder").innerHTML = `<p role="status"><b>Generating rationale with GitHub Copilot…</b></p><small>The deterministic review and Disposition remain available.</small>`;
   try {
     const response = await fetch("/api/ai/explain_review", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify(snapshot) });
     const payload = await readAiResponse(response);
@@ -180,7 +180,7 @@ async function generateDraft() {
   batch = null;
   persistStudio();
   button.disabled = true;
-  $("#promptOutput").textContent = "Drafting with GPT-5.6 Luna…";
+  $("#promptOutput").textContent = "Drafting with GitHub Copilot…";
   $("#promptSection").classList.remove("hidden");
   $("#editorSection").classList.add("hidden");
   $("#resultSection").classList.add("hidden");
@@ -365,7 +365,7 @@ function policyExplanationRequest() {
 
 function renderPolicyExplanation() {
   if (policyExplanation?.status === "ready") return `<section class="runtime-panel" id="policyExplanation"><p class="eyebrow">AI policy explanation · non-authoritative</p><h3>${escapeHtml(policyExplanation.result.summary)}</h3><ul>${policyExplanation.result.points.map(point => `<li>${escapeHtml(point.text)} <small>${point.references.map(escapeHtml).join(" · ")}</small></li>`).join("")}</ul><button id="generatePolicyExplanation" class="secondary-button">Generate again</button><p class="boundary-note">This explanation does not qualify, approve, or activate the candidate.</p></section>`;
-  if (policyExplanation?.status === "loading") return `<section class="runtime-panel" id="policyExplanation"><p class="eyebrow">AI policy explanation · non-authoritative</p><h3 role="status">Generating explanation with GPT-5.6 Luna…</h3><p>Deterministic qualification and activation remain available.</p></section>`;
+  if (policyExplanation?.status === "loading") return `<section class="runtime-panel" id="policyExplanation"><p class="eyebrow">AI policy explanation · non-authoritative</p><h3 role="status">Generating explanation with GitHub Copilot…</h3><p>Deterministic qualification and activation remain available.</p></section>`;
   if (policyExplanation?.status === "error") return `<section class="runtime-panel" id="policyExplanation"><p class="eyebrow">AI policy explanation · non-authoritative</p><h3 role="alert">Explanation unavailable</h3><p>${escapeHtml(policyExplanation.message)}</p><button id="generatePolicyExplanation" class="secondary-button">Retry explanation</button><p class="boundary-note">This failure does not block an otherwise-qualified Demo Release activation.</p></section>`;
   let ready = false;
   try { policyExplanationRequest(); ready = true; } catch {}

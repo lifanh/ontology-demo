@@ -1,3 +1,6 @@
+import path from "node:path";
+import os from "node:os";
+
 const required = (environment, name) => {
   const value = environment[name]?.trim();
   if (!value) throw new Error(`Invalid AI gateway configuration: ${name} is required`);
@@ -22,15 +25,9 @@ export function loadConfig(environment = process.env) {
   const demoPassword = required(environment, "DEMO_PASSWORD");
   const sessionSecret = required(environment, "SESSION_SECRET");
   if (Buffer.byteLength(sessionSecret, "utf8") < 32) throw new Error("Invalid AI gateway configuration: SESSION_SECRET must contain at least 32 bytes");
-  const chatCompletionsUrl = required(environment, "LLM_CHAT_COMPLETIONS_URL");
-  let endpoint;
-  try { endpoint = new URL(chatCompletionsUrl); } catch { throw new Error("Invalid AI gateway configuration: LLM_CHAT_COMPLETIONS_URL must be a complete URL"); }
-  if (!endpoint.pathname || endpoint.pathname === "/" || !["https:", "http:"].includes(endpoint.protocol)) throw new Error("Invalid AI gateway configuration: LLM_CHAT_COMPLETIONS_URL must be a complete HTTP URL");
-  const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(endpoint.hostname);
-  if (endpoint.protocol !== "https:" && !loopback) throw new Error("Invalid AI gateway configuration: LLM_CHAT_COMPLETIONS_URL must use HTTPS unless it targets loopback");
-
-  const modelDisplayName = required(environment, "LLM_MODEL_DISPLAY_NAME");
-  if (modelDisplayName !== "GPT-5.6 Luna") throw new Error("Invalid AI gateway configuration: LLM_MODEL_DISPLAY_NAME is unsupported");
+  const copilotModel = environment.COPILOT_MODEL?.trim() || "gpt-5.6-luna";
+  const copilotHome = path.resolve(environment.COPILOT_HOME?.trim() || path.join(os.homedir(), ".copilot"));
+  const copilotToken = environment.COPILOT_GITHUB_TOKEN?.trim() || undefined;
 
   return Object.freeze({
     mode: "ai",
@@ -38,8 +35,9 @@ export function loadConfig(environment = process.env) {
     trustProxy,
     demoPassword,
     sessionSecret,
-    chatCompletionsUrl: endpoint.toString(),
-    apiKey: required(environment, "LLM_API_KEY"),
-    modelDisplayName
+    copilotModel,
+    copilotHome,
+    copilotToken,
+    modelDisplayName: `GitHub Copilot (${copilotModel})`
   });
 }

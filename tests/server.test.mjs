@@ -8,9 +8,9 @@ const aiEnvironment = overrides => ({
   AI_ENABLED: "true",
   DEMO_PASSWORD: "approved-demo-password",
   SESSION_SECRET: "0123456789abcdef0123456789abcdef",
-  LLM_CHAT_COMPLETIONS_URL: "https://gateway.example/chat/completions/gpt-5.6-luna",
-  LLM_API_KEY: "test-key",
-  LLM_MODEL_DISPLAY_NAME: "GPT-5.6 Luna",
+  COPILOT_GITHUB_TOKEN: "test-token",
+  COPILOT_MODEL: "gpt-5.4",
+  COPILOT_HOME: ".copilot-test",
   ...overrides
 });
 const request = (app, path, options = {}) => app.request(`${origin}${path}`, options);
@@ -25,15 +25,20 @@ test("static mode needs no credentials and reports AI disabled", async () => {
 
 test("AI mode fails closed for missing or invalid configuration", () => {
   assert.throws(() => loadConfig({}), /AI_ENABLED must be true or false/);
-  for (const key of ["DEMO_PASSWORD", "SESSION_SECRET", "LLM_CHAT_COMPLETIONS_URL", "LLM_API_KEY", "LLM_MODEL_DISPLAY_NAME"]) {
+  for (const key of ["DEMO_PASSWORD", "SESSION_SECRET"]) {
     const environment = aiEnvironment(); delete environment[key];
     assert.throws(() => loadConfig(environment), new RegExp(`${key} is required`));
   }
   assert.throws(() => loadConfig(aiEnvironment({ SESSION_SECRET: "too-short" })), /at least 32 bytes/);
-  assert.throws(() => loadConfig(aiEnvironment({ LLM_CHAT_COMPLETIONS_URL: "not a URL" })), /complete URL/);
-  assert.throws(() => loadConfig(aiEnvironment({ LLM_CHAT_COMPLETIONS_URL: "http://gateway.example/chat/completions/gpt-5.6-luna" })), /must use HTTPS/);
-  assert.equal(loadConfig(aiEnvironment({ LLM_CHAT_COMPLETIONS_URL: "http://127.0.0.1:9000/chat/completions/gpt-5.6-luna" })).chatCompletionsUrl, "http://127.0.0.1:9000/chat/completions/gpt-5.6-luna");
-  assert.throws(() => loadConfig(aiEnvironment({ LLM_MODEL_DISPLAY_NAME: "Another model" })), /unsupported/);
+  const config = loadConfig(aiEnvironment());
+  assert.equal(config.modelDisplayName, "GitHub Copilot (gpt-5.4)");
+  assert.equal(config.copilotModel, "gpt-5.4");
+  assert.equal(config.copilotHome.endsWith(".copilot-test"), true);
+  const localConfig = loadConfig(aiEnvironment({ COPILOT_GITHUB_TOKEN: "", COPILOT_MODEL: "", COPILOT_HOME: "" }));
+  assert.equal(localConfig.copilotToken, undefined);
+  assert.equal(localConfig.copilotModel, "gpt-5.6-luna");
+  assert.equal(localConfig.modelDisplayName, "GitHub Copilot (gpt-5.6-luna)");
+  assert.equal(localConfig.copilotHome.endsWith(".copilot"), true);
   assert.throws(() => loadConfig(aiEnvironment({ AI_ENABLED: "maybe" })), /must be true or false/);
 });
 

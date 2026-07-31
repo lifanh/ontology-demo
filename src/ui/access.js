@@ -23,7 +23,7 @@ const unlock = async status => {
   $("#aiStatus").innerHTML = `<span class="pulse"></span>${status.aiEnabled ? `Real ${status.modelDisplayName} calls` : "AI features disabled"}`;
   document.documentElement.dataset.aiEnabled = String(status.aiEnabled);
   if (status.aiEnabled) $("#simulateResponse").classList.add("hidden");
-  document.querySelector("#reviewView .workspace-header .eyebrow").textContent = status.aiEnabled ? "Illustrative POC · Fictional customer data · Real GPT-5.6 Luna calls" : "Illustrative POC · Fictional customer data · AI features disabled";
+  document.querySelector("#reviewView .workspace-header .eyebrow").textContent = status.aiEnabled ? "Illustrative POC · Fictional customer data · Real GitHub Copilot calls" : "Illustrative POC · Fictional customer data · AI features disabled";
   await import("./app.js");
 };
 

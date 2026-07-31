@@ -47,7 +47,7 @@ test("tab product state is keyed, reloadable, isolated, resettable, and preserve
   const context = await browser.newContext();
   let authenticated = true, expireNext = false;
   const configure = async page => {
-    await page.route("**/api/session", route => route.fulfill({ json: { mode: "ai", aiEnabled: true, authenticated, modelDisplayName: "GPT-5.6 Luna" } }));
+    await page.route("**/api/session", route => route.fulfill({ json: { mode: "ai", aiEnabled: true, authenticated, modelDisplayName: "GitHub Copilot (gpt-5.4)" } }));
     await page.route("**/api/ai/explain_review", route => {
       if (expireNext) {
         expireNext = false;
@@ -224,7 +224,7 @@ test("unattended browser flows preserve semantics, accessibility, terminal state
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage({ viewport: { width: 375, height: 900 } });
-    await page.route("**/api/session", route => route.fulfill({ json: { mode: "ai", aiEnabled: true, authenticated: true, modelDisplayName: "GPT-5.6 Luna" } }));
+    await page.route("**/api/session", route => route.fulfill({ json: { mode: "ai", aiEnabled: true, authenticated: true, modelDisplayName: "GitHub Copilot (gpt-5.4)" } }));
     let explanationCall = 0;
     await page.route("**/api/ai/explain_review", route => {
       explanationCall += 1;

@@ -5,13 +5,13 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
-import { createOpenAiProvider } from "./openai-provider.js";
+import { createCopilotProvider } from "./copilot-provider.js";
 import { draftRuleExecutor } from "./draft-rule.js";
 import { explainReviewExecutor } from "./review-evidence.js";
 import { explainPolicyAnalysisExecutor } from "./policy-explanation.js";
 
 const config = loadConfig();
-const provider = config.aiEnabled ? createOpenAiProvider(config) : undefined;
+const provider = config.aiEnabled ? createCopilotProvider(config) : undefined;
 const app = createApp({ config, ...(provider ? { provider, aiExecutors: { draft_rule: draftRuleExecutor, explain_review: explainReviewExecutor, explain_policy_analysis: explainPolicyAnalysisExecutor } } : {}), clientIp: c => getConnInfo(c).remote.address || "unknown" });
 const dist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../dist");
 app.use("/*", serveStatic({ root: dist }));

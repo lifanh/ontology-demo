@@ -66,35 +66,35 @@ test("zero tools omits provider tools and zero calls is valid", async () => {
   assert.deepEqual(result.toolTrace, { eligible: [], called: [] });
 });
 
-test("multiple calls execute deterministically while visible trace retains model order", async () => {
-  let call = 0;
-  let finalInput;
+test("Copilot tool handlers execute deterministic fixtures and retain model call order", async () => {
   const result = await explainReviewExecutor({ request: request(), providerCall: async input => {
-    if (++call === 1) return { type: "tool_calls", calls: [{ id: "b", name: "get_payment_history", arguments: "{}" }, { id: "a", name: "get_open_disputes", arguments: "{}" }] };
-    finalInput = input;
+    await input.tools.find(tool => tool.name === "get_payment_history").handler({});
+    await input.tools.find(tool => tool.name === "get_open_disputes").handler({});
     return final(["evidence:2002/get_payment_history@1"]);
   } });
   assert.deepEqual(result.toolTrace.called, ["get_payment_history", "get_open_disputes"]);
-  assert.deepEqual(result.evidenceResults.map(x => x.toolName), ["get_open_disputes", "get_payment_history"]);
-  assert.deepEqual(finalInput.messages.filter(message => message.role === "tool").map(message => [message.tool_call_id, message.name]), [["a", "get_open_disputes"], ["b", "get_payment_history"]]);
+  assert.deepEqual(result.evidenceResults.map(x => x.toolName), ["get_payment_history", "get_open_disputes"]);
 });
 
-test("all malformed round types reject before fixture execution and return no partial result", async () => {
-  const malformed = [
-    [{ id: "1", name: "unknown", arguments: "{}" }],
-    [{ id: "1", name: "get_recent_orders", arguments: "{}" }],
-    [{ id: "1", name: "get_payment_history", arguments: "{\"customer\":2004}" }],
-    [{ id: "1", name: "get_payment_history", arguments: "{}" }, { id: "2", name: "get_payment_history", arguments: "{}" }],
-    [{ id: "1", name: "get_payment_history", arguments: "{}" }, { id: "1", name: "get_open_disputes", arguments: "{}" }]
-  ];
-  for (const calls of malformed) await assert.rejects(explainReviewExecutor({ request: request(), providerCall: async () => ({ type: "tool_calls", calls }) }), error => error.code === "MODEL_OUTPUT_INVALID");
-  let round = 0;
-  await assert.rejects(explainReviewExecutor({ request: request(), providerCall: async () => ++round === 1 ? { type: "tool_calls", calls: [{ id: "1", name: "get_payment_history", arguments: "{}" }] } : { type: "tool_calls", calls: [{ id: "2", name: "get_payment_history", arguments: "{}" }] } }), error => error.code === "MODEL_OUTPUT_INVALID");
+test("tool handlers reject arguments and duplicate calls before returning partial evidence", async () => {
+  for (const argumentsValue of [null, [], { customer: 2004 }]) {
+    await assert.rejects(explainReviewExecutor({ request: request(), providerCall: async input => {
+      await input.tools[0].handler(argumentsValue);
+      return final([]);
+    } }), error => error.code === "MODEL_OUTPUT_INVALID");
+  }
+  await assert.rejects(explainReviewExecutor({ request: request(), providerCall: async input => {
+    await input.tools[0].handler({});
+    await input.tools[0].handler({});
+    return final([]);
+  } }), error => error.code === "MODEL_OUTPUT_INVALID");
 });
 
-test("two tool rounds and three calls are maximum; unknown and duplicate final references reject all prose", async () => {
-  let count = 0;
-  await assert.rejects(explainReviewExecutor({ request: request(2004, ["CRITICAL_RESTRICTION_TRIGGER"]), providerCall: async () => ({ type: "tool_calls", calls: [{ id: String(++count), name: ["get_payment_history", "get_open_disputes", "get_recent_orders"][count - 1], arguments: "{}" }] }) }), error => error.code === "MODEL_OUTPUT_INVALID");
+test("only eligible custom tools are exposed; unknown and duplicate final references reject all prose", async () => {
+  await explainReviewExecutor({ request: request(), providerCall: async input => {
+    assert.deepEqual(input.tools.map(tool => tool.name), ["get_payment_history", "get_open_disputes"]);
+    return final([`${ref}-0`]);
+  } });
   for (const references of [["unknown:ref"], [`${ref}-0`, `${ref}-0`]]) await assert.rejects(explainReviewExecutor({ request: request(), providerCall: async () => final(references) }), error => error.code === "MODEL_OUTPUT_INVALID");
 });
 

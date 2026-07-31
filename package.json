@@ -36,6 +36,7 @@
     "vite": "npm:@voidzero-dev/vite-plus-core@0.2.6"
   },
   "dependencies": {
+    "@github/copilot-sdk": "1.0.8",
     "@hono/node-server": "1.19.11",
     "ajv": "8.17.1",
     "hono": "4.12.32"

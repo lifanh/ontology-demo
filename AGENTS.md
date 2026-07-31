@@ -10,7 +10,7 @@
 
 ## Claims and terminology
 
-- Describe the current application as an illustrative POC using fictional data and browser-tab state. AI-enabled Node mode makes real company-approved GPT-5.6 Luna calls through the Hono gateway; deterministic-only mode makes no model calls.
+- Describe the current application as an illustrative POC using fictional data and browser-tab state. AI-enabled Node mode makes real model calls through the GitHub Copilot SDK and Hono gateway; deterministic-only mode makes no model calls.
 - Do not imply that CIS APIs, Jena, SHACL, DMN, Drools/Kogito, or Z3 run in the current POC. Do not imply that the model validates, compares, evaluates, resolves, approves, activates, or mutates customer state.
 - CIS APIs supply authoritative fact values; Customer Review Ontology defines their shared meaning, types, units, provenance, and permitted policy use.
 - AI drafts and explains only. Deterministic systems validate, compare, qualify, calculate, and execute. Authorized people and the CIS workflow retain approval and customer-state authority.

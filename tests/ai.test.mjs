@@ -9,9 +9,9 @@ const environment = {
   AI_ENABLED: "true",
   DEMO_PASSWORD: "approved-demo-password",
   SESSION_SECRET: "0123456789abcdef0123456789abcdef",
-  LLM_CHAT_COMPLETIONS_URL: "https://gateway.example/chat/completions/gpt-5.6-luna",
-  LLM_API_KEY: "test-key",
-  LLM_MODEL_DISPLAY_NAME: "GPT-5.6 Luna"
+  COPILOT_GITHUB_TOKEN: "test-token",
+  COPILOT_MODEL: "gpt-5.4",
+  COPILOT_HOME: ".copilot-test"
 };
 const candidate = { outcome: "CANDIDATE", family: "NET30_PAST_DUE_MAX", summary: "Lower the NET 30 threshold.", dsl: "RULE NET30_PAST_DUE_MAX\nSCOPE customer.payment_terms == NET_30\nSET_MAX_RATIO customer.past_due_amount TO customer.ar_balance = 0.05\nEND" };
 const requests = {
@@ -87,7 +87,7 @@ test("safe error envelopes hide provider details and log metadata only", async (
   const body = await response.json();
   assert.deepEqual(body, { error: { code: "PROVIDER_UNAVAILABLE", message: "Request could not be completed", retryable: true, correlationId: "correlation-test" } });
   assert.deepEqual(Object.keys(logs[0]).sort(), ["correlationId", "durationMs", "operation", "providerCalls", "status"]);
-  assert.doesNotMatch(JSON.stringify({ body, logs }), /raw provider|secret prompt|gateway\.example|test-key/);
+  assert.doesNotMatch(JSON.stringify({ body, logs }), /raw provider|secret prompt|test-token/);
 });
 
 test("AI operations require mode, authentication, origin, and a current session", async () => {
