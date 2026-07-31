@@ -253,14 +253,18 @@ function persistStudio() {
   sessionStorage.setItem(STUDIO_STORAGE_KEY, JSON.stringify({ selected, governance: governance.snapshot(), releaseRuleSets, batch, policyExplanations, policyInput: $("#policyInput").value, dslInput: $("#dslInput").value }));
 }
 
-function clearDemoStorage() {
+function clearReviewWorkspace() {
   dispositionStore.clear();
-  sessionStorage.removeItem(STUDIO_STORAGE_KEY);
   sessionStorage.removeItem(PRODUCT_STORAGE_KEY);
   reviewExplanations = {};
-  policyExplanations = {};
   reviewCases = createReviewCases();
   reviewQueueState = { query: "", view: "ALL", sort: "PRIORITY" };
+}
+
+function clearDemoStorage() {
+  clearReviewWorkspace();
+  sessionStorage.removeItem(STUDIO_STORAGE_KEY);
+  policyExplanations = {};
 }
 
 function showToast(message) {
@@ -733,6 +737,7 @@ $("#reviewSort").addEventListener("change", event => {
 });
 renderOntology();
 setScenario("ratio5", { resetReleases: true });
+let resetReleaseBoundReviews = false;
 try {
   const product = JSON.parse(sessionStorage.getItem(PRODUCT_STORAGE_KEY) || "null");
   if (product) {
@@ -749,6 +754,7 @@ try {
   }
   const saved = JSON.parse(sessionStorage.getItem(STUDIO_STORAGE_KEY) || "null");
   if (saved) {
+    resetReleaseBoundReviews = Boolean(saved.governance?.activeReleaseId && (saved.governance.activeReleaseId !== release.id || saved.governance.releaseHistory?.length > 1));
     selected = Object.hasOwn(scenarios, saved.selected) ? saved.selected : "ratio5";
     resetState();
     restoreStudio(saved);
@@ -760,6 +766,7 @@ try {
   $("#charCount").textContent = `${$("#policyInput").value.length} characters`;
 } catch {
   sessionStorage.removeItem(STUDIO_STORAGE_KEY);
+  if (resetReleaseBoundReviews) clearReviewWorkspace();
   setScenario("ratio5", { resetReleases: true });
 }
 $("#reviewSearch").value = reviewQueueState.query;

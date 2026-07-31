@@ -169,12 +169,6 @@ test("tab product state is keyed, reloadable, isolated, resettable, and preserve
     assert.match(await page.locator("#dispositionOutput").textContent(), /Recommendation accepted/);
     assert.equal((await page.locator("#caseStatus").textContent()).trim(), "Completed");
 
-    await page.evaluate(state => sessionStorage.setItem("customer-review:policy-studio:v1", JSON.stringify(state)), legacyActivatedStudioState());
-    await page.reload();
-    await page.locator(".product-shell").waitFor({ state: "visible" });
-    assert.equal((await page.locator("#topbarRelease").textContent()).trim(), "credit-1.4.0");
-    assert.equal(await page.evaluate(() => sessionStorage.getItem("customer-review:policy-studio:v1")), null);
-
     const isolated = await context.newPage();
     await configure(isolated);
     await isolated.goto(`http://127.0.0.1:${port}/`);
@@ -199,6 +193,27 @@ test("tab product state is keyed, reloadable, isolated, resettable, and preserve
     await page.reload();
     await page.locator('[data-case-panel="evidence"]:not(.hidden)').waitFor();
     assert.doesNotMatch(await page.locator("#aiPlaceholder").textContent(), /onerror|Persisted grounded rationale/);
+
+    await page.evaluate(state => {
+      sessionStorage.setItem("customer-review:policy-studio:v1", JSON.stringify(state));
+      const productKey = "customer-review:product:v1";
+      const product = JSON.parse(sessionStorage.getItem(productKey));
+      product.reviewCases["2002"] = { ...product.reviewCases["2002"], status: "COMPLETED", draft: { status: "OVERRIDDEN", action: "NEED_TO_RESTRICT", reason: "Legacy release decision." } };
+      product.reviewExplanations = { legacy: { rationale: { summary: "Legacy release rationale", points: [] }, evidenceResults: [], toolTrace: { eligible: [], called: [] } } };
+      sessionStorage.setItem(productKey, JSON.stringify(product));
+      sessionStorage.setItem("customer-review:dispositions:v1", JSON.stringify({ "2002::credit-1.5.0": { status: "OVERRIDDEN", customerNumber: 2002, releaseId: "credit-1.5.0", evaluationRefs: ["credit-1.5.0/HIGH_BALANCE_ADP_MAX@3"], deterministicAction: "NEED_CREDIT_MANAGER_REVIEW", action: "NEED_TO_RESTRICT", reason: "Legacy release decision." } }));
+    }, legacyActivatedStudioState());
+    await page.reload();
+    await page.locator(".product-shell").waitFor({ state: "visible" });
+    assert.equal((await page.locator("#topbarRelease").textContent()).trim(), "credit-1.4.0");
+    assert.equal((await page.locator("#caseStatus").textContent()).trim(), "In review");
+    assert.doesNotMatch(await page.locator("#dispositionOutput").textContent(), /Recommendation accepted|Recommendation replaced|Legacy release decision/);
+    assert.equal(await page.evaluate(() => sessionStorage.getItem("customer-review:policy-studio:v1")), null);
+    assert.equal(await page.evaluate(() => sessionStorage.getItem("customer-review:dispositions:v1")), null);
+    assert.deepEqual(await page.evaluate(() => {
+      const product = JSON.parse(sessionStorage.getItem("customer-review:product:v1"));
+      return { status: product.reviewCases["2002"].status, explanations: product.reviewExplanations };
+    }), { status: "IN_REVIEW", explanations: {} });
 
     page.once("dialog", dialog => dialog.accept());
     await page.locator("#resetButton").click();
