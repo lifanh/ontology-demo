@@ -100,16 +100,24 @@ export function evaluateRules(context, rules, { registry, release }) {
   });
 }
 
+export function assertReleaseRuleSet(rules, release) {
+  if (!Array.isArray(rules) || !Array.isArray(release?.rules) || !release.rules.length) throw new Error("Release and compiled rules are required");
+  const key = rule => `${rule?.id}@${rule?.revision}`;
+  const manifestKeys = release.rules.map(key);
+  const compiledKeys = rules.map(key);
+  const valid = rule => typeof rule?.id === "string" && rule.id.length > 0 && Number.isInteger(rule.revision);
+  if (!release.rules.every(valid) || !rules.every(valid)) throw new Error(`Release ${release.id} contains invalid rule references`);
+  if (new Set(release.rules.map(rule => rule.id)).size !== release.rules.length || new Set(rules.map(rule => rule.id)).size !== rules.length) throw new Error(`Release ${release.id} contains duplicate rule IDs`);
+  if (JSON.stringify([...manifestKeys].sort()) !== JSON.stringify([...compiledKeys].sort())) throw new Error(`Release ${release.id} must exactly match its compiled rule set`);
+}
+
 export function createEvaluator(pack) {
   pack.registry.validateContracts(pack.calculator.inputs, "calculator");
   for (const rule of pack.rules) validateRule(rule, pack.registry);
   return (source, rules = pack.rules, release = pack.release) => {
     const context = pack.registry.context(source);
     const selectedRelease = release === pack.release ? pack.release : { ontologyVersion: pack.release.ontologyVersion, actionPolicyVersion: pack.release.actionPolicyVersion, calculatorVersion: pack.release.calculatorVersion, ...release };
-    for (const rule of rules) {
-      const manifestRule = selectedRelease.rules?.find(item => item.id === rule.id);
-      if (!manifestRule || manifestRule.revision !== rule.revision) throw new Error(`Release ${selectedRelease.id} does not contain ${rule.id}@${rule.revision}`);
-    }
+    assertReleaseRuleSet(rules, selectedRelease);
     const traces = evaluateRules(context, rules, { registry: pack.registry, release: selectedRelease });
     const findings = traces.filter(trace => trace.outcome === "FINDING");
     const findingRecords = findings.map(trace => trace.finding);

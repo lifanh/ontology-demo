@@ -222,7 +222,7 @@ test("Narrative Customers match the exact deterministic review matrix", () => {
 test("candidate evaluation rejects release provenance that omits its revision", () => {
   const replacement = compileCandidate(scenarios.ratio5.ast, scenarios.ratio5.revision);
   const rules = activeRules.map(item => item.id === replacement.id ? replacement : item);
-  assert.throws(() => evaluate(fixtures[0], rules), /credit-1.4.0 does not contain NET30_PAST_DUE_MAX@5/);
+  assert.throws(() => evaluate(fixtures[0], rules), /credit-1.4.0 must exactly match its compiled rule set/);
   const result = evaluate(fixtures[0], rules, candidateRelease(rules, "credit-1.4.0-candidate-r5"));
   assert.equal(result.traces.find(trace => trace.policyRef.ruleId === replacement.id).evaluationRef, "credit-1.4.0-candidate-r5/NET30_PAST_DUE_MAX@5");
   assert.equal(result.release.status, "CANDIDATE_PREVIEW");
@@ -363,7 +363,15 @@ test("parsed threshold controls candidate evaluation and analysis", () => {
   assert.equal(analyzeCandidate(ast).status, "CONFLICT");
 });
 
+test("evaluation rejects incomplete and duplicate release rule sets", () => {
+  assert.throws(() => evaluate(customer({}), activeRules.slice(1), release), /exactly match/);
+  assert.throws(() => evaluate(customer({}), [...activeRules, { ...activeRules[0], revision: 999 }], { ...release, rules: [...release.rules, { ...release.rules[0], revision: 999 }] }), /duplicate rule IDs/);
+});
+
 test("activation requires current validation, non-conflicting analysis, and complete Review impact", () => {
+  const invalid = new Governance({ activeRelease: release, candidate: scenarios.ratio5 });
+  assert.equal(invalid.record("validation", { valid: false }), false);
+  assert.equal(invalid.current.state, "DRAFT");
   const blocked = new Governance({ activeRelease: release, candidate: scenarios.ratio15 });
   assert.equal(blocked.canActivate(), false);
   blocked.record("validation", { valid: true });
@@ -425,6 +433,21 @@ test("corrupt Policy Studio snapshots do not partially mutate Governance", () =>
   assert.throws(() => g.restore({ activeReleaseId: release.id, releaseHistory: [null], revisions: [{}] }), /Invalid Demo Release/);
   assert.equal(g.activeRelease.id, release.id);
   assert.deepEqual(g.releaseHistory.map(item => item.id), [release.id]);
+});
+
+test("restored Policy Studio snapshots cannot claim qualification from stored evidence", () => {
+  const source = new Governance({ activeRelease: release, candidate: scenarios.ratio5 });
+  const snapshot = source.snapshot();
+  snapshot.revisions[0] = { ...snapshot.revisions[0], state: "BATCH_PASSED", ast: scenarios.ratio5.ast };
+  snapshot.evidence = {
+    validation: { valid: true, revision: scenarios.ratio5.revision, releaseId: release.id },
+    analysis: { status: "COMPATIBLE_REFINEMENT", revision: scenarios.ratio5.revision, releaseId: release.id },
+    batch: { complete: true, revision: scenarios.ratio5.revision, releaseId: release.id }
+  };
+  const restored = new Governance({ activeRelease: release, candidate: scenarios.ratio5 }).restore(snapshot);
+  assert.equal(restored.current.state, "DRAFT");
+  assert.deepEqual(restored.evidence, {});
+  assert.equal(restored.canActivate(), false);
 });
 
 test("seeded override feedback is exactly three immutable NET 30 Illustrative history records", () => {

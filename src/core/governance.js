@@ -28,14 +28,18 @@ export class Governance {
   record(kind, value) {
     const required = { validation: "DRAFT", analysis: "VALIDATED", batch: "ANALYZED" }[kind];
     if (this.current.state !== required) throw new Error(`Cannot record ${kind} from ${this.current.state}`);
-    const blocked = kind === "analysis" && ["CONFLICT", "INDETERMINATE"].includes(value.status);
+    const compatible = ["REDUNDANT", "COMPATIBLE_REFINEMENT", "COMPATIBLE_RELAXATION"];
+    const blockedValidation = kind === "validation" && value.valid !== true;
+    const blocked = kind === "analysis" && !compatible.includes(value.status);
     const blockedBatch = kind === "batch" && !value.complete;
     this.evidence[kind] = { ...value, revision: this.current.revision, releaseId: this.activeRelease.id };
-    if (!blocked && !blockedBatch) this.revisions[this.revisions.length - 1] = Object.freeze({ ...this.current, state: STATES[STATES.indexOf(required) + 1] });
-    return !blocked && !blockedBatch;
+    if (!blockedValidation && !blocked && !blockedBatch) this.revisions[this.revisions.length - 1] = Object.freeze({ ...this.current, state: STATES[STATES.indexOf(required) + 1] });
+    return !blockedValidation && !blocked && !blockedBatch;
   }
   canActivate() {
-    return this.current.state === "BATCH_PASSED" && ["validation", "analysis", "batch"].every(k => this.evidence[k]?.revision === this.current.revision && this.evidence[k]?.releaseId === this.activeRelease.id);
+    const currentEvidence = ["validation", "analysis", "batch"].every(k => this.evidence[k]?.revision === this.current.revision && this.evidence[k]?.releaseId === this.activeRelease.id);
+    const compatible = ["REDUNDANT", "COMPATIBLE_REFINEMENT", "COMPATIBLE_RELAXATION"].includes(this.evidence.analysis?.status);
+    return this.current.state === "BATCH_PASSED" && currentEvidence && this.evidence.validation?.valid === true && compatible && this.evidence.batch?.complete === true;
   }
   activate(release) {
     if (!this.canActivate()) throw new Error("Activation blocked: current validation, non-conflicting analysis, and complete Review impact are required");
@@ -74,11 +78,15 @@ export class Governance {
       if (!item?.logicalId || !Number.isInteger(item.revision) || !STATES.includes(item.state)) throw new Error("Invalid candidate revision in Policy Studio session state");
       return immutable(structuredClone(item));
     });
-    const evidence = structuredClone(snapshot.evidence || {});
+    const current = revisions.at(-1);
+    if (current.state === "APPROVED_AND_ACTIVATED" && !releaseHistory.some(item => item.rules.some(rule => rule.id === current.logicalId && rule.revision === current.revision))) throw new Error("Activated candidate is absent from Demo Release history");
+    const restoredRevisions = current.state === "APPROVED_AND_ACTIVATED"
+      ? revisions
+      : [...revisions.slice(0, -1), immutable({ ...current, state: "DRAFT" })];
     this._releaseHistory = releaseHistory;
     this.activeRelease = activeRelease;
-    this.revisions = revisions;
-    this.evidence = evidence;
+    this.revisions = restoredRevisions;
+    this.evidence = {};
     return this;
   }
   reset({ activeRelease, candidate }) {

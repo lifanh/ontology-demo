@@ -31,6 +31,8 @@ test("AI mode fails closed for missing or invalid configuration", () => {
   }
   assert.throws(() => loadConfig(aiEnvironment({ SESSION_SECRET: "too-short" })), /at least 32 bytes/);
   assert.throws(() => loadConfig(aiEnvironment({ LLM_CHAT_COMPLETIONS_URL: "not a URL" })), /complete URL/);
+  assert.throws(() => loadConfig(aiEnvironment({ LLM_CHAT_COMPLETIONS_URL: "http://gateway.example/chat/completions/gpt-5.6-luna" })), /must use HTTPS/);
+  assert.equal(loadConfig(aiEnvironment({ LLM_CHAT_COMPLETIONS_URL: "http://127.0.0.1:9000/chat/completions/gpt-5.6-luna" })).chatCompletionsUrl, "http://127.0.0.1:9000/chat/completions/gpt-5.6-luna");
   assert.throws(() => loadConfig(aiEnvironment({ LLM_MODEL_DISPLAY_NAME: "Another model" })), /unsupported/);
   assert.throws(() => loadConfig(aiEnvironment({ AI_ENABLED: "maybe" })), /must be true or false/);
 });

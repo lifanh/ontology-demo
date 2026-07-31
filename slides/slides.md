@@ -138,7 +138,7 @@ Likely challenge: “Who is accountable?” This anonymous POC captures a sessio
 # What the audience is about to see
 
 <div class="claims-grid">
-  <article class="real"><span>Real</span><b>GPT-5.6 Luna calls</b><small>Deterministic evaluation, validation, comparison, and resolution</small></article>
+  <article class="real"><span>Real</span><b>GPT-5.6 Luna calls</b><small>Bounded policy drafting and grounded explanation only</small></article>
   <article><span>Simulated</span><b>Bounded lookups</b><small>Fixed review context and evidence-tool results</small></article>
   <article><span>Fictional</span><b>Demo records</b><small>Customers, policies, evidence, cohort, and seeded override history</small></article>
   <article><span>Session-only</span><b>Browser-tab state</b><small>Dispositions, policy feedback, and activated Demo Releases</small></article>

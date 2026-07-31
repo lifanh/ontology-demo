@@ -1,4 +1,4 @@
-import { createEvaluator, assessReviewImpact } from "../core/runtime.js";
+import { createEvaluator, assessReviewImpact, assertReleaseRuleSet } from "../core/runtime.js";
 import { parseRule, formatRule } from "../core/authoring.js";
 import { Governance, STATES } from "../core/governance.js";
 import { properties, derived, registry, creditPack, activeRules, compileCandidate, analyzeCandidate, nextReleaseId, scenarios, narrativeCustomers, policyImpactCohort, eligibleEvidenceTools, demoCustomer, release, illustrativeOverrideHistory } from "../domains/credit/pack.js";
@@ -14,7 +14,7 @@ const dispositionStore = createDispositionStore(sessionStorage);
 const STUDIO_STORAGE_KEY = "customer-review:policy-studio:v1";
 const PRODUCT_STORAGE_KEY = "customer-review:product:v1";
 let reviewContext, reviewRequestVersion = 0;
-let selected = "ratio5", selectedCustomerNumber = 2001, activeView = "review", governance, activeRuleSet, batch, disposition, releaseRuleSets = {}, draftRequestVersion = 0, policyExplanation, policyRequestVersion = 0, reviewExplanations = {}, policyExplanations = {};
+let selected = "ratio5", selectedCustomerNumber = 2001, activeView = "review", governance, activeRuleSet, batch, releaseRuleSets = {}, draftRequestVersion = 0, policyExplanation, policyRequestVersion = 0, reviewExplanations = {}, policyExplanations = {};
 
 const labels = { AUTO_REVIEW_PASS: "Auto review pass", NEED_CREDIT_MANAGER_REVIEW: "Credit manager review", REQUEST_UPDATED_FINANCIAL_STATEMENTS: "Request updated financial statements", NEED_TO_RESTRICT: "Restrict customer", NEED_MANUAL_REVIEW: "Manual review", RECOMMEND_CREDIT_LIMIT_REASSESSMENT: "Reassess credit limit" };
 const operator = { "==": "is", "!=": "is not", ">": "is greater than", ">=": "is at least", "<": "is less than", "<=": "is at most" };
@@ -96,7 +96,13 @@ async function readAiResponse(response) {
 function renderReleaseSummary() {
   $("#releaseSelector").innerHTML = governance.releaseHistory.map(item => `<option value="${escapeHtml(item.id)}" ${item.id === governance.activeRelease.id ? "selected" : ""}>${escapeHtml(item.id)}${item.id === release.id ? " · baseline" : ""}</option>`).join("");
   const ruleId = scenarios[selected].logicalId;
-  const count = dispositionStore.list().filter(item => item.status === "OVERRIDDEN" && item.releaseId === governance.activeRelease.id && item.evaluationRefs.some(ref => ref.includes(`/${ruleId}@`))).length;
+  const count = dispositionStore.list().filter(item => {
+    if (item.status !== "OVERRIDDEN" || item.releaseId !== governance.activeRelease.id) return false;
+    const customer = narrativeCustomers.find(candidate => candidate.customer_number === item.customerNumber);
+    const rules = releaseRuleSets[item.releaseId];
+    if (!customer || !rules) return false;
+    return evaluate(customer, rules, governance.activeRelease).traces.some(trace => trace.policyRef.ruleId === ruleId && trace.outcome === "FINDING");
+  }).length;
   $("#sessionOverrideCount").textContent = `${count} associated override${count === 1 ? "" : "s"}`;
   $("#illustrativeOverrideHistory").innerHTML = illustrativeOverrideHistory.map(item => `<li><b>${escapeHtml(labels[item.action] || item.action)}</b> — ${escapeHtml(item.reason)}</li>`).join("");
 }
@@ -130,7 +136,6 @@ function resetState() {
   releaseRuleSets = { [release.id]: activeRuleSet };
   governance = new Governance({ activeRelease: release, candidate: { logicalId: scenario.logicalId, revision: scenario.revision, sourcePolicy: scenario.policy, sourceDsl, ast: null } });
   batch = null;
-  disposition = null;
   invalidatePolicyExplanation();
 }
 
@@ -168,7 +173,6 @@ async function generateDraft() {
   const scenario = scenarios[selected];
   governance.startDraft({ logicalId: scenario.logicalId, revision: (activeRuleSet.find(rule => rule.id === scenario.logicalId)?.revision || scenario.revision - 1) + 1, sourcePolicy: policyText, sourceDsl: "", ast: null });
   batch = null;
-  disposition = null;
   persistStudio();
   button.disabled = true;
   $("#promptOutput").textContent = "Drafting with GPT-5.6 Luna…";
@@ -195,7 +199,6 @@ async function generateDraft() {
       document.querySelectorAll(".scenario").forEach(item => item.classList.toggle("active", item.dataset.scenario === selected));
       governance.startDraft({ logicalId: result.family, revision: activeRevision + 1, sourcePolicy: policyText, sourceDsl: result.dsl, ast: null });
       batch = null;
-      disposition = null;
       $("#editorSection").classList.remove("hidden");
       persistStudio();
       setProgress(3);
@@ -215,7 +218,6 @@ function updateDraft(changes) {
   if (governance.current.state === "DRAFT") governance.updateDraft(changes);
   else governance.edit(changes);
   batch = null;
-  disposition = null;
   invalidatePolicyExplanation();
 }
 
@@ -236,6 +238,68 @@ function candidateRelease(rules) {
   };
 }
 
+function restoreStudio(saved) {
+  const restoredCurrent = structuredClone(saved.governance?.revisions?.at(-1));
+  const restoredEvidence = structuredClone(saved.governance?.evidence || {});
+  governance.restore(saved.governance);
+  const canonicalIds = activeRules.map(rule => rule.id).sort();
+  const storedRuleSets = saved.releaseRuleSets;
+  if (!storedRuleSets || typeof storedRuleSets !== "object" || Array.isArray(storedRuleSets)) throw new Error("Invalid stored Demo Release rule sets");
+  const validatedRuleSets = {};
+  const validatedManifests = {};
+  for (const [index, manifest] of governance.releaseHistory.entries()) {
+    const manifestIds = manifest.rules.map(rule => rule.id).sort();
+    if (new Set(manifestIds).size !== manifestIds.length || JSON.stringify(manifestIds) !== JSON.stringify(canonicalIds)) throw new Error("Stored Demo Release does not contain the canonical rule families");
+    if (index === 0) {
+      assertReleaseRuleSet(activeRules, manifest);
+      if (manifest.id !== release.id || manifest.ontologyVersion !== release.ontologyVersion || manifest.actionPolicyVersion !== release.actionPolicyVersion || manifest.calculatorVersion !== release.calculatorVersion) throw new Error("Stored Demo Release history must begin with the canonical baseline");
+      validatedRuleSets[manifest.id] = activeRules;
+      validatedManifests[manifest.id] = manifest;
+      continue;
+    }
+    const predecessorManifest = validatedManifests[manifest.predecessorReleaseId];
+    const predecessorRules = validatedRuleSets[manifest.predecessorReleaseId];
+    if (!predecessorManifest || !predecessorRules) throw new Error("Stored Demo Release predecessor must occur earlier in its history");
+    const source = manifest.candidate;
+    if (!source?.sourceDsl || !source.logicalId || !Number.isInteger(source.revision)) throw new Error("Stored Demo Release is missing its deterministic candidate source");
+    const ast = parseRule(source.sourceDsl, registry, { root: "customer" });
+    if (ast.id !== source.logicalId) throw new Error("Stored Demo Release candidate stable ID does not match its DSL");
+    const replacement = compileCandidate(ast, source.revision);
+    const expectedRules = predecessorRules.map(rule => rule.id === replacement.id ? replacement : rule);
+    assertReleaseRuleSet(expectedRules, manifest);
+    if (JSON.stringify(storedRuleSets[manifest.id]) !== JSON.stringify(expectedRules)) throw new Error("Stored Demo Release compiled rules do not match its candidate source");
+    const analysis = analyzeCandidate(ast, predecessorRules);
+    if (["CONFLICT", "INDETERMINATE"].includes(analysis.status)) throw new Error("Stored Demo Release no longer passes compatibility analysis");
+    const impact = assessReviewImpact(policyImpactCohort, customer => evaluate(customer, predecessorRules, predecessorManifest), customer => evaluate(customer, expectedRules, manifest));
+    if (!impact.summary.complete) throw new Error("Stored Demo Release no longer has complete Review impact");
+    validatedRuleSets[manifest.id] = expectedRules;
+    validatedManifests[manifest.id] = manifest;
+  }
+  releaseRuleSets = validatedRuleSets;
+  activeRuleSet = releaseRuleSets[governance.activeRelease.id];
+  batch = null;
+  if (restoredCurrent.state === "DRAFT" || restoredCurrent.state === "APPROVED_AND_ACTIVATED") return;
+
+  governance.startDraft({ ...restoredCurrent, ast: null });
+  const ast = parseRule(restoredCurrent.sourceDsl, registry, { root: "customer" });
+  if (ast.id !== restoredCurrent.logicalId) throw new Error("Restored candidate stable ID does not match its DSL");
+  governance.updateDraft({ ast });
+  governance.record("validation", { valid: true, ast });
+  if (restoredEvidence.analysis || STATES.indexOf(restoredCurrent.state) >= STATES.indexOf("ANALYZED")) {
+    const analysis = analyzeCandidate(ast, activeRuleSet);
+    const passed = governance.record("analysis", analysis);
+    if (!passed && STATES.indexOf(restoredCurrent.state) >= STATES.indexOf("ANALYZED")) throw new Error("Restored candidate no longer passes compatibility analysis");
+  }
+  if (restoredEvidence.batch || STATES.indexOf(restoredCurrent.state) >= STATES.indexOf("BATCH_PASSED")) {
+    if (governance.current.state !== "ANALYZED") throw new Error("Restored Review impact has no compatible analysis baseline");
+    const candidateSet = candidateRules();
+    const impact = assessReviewImpact(policyImpactCohort, customer => evaluate(customer, activeRuleSet, governance.activeRelease), customer => evaluate(customer, candidateSet, candidateRelease(candidateSet)));
+    const passed = governance.record("batch", impact);
+    if (!passed && STATES.indexOf(restoredCurrent.state) >= STATES.indexOf("BATCH_PASSED")) throw new Error("Restored candidate no longer has complete Review impact");
+    batch = impact;
+  }
+}
+
 function renderAuthoringError(error) {
   $("#resultSection").className = "result-section";
   $("#resultSection").innerHTML = `<div class="error-result"><p class="eyebrow">Deterministic validation failed</p><h2>INVALID RULE</h2><pre>${escapeHtml(error instanceof Error ? error.message : error)}</pre></div>`;
@@ -254,8 +318,6 @@ function singleResult() {
     <div class="metric-grid"><div><small>Calculator status</small><b>${escapeHtml(calculation.status)}</b></div><div><small>Current / recommended</small><b>${money(calculation.current)} → ${money(calculation.recommended)}</b></div><div><small>Financial / payment</small><b>${escapeHtml(calculation.financialGrade || "—")} / ${escapeHtml(calculation.paymentGrade || "—")}</b></div><div><small>Review range</small><b>${calculation.acceptableRange ? `${money(calculation.acceptableRange[0])}–${money(calculation.acceptableRange[1])}` : "—"}</b></div></div>
     ${calculation.demand ? `<details><summary>Illustrative recommendation breakdown</summary><pre>${escapeHtml(JSON.stringify({ unconstrained: calculation.unconstrained, guarded: calculation.recommended, delta: calculation.delta, demand: calculation.demand, capacityCap: calculation.capacityCap, bindingConstraint: calculation.bindingConstraint, contributions: calculation.contributions }, null, 2))}</pre></details>` : ""}
     <aside class="llm-explanation"><div><span>Deterministic candidate preview</span><b>Not an AI explanation</b></div><p>The candidate runtime produced ${escapeHtml(result.action.primary.replaceAll("_", " ").toLowerCase())} from ${findingCodes.length} Finding${findingCodes.length === 1 ? "" : "s"}.</p></aside>
-    <fieldset class="human-controls"><legend>Human result · session only</legend><label><input type="radio" name="disposition" value="accept"> Accept</label><label><input type="radio" name="disposition" value="override"> Override</label><select id="overrideAction" aria-label="Override recommended action">${actionOptions.map(action => `<option value="${action}">${escapeHtml(action.replaceAll("_", " "))}</option>`).join("")}</select><input id="overrideValue" type="number" min="0" step="5000" placeholder="Optional limit" aria-label="Override credit limit"><label><input type="radio" name="disposition" value="decline"> Decline</label><textarea id="overrideReason" rows="2" placeholder="Reason required for override" aria-label="Override reason"></textarea><button id="saveDisposition" class="primary-button">Save result</button></fieldset>
-    ${disposition ? `<p class="saved-disposition"><b>Saved in memory:</b> ${escapeHtml(disposition.summary)}</p>` : ""}
     <p class="boundary-note"><b>Illustrative demo policy:</b> advisory only. Accepting or overriding never mutates customer facts, restriction state, or credit limit.</p></section>`;
 }
 
@@ -365,7 +427,6 @@ function setScenario(id, { resetReleases = false } = {}) {
     const revision = (activeRuleSet.find(rule => rule.id === scenario.logicalId)?.revision || scenario.revision - 1) + 1;
     governance.startDraft({ logicalId: scenario.logicalId, revision, sourcePolicy: scenario.policy, sourceDsl, ast: null });
     batch = null;
-    disposition = null;
     invalidatePolicyExplanation();
   }
   document.querySelectorAll(".scenario").forEach(button => button.classList.toggle("active", button.dataset.scenario === id));
@@ -428,7 +489,7 @@ document.addEventListener("click", event => {
     try {
       invalidatePolicyExplanation();
       const activatedRules = candidateRules();
-      const manifest = { id: nextReleaseId(governance.releaseHistory.at(-1).id), ontologyVersion: "2.0", actionPolicyVersion: "credit-actions-1.0", calculatorVersion: creditPack.calculator.version, rules: activatedRules.map(({ id, revision }) => ({ id, revision })), compiledRules: activatedRules };
+      const manifest = { id: nextReleaseId(governance.releaseHistory.at(-1).id), predecessorReleaseId: governance.activeRelease.id, ontologyVersion: "2.0", actionPolicyVersion: "credit-actions-1.0", calculatorVersion: creditPack.calculator.version, rules: activatedRules.map(({ id, revision }) => ({ id, revision })), compiledRules: activatedRules, candidate: { logicalId: governance.current.logicalId, revision: governance.current.revision, sourceDsl: governance.current.sourceDsl } };
       const next = governance.activate(manifest);
       activeRuleSet = activatedRules;
       releaseRuleSets[next.id] = activatedRules;
@@ -436,15 +497,6 @@ document.addEventListener("click", event => {
       renderGovernance(`Approved and activated ${next.id}. Active in this browser tab only.`);
       renderReview(narrativeCustomers.find(item => item.customer_number === reviewContext.customerNumber));
     } catch (error) { renderGovernance(error.message); }
-  }
-  if (event.target.closest("#saveDisposition")) {
-    const choice = document.querySelector('input[name="disposition"]:checked')?.value;
-    const reason = $("#overrideReason").value.trim();
-    if (!choice) return showToast("Select accept, override, or decline");
-    if (choice === "override" && !reason) return showToast("An override reason is required");
-    const value = $("#overrideValue").value ? Number($("#overrideValue").value) : null;
-    disposition = { choice, action: choice === "override" ? $("#overrideAction").value : null, value, reason, summary: choice === "override" ? `Override to ${$("#overrideAction").value.replaceAll("_", " ")}${value == null ? "" : ` at ${money(value)}`} — ${reason}` : `${choice} selected; customer facts remain unchanged` };
-    renderGovernance("Human disposition saved in memory; no customer state or credit limit changed.");
   }
   if (event.target.closest("#resetButton")) {
     if (!window.confirm("Reset this browser tab to credit-1.4.0 and clear mutable demo state?")) return;
@@ -468,7 +520,6 @@ $("#releaseSelector").addEventListener("change", event => {
   governance.selectRelease(event.target.value);
   activeRuleSet = releaseRuleSets[governance.activeRelease.id] || activeRules;
   batch = null;
-  disposition = null;
   setScenario(selected);
   persistStudio();
   renderReview(narrativeCustomers.find(item => item.customer_number === reviewContext.customerNumber));
@@ -501,13 +552,10 @@ try {
   if (saved) {
     selected = Object.hasOwn(scenarios, saved.selected) ? saved.selected : "ratio5";
     resetState();
-    governance.restore(saved.governance);
-    releaseRuleSets = saved.releaseRuleSets || { [release.id]: activeRules };
-    activeRuleSet = releaseRuleSets[governance.activeRelease.id] || activeRules;
-    batch = saved.batch || null;
+    restoreStudio(saved);
     policyExplanations = saved.policyExplanations && typeof saved.policyExplanations === "object" && !Array.isArray(saved.policyExplanations) ? Object.fromEntries(Object.entries(saved.policyExplanations).filter(([, value]) => isPolicyExplanation(value))) : {};
     $("#policyInput").value = saved.policyInput || governance.current.sourcePolicy || scenarios[selected].policy;
-    $("#dslInput").value = saved.dslInput || governance.current.sourceDsl || "";
+    $("#dslInput").value = governance.current.sourceDsl || "";
   }
   document.querySelectorAll(".scenario").forEach(button => button.classList.toggle("active", button.dataset.scenario === selected));
   $("#charCount").textContent = `${$("#policyInput").value.length} characters`;

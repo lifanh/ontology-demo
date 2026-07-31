@@ -56,7 +56,13 @@ test("tab product state is keyed, reloadable, isolated, resettable, and preserve
       }
       return route.fulfill({ json: rationale });
     });
-    await page.route("**/api/ai/draft_rule", route => route.fulfill({ json: { schemaVersion: "1", operation: "draft_rule", result: { outcome: "CANDIDATE", family: "NET30_PAST_DUE_MAX", summary: "Lower the threshold.", dsl: "RULE NET30_PAST_DUE_MAX\nSCOPE customer.payment_terms == \"NET_30\"\nSET_MAX_RATIO customer.past_due_amount\n    TO customer.ar_balance = 0.05\nEND" } } }));
+    await page.route("**/api/ai/draft_rule", route => {
+      const policyText = route.request().postDataJSON().policyText;
+      const adp = policyText.includes("Average Days to Pay");
+      return route.fulfill({ json: { schemaVersion: "1", operation: "draft_rule", result: adp
+        ? { outcome: "CANDIDATE", family: "HIGH_BALANCE_ADP_MAX", summary: "Lower the ADP threshold.", dsl: "RULE HIGH_BALANCE_ADP_MAX\nSCOPE customer.restricted_status == \"N\"\n      AND customer.ar_balance > 100000 USD\nSET_MAX customer.adp_days = 20 DAYS\nEND" }
+        : { outcome: "CANDIDATE", family: "NET30_PAST_DUE_MAX", summary: "Lower the threshold.", dsl: "RULE NET30_PAST_DUE_MAX\nSCOPE customer.payment_terms == \"NET_30\"\nSET_MAX_RATIO customer.past_due_amount\n    TO customer.ar_balance = 0.05\nEND" } } });
+    });
     await page.route("**/api/login", route => { authenticated = true; return route.fulfill({ json: { authenticated: true, expiresInSeconds: 28800 } }); });
     await page.route("**/api/logout", route => { authenticated = false; return route.fulfill({ json: { authenticated: false } }); });
   };
@@ -79,13 +85,23 @@ test("tab product state is keyed, reloadable, isolated, resettable, and preserve
     await page.locator("#saveReviewDisposition").click();
     await page.getByText(/^Accepted/).waitFor();
 
+    await page.locator('[data-customer="2001"]').click();
+    await page.locator('input[name="reviewDisposition"][value="OVERRIDDEN"]').check();
+    await page.locator("#reviewOverrideReason").fill("A documented exception for this test.");
+    await page.locator("#saveReviewDisposition").click();
+    await page.locator('[data-customer="2002"]').click();
+
     await page.locator('[data-view="studio"]').click();
+    assert.equal((await page.locator("#sessionOverrideCount").textContent()).trim(), "0 associated overrides");
     await page.locator("#generatePrompt").click();
     await page.locator("#editorSection:not(.hidden)").waitFor();
     await page.locator("#validateButton").click();
     await page.locator("#analyzeEvidence").click();
     await page.locator("#runBatch").click();
     await page.locator("#activateRelease").click();
+    await page.reload();
+    await page.locator("#studioView:not(.hidden)").waitFor();
+    assert.equal(await page.locator("#releaseSelector").inputValue(), "credit-1.5.0");
     await page.locator('[data-view="review"]').click();
     assert.doesNotMatch(await page.locator("#aiPlaceholder").textContent(), /Persisted grounded rationale/);
     assert.match(await page.locator("#dispositionOutput").textContent(), /No Disposition recorded/);
@@ -101,6 +117,21 @@ test("tab product state is keyed, reloadable, isolated, resettable, and preserve
     assert.doesNotMatch(await page.locator("#aiPlaceholder").textContent(), /Persisted grounded rationale/);
     assert.match(await page.locator("#dispositionOutput").textContent(), /No Disposition recorded/);
     await page.locator('[data-view="studio"]').click();
+    await page.locator("#releaseSelector").selectOption("credit-1.4.0");
+    await page.locator('[data-view="review"]').click();
+    await page.getByText("Persisted grounded rationale").waitFor();
+
+    await page.locator('[data-view="studio"]').click();
+    await page.locator('[data-scenario="adp20"]').click();
+    await page.locator("#generatePrompt").click();
+    await page.locator("#editorSection:not(.hidden)").waitFor();
+    await page.locator("#validateButton").click();
+    await page.locator("#analyzeEvidence").click();
+    await page.locator("#runBatch").click();
+    await page.locator("#activateRelease").click();
+    await page.reload();
+    await page.locator("#studioView:not(.hidden)").waitFor();
+    assert.equal(await page.locator("#releaseSelector").inputValue(), "credit-1.6.0");
     await page.locator("#releaseSelector").selectOption("credit-1.4.0");
     await page.locator('[data-view="review"]').click();
     await page.getByText("Persisted grounded rationale").waitFor();

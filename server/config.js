@@ -26,6 +26,8 @@ export function loadConfig(environment = process.env) {
   let endpoint;
   try { endpoint = new URL(chatCompletionsUrl); } catch { throw new Error("Invalid AI gateway configuration: LLM_CHAT_COMPLETIONS_URL must be a complete URL"); }
   if (!endpoint.pathname || endpoint.pathname === "/" || !["https:", "http:"].includes(endpoint.protocol)) throw new Error("Invalid AI gateway configuration: LLM_CHAT_COMPLETIONS_URL must be a complete HTTP URL");
+  const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(endpoint.hostname);
+  if (endpoint.protocol !== "https:" && !loopback) throw new Error("Invalid AI gateway configuration: LLM_CHAT_COMPLETIONS_URL must use HTTPS unless it targets loopback");
 
   const modelDisplayName = required(environment, "LLM_MODEL_DISPLAY_NAME");
   if (modelDisplayName !== "GPT-5.6 Luna") throw new Error("Invalid AI gateway configuration: LLM_MODEL_DISPLAY_NAME is unsupported");
