@@ -39,6 +39,7 @@
 .slidev-layout code { font-family: var(--mono); }
 .kicker { margin: 0!important; color: var(--green-dark); font-size: 10px; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; }
 .subtitle { max-width: 570px; margin: 0!important; color: var(--ink-2); font-size: 20px; font-weight: 600; line-height: 1.35!important; }
+.author { margin: 18px 0 0!important; color: var(--green-dark); font-size: 12px; font-weight: 700; }
 .takeaway,.boundary,.warning { margin: 18px 0 0!important; padding: 11px 14px; border-left: 3px solid var(--green); background: #edf7f1; color: #536b62; font-size: 11px; }
 .takeaway b,.boundary b,.warning b { color: var(--ink); }
 .warning { border-left-color: var(--amber); background: #fff7e9; color: #725a35; }

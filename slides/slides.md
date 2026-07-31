@@ -2,7 +2,7 @@
 theme: default
 title: AI-Assisted Customer Credit Review
 titleTemplate: '%s · Make review easier without giving AI decision authority'
-author: AI-Assisted Customer Credit Review
+author: Lifan Huang
 info: |
   A management walkthrough of an illustrative POC in which GitHub Copilot
   drafts and explains, deterministic controls verify, and a person decides.
@@ -25,6 +25,7 @@ defaults:
     <p class="kicker">The management problem</p>
     <h1>AI-Assisted Customer<br><span>Credit Review</span></h1>
     <p class="subtitle">Make review easier without giving AI decision authority</p>
+    <p class="author">Lifan Huang</p>
   </div>
   <div class="capacity-funnel" aria-label="Review demand exceeds analyst capacity">
     <div><b>Many customers may warrant review</b><span>Risk signals and changing conditions create demand</span></div>
@@ -90,7 +91,7 @@ Likely challenge: “Does this POC reduce fraud or bad debt?” No. Those are bu
     <h3>Never delegated to the model</h3>
     <div><b>Facts</b><small>Typed context and evidence values</small></div>
     <div><b>Controls</b><small>Validation, comparison, and action resolution</small></div>
-    <div><b>Choice</b><small>Customer-review workflow and Disposition</small></div>
+    <div><b>Choice</b><small>Approve and publish the rules updates</small></div>
   </section>
 </div>
 
@@ -110,7 +111,7 @@ Likely challenge: “Can the explanation still be wrong?” Yes. It is generated
 <div class="dual-pattern">
   <section>
     <label>Customer Review</label>
-    <div><b>Tier-1 context</b><span>Fictional facts</span></div><i>→</i>
+    <div><b>Customer ontology facts</b><span>Fictional facts</span></div><i>→</i>
     <div class="control-step"><b>Findings + action</b><span>Deterministic</span></div><i>→</i>
     <div class="ai-step"><b>AI assistance</b><span>Bounded evidence + explanation</span></div><i>→</i>
     <div><b>Disposition</b><span>Person</span></div>
@@ -120,7 +121,7 @@ Likely challenge: “Can the explanation still be wrong?” Yes. It is generated
     <div><b>Policy intent</b><span>Person</span></div><i>→</i>
     <div class="ai-step"><b>AI candidate</b><span>Bounded draft</span></div><i>→</i>
     <div class="control-step"><b>Validation + impact</b><span>Deterministic</span></div><i>→</i>
-    <div><b>Change decision</b><span>Outside this POC</span></div>
+    <div><b>Publish Policy</b><span>Outside this POC</span></div>
   </section>
 </div>
 
@@ -132,27 +133,6 @@ Likely challenge: “Who is accountable?” This anonymous POC captures a sessio
 -->
 
 ---
-
-<p class="kicker">Claims preview</p>
-
-# What the audience is about to see
-
-<div class="claims-grid">
-  <article class="real"><span>Real</span><b>GitHub Copilot calls</b><small>Bounded policy drafting and grounded explanation only</small></article>
-  <article><span>Simulated</span><b>Bounded lookups</b><small>Fixed review context and evidence-tool results</small></article>
-  <article><span>Fictional</span><b>Demo records</b><small>Customers, policies, evidence, cohort, and seeded override history</small></article>
-  <article><span>Session-only</span><b>Browser-tab state</b><small>Review workflow, Dispositions, and policy authoring state</small></article>
-</div>
-
-<p class="warning"><b>Not connected:</b> CIS, Vertica, production data, durable audit, production policy publication, or customer mutation.</p>
-
-<!--
-Set the boundary before opening the app. In AI-enabled mode, the model calls are real. The customer and policy world around them is deliberately fictional and bounded.
-The app is an illustrative POC, not a production integration or claim about official company policy.
-Likely challenge: “Is this a scripted model response?” No in AI-enabled mode. If credentials are unavailable, static mode truthfully labels AI features disabled.
--->
-
----
 layout: center
 class: live-demo-slide
 ---
@@ -160,13 +140,7 @@ class: live-demo-slide
 <div class="live-demo">
   <p class="kicker">Live · Customer Review</p>
   <h1>Can AI make the review easier<br><span>without making the decision?</span></h1>
-  <div class="demo-steps">
-    <article><b>1</b><span>Northwind</span><small>Auto pass · no Findings · no eligible tools</small></article>
-    <article><b>2</b><span>Ironclad</span><small>Restrict action and evidence first · rationale second</small></article>
-    <article><b>3</b><span>Cascade</span><small>Manager review · record a justified override</small></article>
-  </div>
   <a href="/" target="_blank" rel="noopener noreferrer" class="demo-link">Open Customer Review <b>↗</b></a>
-  <p class="demo-note">Independent app · opens in a new tab · fictional customer data</p>
 </div>
 
 <!--
@@ -221,10 +195,8 @@ Challenge response: this POC prepares evidence for an authorized policy decision
   <i>→</i>
   <article><span>03</span><b>Review Policy</b><small>Candidate, compatibility, and Review impact</small></article>
   <i>→</i>
-  <article><span>04</span><b>Authorized decision</b><small>Production workflow remains outside this POC</small></article>
+  <article><span>04</span><b>Publish new policy</b><small>Authorized production workflow</small></article>
 </div>
-
-<p class="warning"><b>POC boundary:</b> seeded history is fictional and current-session associations are tab-only. This is not production analytics or a durable audit.</p>
 
 <!--
 The product is more than two demos: analyst exceptions create a concrete agenda for policy owners, while deterministic candidate analysis makes the possible customer-review impact inspectable before any authorized production decision.
@@ -267,7 +239,7 @@ Likely challenge: “Can we just use the same rules?” Not automatically. Reuse
 
 <p class="kicker">Reuse after proof</p>
 
-# A framework is earned by the second domain
+# A Framework can be shared to other domains
 
 <div class="domain-reuse">
   <section class="shared">
@@ -277,60 +249,14 @@ Likely challenge: “Can we just use the same rules?” Not automatically. Reuse
   <section>
     <article><b>Credit review</b><span>Own vocabulary · rules · evidence · authority</span></article>
     <article><b>New-customer onboarding</b><span>Own vocabulary · rules · evidence · authority</span></article>
-    <article class="future"><b>Future domain</b><span>Prove the seam before naming a platform</span></article>
+    <article><b>Other domains</b><span>Own vocabulary · rules · evidence · authority</span></article>
   </section>
 </div>
 
-<p class="takeaway"><b>Do not call today’s code split a plugin platform.</b> Test reuse through a second bounded use case first.</p>
-
 <!--
-There is a credible reusable pattern, but one implementation does not prove a platform. The second use case should reveal what is genuinely shared and what belongs to each domain.
+The framework shares a governed workflow while each domain retains its own vocabulary, rules, evidence, and authority.
+One implementation does not prove a platform. A second bounded use case should reveal what is genuinely shared and what belongs to each domain.
 Likely challenge: “Why not standardize now?” Premature standardization can encode credit-review assumptions as generic architecture.
--->
-
----
-
-<p class="kicker">Production direction · Not running in this POC</p>
-
-# Integrate around CIS—do not replace its authority
-
-<div class="production-map">
-  <section><small>Authoritative facts</small><b>CIS APIs</b><span>Customer and credit values</span></section><i>→</i>
-  <section class="accent"><small>Shared meaning</small><b>Fact contracts / ontology</b><span>Types, units, provenance, permitted use</span></section><i>→</i>
-  <section><small>Controlled reasoning</small><b>Deterministic engines</b><span>Validation, policy execution, comparison</span></section><i>→</i>
-  <section><small>Operational authority</small><b>CIS workflow</b><span>Identity, approval, audit, customer state</span></section>
-</div>
-
-<div class="candidate-tech"><b>Candidate responsibilities—not commitments</b><span>Jena + SHACL · DMN + Drools/Kogito · Z3 · release/artifact registry</span></div>
-
-<div class="evidence-gates"><span>Discovery</span><i>→</i><span>Shadow comparison</span><i>→</i><span>Advisory use</span><i>→</i><span>Separately approved enforcement</span></div>
-
-<!--
-Everything on this slide is production direction and is not running in the POC. CIS remains authoritative for facts, workflow, and customer state.
-Named technologies are candidates by responsibility, not selected architecture or commitments. Discovery must determine what already exists and should be reused.
-Likely challenge: “When could this enforce a decision?” No timeline is proposed. Enforcement would require separate evidence and approval after discovery, shadow, and advisory stages.
--->
-
----
-
-<p class="kicker">The management decision</p>
-
-# The next step is bounded evidence—not a platform commitment
-
-<div class="ask-list">
-  <article><b>01</b><span>Confirm one bounded review policy and scenario</span></article>
-  <article><b>02</b><span>Nominate a credit analyst and policy owner to validate the workflow</span></article>
-  <article><b>03</b><span>Permit read-only discovery of authoritative CIS facts and review states</span></article>
-  <article><b>04</b><span>Agree what evidence is required before shadow comparison</span></article>
-  <article><b>05</b><span>Decide whether onboarding is the second proving use case</span></article>
-</div>
-
-<p class="closing-ask">Prove the control pattern on a real, bounded workflow—then decide what deserves to scale.</p>
-
-<!--
-This is an evidence request, not a funding request, timeline, production commitment, or compliance claim.
-The highest-value input is direct workflow validation from a credit analyst and policy owner, followed by read-only discovery around CIS.
-Likely challenge: “What are you asking us to approve today?” Access to validate the workflow and establish the evidence needed for a shadow comparison—nothing more.
 -->
 
 ---
