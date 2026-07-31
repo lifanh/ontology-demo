@@ -28,9 +28,9 @@ _Avoid_: Decision input, rule fact
 The session-scoped human acceptance of a deterministic action or its replacement with a different action and mandatory reason.
 _Avoid_: Finding override, approval
 
-**Demo Release**:
-An immutable policy release activated only within one browser-tab session for evaluation in the showcase.
-_Avoid_: Published release, deployed policy
+**Active Policy Version**:
+The fixed illustrative policy baseline used for customer review and deterministic candidate comparison. The current POC does not approve, publish, or activate policy versions.
+_Avoid_: Demo Release, published policy
 
 **Policy Impact Cohort**:
 A fixed fictional set of boundary-focused customer records used to compare review outcomes under an active and candidate policy.

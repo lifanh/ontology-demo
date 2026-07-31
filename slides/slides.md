@@ -90,7 +90,7 @@ Likely challenge: “Does this POC reduce fraud or bad debt?” No. Those are bu
     <h3>Never delegated to the model</h3>
     <div><b>Facts</b><small>Typed context and evidence values</small></div>
     <div><b>Controls</b><small>Validation, comparison, and action resolution</small></div>
-    <div><b>Choice</b><small>Disposition and Demo Release activation</small></div>
+    <div><b>Choice</b><small>Customer-review workflow and Disposition</small></div>
   </section>
 </div>
 
@@ -116,18 +116,18 @@ Likely challenge: “Can the explanation still be wrong?” Yes. It is generated
     <div><b>Disposition</b><span>Person</span></div>
   </section>
   <section>
-    <label>Policy Studio</label>
+    <label>Review Policy</label>
     <div><b>Policy intent</b><span>Person</span></div><i>→</i>
     <div class="ai-step"><b>AI candidate</b><span>Bounded draft</span></div><i>→</i>
     <div class="control-step"><b>Validation + impact</b><span>Deterministic</span></div><i>→</i>
-    <div><b>Demo Release</b><span>Person</span></div>
+    <div><b>Change decision</b><span>Outside this POC</span></div>
   </section>
 </div>
 
 <p class="pattern-line">AI drafts and explains <b>·</b> deterministic controls verify <b>·</b> a person decides</p>
 
 <!--
-The audience will see the same authority boundary twice. In Customer Review, deterministic Findings and action come first; generated rationale may then explain their evidence. In Policy Studio, a generated candidate must pass deterministic gates before a person can activate a Demo Release.
+The audience will see the same authority boundary twice. In Customer Review, deterministic Findings and action come first; generated rationale may then explain their evidence. In Review Policy, a generated candidate can be validated, compared, and impact-assessed, but not approved, published, or activated.
 Likely challenge: “Who is accountable?” This anonymous POC captures a session-scoped choice, not identity or a durable audit. Production ownership and controls require discovery.
 -->
 
@@ -141,7 +141,7 @@ Likely challenge: “Who is accountable?” This anonymous POC captures a sessio
   <article class="real"><span>Real</span><b>GitHub Copilot calls</b><small>Bounded policy drafting and grounded explanation only</small></article>
   <article><span>Simulated</span><b>Bounded lookups</b><small>Fixed review context and evidence-tool results</small></article>
   <article><span>Fictional</span><b>Demo records</b><small>Customers, policies, evidence, cohort, and seeded override history</small></article>
-  <article><span>Session-only</span><b>Browser-tab state</b><small>Dispositions, policy feedback, and activated Demo Releases</small></article>
+  <article><span>Session-only</span><b>Browser-tab state</b><small>Review workflow, Dispositions, and policy authoring state</small></article>
 </div>
 
 <p class="warning"><b>Not connected:</b> CIS, Vertica, production data, durable audit, production policy publication, or customer mutation.</p>
@@ -174,7 +174,7 @@ LIVE DEMO SCRIPT — CUSTOMER REVIEW
 1. Open the app in a new tab and sign in if AI-enabled mode is configured.
 2. Select Northwind Components. Show AUTO_REVIEW_PASS, no Findings, and that no Tier-2 tool is eligible.
 3. Select Ironclad Manufacturing. Show the deterministic NEED_TO_RESTRICT action, Findings with actual values and thresholds, then request the GitHub Copilot rationale. Point out which eligible tools the model chose and that their results are fictional evidence, never decision input.
-4. Select Cascade Freight. Show its two Findings and manager-review action. Record a fictional override with a reason so the session association appears in Policy Studio.
+4. Select Cascade Freight. Show its two Findings and manager-review action. Record a fictional replacement with a reason, then open Review Policy as the separate authoring workbench.
 5. If the model fails, do not restart. Show that action, Findings, and Disposition remain usable. The failure demonstrates deterministic continuity.
 Challenge response: the analyst overrides the action, not objective Findings.
 -->
@@ -185,28 +185,27 @@ class: live-demo-slide
 ---
 
 <div class="live-demo">
-  <p class="kicker">Live · Policy Studio</p>
+  <p class="kicker">Live · Review Policy</p>
   <h1>Can a policy owner change a threshold<br><span>without guessing its effect?</span></h1>
   <div class="demo-steps policy">
     <article><b>1</b><span>Draft</span><small>GitHub Copilot proposes a supported candidate</small></article>
     <article><b>2</b><span>Verify</span><small>Validation, compatibility, and Review impact are deterministic</small></article>
-    <article><b>3</b><span>Activate</span><small>A person activates a Demo Release in this browser tab</small></article>
+    <article><b>3</b><span>Assess</span><small>Compare customer impact against the active policy</small></article>
   </div>
-  <a href="/" target="_blank" rel="noopener noreferrer" class="demo-link">Open Policy Studio <b>↗</b></a>
-  <p class="demo-note">Illustrative policies and 12-record Policy Impact Cohort · not production publication</p>
+  <a href="/" target="_blank" rel="noopener noreferrer" class="demo-link">Open Review Policy <b>↗</b></a>
+  <p class="demo-note">Illustrative policies and 12-record Policy Impact Cohort · no approval, publication, or activation</p>
 </div>
 
 <!--
-LIVE DEMO SCRIPT — POLICY STUDIO
-1. Open Policy Studio and show the session-associated NET 30 override created in Customer Review.
+LIVE DEMO SCRIPT — REVIEW POLICY
+1. Open Review Policy and select the NET 30 threshold change.
 2. Enter: “For customers on NET 30 terms, reduce the maximum past-due ratio from 8% to 5%.”
 3. Ask GitHub Copilot to draft the bounded candidate.
 4. Run deterministic validation and compatibility analysis.
 5. Show that three additional records require review in the illustrative 12-record Policy Impact Cohort.
-6. Request the grounded policy-analysis explanation. If it fails, continue—the explanation is not an activation gate.
-7. Approve and activate the Demo Release in this browser tab.
-8. Return to Cascade and show release-pinned re-evaluation requiring a fresh Disposition.
-Challenge response: only successful deterministic qualification enables activation; this is not production publication.
+6. Request the grounded policy-analysis explanation. If it fails, continue—the deterministic assessment remains available.
+7. Point out that the workbench stops at impact assessment: it cannot approve, publish, or activate the candidate.
+Challenge response: this POC prepares evidence for an authorized policy decision; it does not make or execute that decision.
 -->
 
 ---
@@ -220,15 +219,15 @@ Challenge response: only successful deterministic qualification enables activati
   <i>→</i>
   <article><span>02</span><b>Visible exceptions</b><small>Repeated overrides become a policy question</small></article>
   <i>→</i>
-  <article><span>03</span><b>Policy Studio</b><small>Candidate, compatibility, and Review impact</small></article>
+  <article><span>03</span><b>Review Policy</b><small>Candidate, compatibility, and Review impact</small></article>
   <i>→</i>
-  <article><span>04</span><b>Demo Release</b><small>Pinned rules return to Customer Review</small></article>
+  <article><span>04</span><b>Authorized decision</b><small>Production workflow remains outside this POC</small></article>
 </div>
 
 <p class="warning"><b>POC boundary:</b> seeded history is fictional and current-session associations are tab-only. This is not production analytics or a durable audit.</p>
 
 <!--
-The product is more than two demos: analyst exceptions create a concrete agenda for policy owners, and every activated Demo Release sends customer review through fresh release-pinned evaluation.
+The product is more than two demos: analyst exceptions create a concrete agenda for policy owners, while deterministic candidate analysis makes the possible customer-review impact inspectable before any authorized production decision.
 Likely challenge: “Does an override prove a threshold is wrong?” No. It is evidence for investigation, not a conclusion.
 -->
 
@@ -346,7 +345,7 @@ Likely challenge: “What are you asking us to approve today?” Access to valid
     <tr><th>Real</th><td>GitHub Copilot SDK calls in AI-enabled mode; Hono gateway; deterministic controls; access gate</td></tr>
     <tr><th>Simulated</th><td>Fixed Tier-1 Review Context and bounded Tier-2 Evidence lookups</td></tr>
     <tr><th>Fictional</th><td>Customers, illustrative policies, evidence, cohort, and seeded history</td></tr>
-    <tr><th>Session-only</th><td>Disposition, feedback associations, and Demo Releases in one browser tab</td></tr>
+    <tr><th>Session-only</th><td>Review workflow, Dispositions, and policy authoring state in one browser tab</td></tr>
     <tr><th>Absent</th><td>CIS/Vertica/MCP, production data, identity/roles, durable audit, mutation, production publication</td></tr>
   </tbody>
 </table>
@@ -369,7 +368,7 @@ In static mode, the product label changes to “AI features disabled” and no p
     <span>Tier 1</span><h3>Tier-1 Review Context</h3>
     <b>Decision input</b>
     <p>Complete, typed facts used by deterministic rules and action resolution.</p>
-    <small>Same facts + same Demo Release = same Findings and action</small>
+    <small>Same facts + same active policy version = same Findings and action</small>
   </section>
   <div class="one-way"><b>Findings unlock tools</b><i>→</i><small>Evidence never flows back into action</small></div>
   <section class="tier-two">
@@ -444,13 +443,13 @@ Tool calls are supported only inside explain_review and only when deterministic 
   <article><b>Unsupported intent</b><span>Stops honestly; no arbitrary policy is drafted</span></article>
 </div>
 
-<div class="continuity-flow"><span>Action</span><span>Rule Evaluation Traces</span><span>Deterministic policy gates</span><span>Disposition / activation choice</span></div>
+<div class="continuity-flow"><span>Action</span><span>Rule Evaluation Traces</span><span>Deterministic policy gates</span><span>Disposition / impact assessment</span></div>
 
-<p class="takeaway"><b>Continuity is the control.</b> Review and qualified activation do not become unavailable because generated explanation failed.</p>
+<p class="takeaway"><b>Continuity is the control.</b> Review and deterministic impact assessment do not become unavailable because generated explanation failed.</p>
 
 <!--
 Provider and operation deadlines are bounded, there are no invisible retries, and explicit retry starts a new operation.
-For policy drafting, failure means no candidate. For policy explanation after deterministic qualification, failure does not block activation.
+For policy drafting, failure means no candidate. For policy explanation after deterministic qualification, failure does not block inspection of the completed impact assessment.
 -->
 
 ---
@@ -460,7 +459,7 @@ For policy drafting, failure means no candidate. For policy explanation after de
 # How is policy impact calculated?
 
 <div class="impact-compare">
-  <section><small>Active Demo Release</small><b>NET 30 maximum: 8%</b><span>Evaluate all 12 fictional cohort records</span></section>
+  <section><small>Active policy version</small><b>NET 30 maximum: 8%</b><span>Evaluate all 12 fictional cohort records</span></section>
   <i>vs</i>
   <section class="candidate"><small>Candidate revision</small><b>NET 30 maximum: 5%</b><span>Evaluate the same records and compare outcomes</span></section>
   <div><strong>3</strong><b>additional records require review</b><small>Ratios at 6%, 7%, and 8% cross the candidate boundary</small></div>
@@ -472,7 +471,7 @@ For policy drafting, failure means no candidate. For policy explanation after de
 
 <!--
 Review impact is deterministic workload evidence, not a model estimate. Equality boundaries are explicit and the changed records are shown first.
-Any indeterminate or error makes impact incomplete and blocks activation.
+Any indeterminate or error makes the impact assessment incomplete; the current POC has no activation action.
 -->
 
 ---

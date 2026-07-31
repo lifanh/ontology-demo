@@ -90,6 +90,7 @@ test("the product has customer-review and review-policy workbenches without rele
   assert.match(productSource, /id="completeReview"/);
   assert.match(productSource, /id="reopenReview"/);
   assert.match(html, /Browser-tab state only/);
+  assert.match(html, /controls update this browser tab only—not a production workflow, CIS customer-state change, or audit record/);
   assert.match(html, /id="resetButton"/);
   assert.match(app, /escapeHtml\(result\.rationale\.summary\)/);
   assert.match(app, /AI rationale unavailable/);
@@ -103,22 +104,26 @@ test("the product has customer-review and review-policy workbenches without rele
 });
 
 test("maintainer guidance documents both portable modes and exact approved claims", async () => {
-  const [readme, html, accessSource] = await Promise.all([
+  const [readme, html, accessSource, slides, context] = await Promise.all([
     readFile(path.join(root, "README.md"), "utf8"),
     readFile(path.join(root, "index.html"), "utf8"),
-    readFile(path.join(root, "src", "ui", "access.js"), "utf8")
+    readFile(path.join(root, "src", "ui", "access.js"), "utf8"),
+    readFile(path.join(root, "slides", "slides.md"), "utf8"),
+    readFile(path.join(root, "CONTEXT.md"), "utf8")
   ]);
-  const staticClaim = "Illustrative POC · Fictional customer data · AI features disabled";
-  const aiClaim = "Illustrative POC · Fictional customer data · Real GitHub Copilot calls";
+  const staticClaim = "Illustrative POC · Fictional data · Deterministic mode";
+  const aiClaim = "Illustrative POC · Fictional data · AI enabled";
   assert.match(readme, new RegExp(staticClaim));
   assert.match(readme, new RegExp(aiClaim));
   assert.match(html, /Illustrative POC · Fictional data/);
-  assert.match(accessSource, /Fictional data · AI enabled/);
-  assert.match(accessSource, /Fictional data · Deterministic mode/);
+  assert.match(accessSource, new RegExp(aiClaim));
+  assert.match(accessSource, new RegExp(staticClaim));
   assert.match(html, /Do not enter production customer data or confidential policy/);
   assert.match(readme, /canonical full-mode gateway is the Hono application served by Node/);
   assert.match(readme, /Cloudflare is optional/);
   assert.match(readme, /deterministic-only static assets/);
+  assert.doesNotMatch(slides, /Demo Release|Policy Studio/);
+  assert.match(context, /\*\*Active Policy Version\*\*/);
 });
 
 test("live provider smoke is explicit opt-in and excluded from the default suite", async () => {
