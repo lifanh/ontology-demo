@@ -4,7 +4,7 @@ title: AI-Assisted Customer Credit Review
 titleTemplate: '%s · Make review easier without giving AI decision authority'
 author: AI-Assisted Customer Credit Review
 info: |
-  A management walkthrough of an illustrative POC in which GPT-5.6 Luna
+  A management walkthrough of an illustrative POC in which GitHub Copilot
   drafts and explains, deterministic controls verify, and a person decides.
 favicon: /slides/favicon.svg
 fonts:
@@ -138,7 +138,7 @@ Likely challenge: “Who is accountable?” This anonymous POC captures a sessio
 # What the audience is about to see
 
 <div class="claims-grid">
-  <article class="real"><span>Real</span><b>GPT-5.6 Luna calls</b><small>Bounded policy drafting and grounded explanation only</small></article>
+  <article class="real"><span>Real</span><b>GitHub Copilot calls</b><small>Bounded policy drafting and grounded explanation only</small></article>
   <article><span>Simulated</span><b>Bounded lookups</b><small>Fixed review context and evidence-tool results</small></article>
   <article><span>Fictional</span><b>Demo records</b><small>Customers, policies, evidence, cohort, and seeded override history</small></article>
   <article><span>Session-only</span><b>Browser-tab state</b><small>Dispositions, policy feedback, and activated Demo Releases</small></article>
@@ -173,7 +173,7 @@ class: live-demo-slide
 LIVE DEMO SCRIPT — CUSTOMER REVIEW
 1. Open the app in a new tab and sign in if AI-enabled mode is configured.
 2. Select Northwind Components. Show AUTO_REVIEW_PASS, no Findings, and that no Tier-2 tool is eligible.
-3. Select Ironclad Manufacturing. Show the deterministic NEED_TO_RESTRICT action, Findings with actual values and thresholds, then request the GPT-5.6 Luna rationale. Point out which eligible tools the model chose and that their results are fictional evidence, never decision input.
+3. Select Ironclad Manufacturing. Show the deterministic NEED_TO_RESTRICT action, Findings with actual values and thresholds, then request the GitHub Copilot rationale. Point out which eligible tools the model chose and that their results are fictional evidence, never decision input.
 4. Select Cascade Freight. Show its two Findings and manager-review action. Record a fictional override with a reason so the session association appears in Policy Studio.
 5. If the model fails, do not restart. Show that action, Findings, and Disposition remain usable. The failure demonstrates deterministic continuity.
 Challenge response: the analyst overrides the action, not objective Findings.
@@ -188,7 +188,7 @@ class: live-demo-slide
   <p class="kicker">Live · Policy Studio</p>
   <h1>Can a policy owner change a threshold<br><span>without guessing its effect?</span></h1>
   <div class="demo-steps policy">
-    <article><b>1</b><span>Draft</span><small>GPT-5.6 Luna proposes a supported candidate</small></article>
+    <article><b>1</b><span>Draft</span><small>GitHub Copilot proposes a supported candidate</small></article>
     <article><b>2</b><span>Verify</span><small>Validation, compatibility, and Review impact are deterministic</small></article>
     <article><b>3</b><span>Activate</span><small>A person activates a Demo Release in this browser tab</small></article>
   </div>
@@ -200,7 +200,7 @@ class: live-demo-slide
 LIVE DEMO SCRIPT — POLICY STUDIO
 1. Open Policy Studio and show the session-associated NET 30 override created in Customer Review.
 2. Enter: “For customers on NET 30 terms, reduce the maximum past-due ratio from 8% to 5%.”
-3. Ask GPT-5.6 Luna to draft the bounded candidate.
+3. Ask GitHub Copilot to draft the bounded candidate.
 4. Run deterministic validation and compatibility analysis.
 5. Show that three additional records require review in the illustrative 12-record Policy Impact Cohort.
 6. Request the grounded policy-analysis explanation. If it fails, continue—the explanation is not an activation gate.
@@ -343,7 +343,7 @@ Likely challenge: “What are you asking us to approve today?” Access to valid
 <table class="reality-table">
   <thead><tr><th>Label</th><th>What it means here</th></tr></thead>
   <tbody>
-    <tr><th>Real</th><td>GPT-5.6 Luna calls in AI-enabled mode; Hono gateway; deterministic controls; access gate</td></tr>
+    <tr><th>Real</th><td>GitHub Copilot SDK calls in AI-enabled mode; Hono gateway; deterministic controls; access gate</td></tr>
     <tr><th>Simulated</th><td>Fixed Tier-1 Review Context and bounded Tier-2 Evidence lookups</td></tr>
     <tr><th>Fictional</th><td>Customers, illustrative policies, evidence, cohort, and seeded history</td></tr>
     <tr><th>Session-only</th><td>Disposition, feedback associations, and Demo Releases in one browser tab</td></tr>
@@ -489,7 +489,7 @@ Any indeterminate or error makes impact incomplete and blocks activation.
     <tr><td>Policy execution</td><td>Deterministic JavaScript</td><td>DMN + Drools/Kogito as candidates</td></tr>
     <tr><td>Compatibility</td><td>Bounded comparison code</td><td>Z3 as a candidate for deeper satisfiability checks</td></tr>
     <tr><td>Workflow and state</td><td>One anonymous browser tab</td><td>Reuse CIS identity, workflow, approval, audit, and customer state</td></tr>
-    <tr><td>AI access</td><td>Hono gateway + GPT-5.6 Luna</td><td>Approved gateway, controls, observability, and release integration</td></tr>
+    <tr><td>AI access</td><td>Hono gateway + GitHub Copilot SDK</td><td>Approved provider, controls, observability, and release integration</td></tr>
   </tbody>
 </table>
 

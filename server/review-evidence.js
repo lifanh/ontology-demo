@@ -34,11 +34,7 @@ export function evidenceFor(customerNumber, toolName) {
   if (!records) throw new GatewayFailure("MODEL_OUTPUT_INVALID", 502, false);
   return Object.freeze({ schemaVersion: "1", evidenceRef: `evidence:${customerNumber}/${toolName}@1`, toolName, fixtureVersion: "1", customerNumber, asOfDate: "2026-06-30", records: Object.freeze(records.map(Object.freeze)) });
 }
-const toolDefinitions = names => names.map(name => ({ type: "function", function: { name, description: `Return fixed illustrative ${name.replaceAll("_", " ")} for this customer.`, parameters: { type: "object", additionalProperties: false, required: [], properties: {} }, strict: true } }));
 const invalid = () => { throw new GatewayFailure("MODEL_OUTPUT_INVALID", 502, false); };
-const hasEmptyArguments = value => {
-  try { const parsed = JSON.parse(value); return parsed && typeof parsed === "object" && !Array.isArray(parsed) && Object.keys(parsed).length === 0; } catch { return false; }
-};
 
 export async function explainReviewExecutor({ request, providerCall }) {
   const eligible = eligibleReviewTools(request.traces);
@@ -47,29 +43,25 @@ export async function explainReviewExecutor({ request, providerCall }) {
   if (request.traces.some(trace => !trace.evaluationRef.startsWith(`${request.release.id}/`) || trace.factRefs.some(ref => !factRefs.has(ref))) || request.facts.some(fact => !fact.ref.startsWith(`fact:${request.customer.number}/`))) throw new GatewayFailure("INVALID_REQUEST", 400, false);
   const called = [], evidenceResults = [], used = new Set();
   const messages = [{ role: "system", content: "Explain the supplied deterministic review. You may request only offered fictional evidence. Cite supplied references. Do not state or invent authoritative actions, findings, values, thresholds, scores, approvals, or dispositions. Return only the required JSON." }, { role: "user", content: JSON.stringify(request) }];
-  for (let round = 0; round < 3; round += 1) {
-    const output = await providerCall({ schemaName: "explain_review_v1", responseSchema: aiContracts.explain_review.result.properties.rationale, messages, ...(eligible.length ? { tools: toolDefinitions(eligible) } : {}) });
-    if (output?.type === "tool_calls") {
-      if (round === 2 || !eligible.length || !Array.isArray(output.calls) || !output.calls.length) invalid();
-      const names = new Set(), ids = new Set();
-      for (const call of output.calls) {
-        if (!call || typeof call.id !== "string" || !call.id || ids.has(call.id) || !eligible.includes(call.name) || names.has(call.name) || used.has(call.name) || !hasEmptyArguments(call.arguments)) invalid();
-        names.add(call.name);
-        ids.add(call.id);
-      }
-      const results = [...output.calls].sort((a,b) => a.name.localeCompare(b.name)).map(call => [call, evidenceFor(request.customer.number, call.name)]);
-      for (const call of output.calls) { called.push(call.name); used.add(call.name); }
-      for (const [, result] of results) { evidenceResults.push(result); knownRefs.add(result.evidenceRef); }
-      messages.push({ role: "assistant", tool_calls: output.calls.map(call => ({ id: call.id, type: "function", function: { name: call.name, arguments: call.arguments } })) });
-      for (const [call, result] of results) messages.push({ role: "tool", tool_call_id: call.id, name: call.name, content: JSON.stringify(result) });
-      continue;
+  const tools = eligible.map(name => ({
+    name,
+    description: `Return fixed illustrative ${name.replaceAll("_", " ")} for this customer. Call at most once.`,
+    parameters: { type: "object", additionalProperties: false, required: [], properties: {} },
+    handler: async argumentsValue => {
+      if (!argumentsValue || typeof argumentsValue !== "object" || Array.isArray(argumentsValue) || Object.keys(argumentsValue).length || used.has(name)) invalid();
+      used.add(name);
+      called.push(name);
+      const result = evidenceFor(request.customer.number, name);
+      evidenceResults.push(result);
+      knownRefs.add(result.evidenceRef);
+      return result;
     }
-    if (!output || output.status !== "EXPLAINED") invalid();
-    for (const point of output.points || []) {
-      const refs = new Set();
-      for (const ref of point.references || []) { if (!knownRefs.has(ref) || refs.has(ref)) invalid(); refs.add(ref); }
-    }
-    return { rationale: output, evidenceResults, toolTrace: { eligible, called } };
+  }));
+  const output = await providerCall({ schemaName: "explain_review_v1", responseSchema: aiContracts.explain_review.result.properties.rationale, messages, ...(tools.length ? { tools } : {}) });
+  if (!output || output.status !== "EXPLAINED") invalid();
+  for (const point of output.points || []) {
+    const refs = new Set();
+    for (const ref of point.references || []) { if (!knownRefs.has(ref) || refs.has(ref)) invalid(); refs.add(ref); }
   }
-  invalid();
+  return { rationale: output, evidenceResults, toolTrace: { eligible, called } };
 }

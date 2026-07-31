@@ -1,6 +1,6 @@
 import Ajv from "ajv";
 import { loadConfig } from "../server/config.js";
-import { createOpenAiProvider } from "../server/openai-provider.js";
+import { createCopilotProvider } from "../server/copilot-provider.js";
 import { aiContracts } from "../server/ai-contracts.js";
 import { draftRuleExecutor } from "../server/draft-rule.js";
 import { explainReviewExecutor } from "../server/review-evidence.js";
@@ -18,7 +18,7 @@ if (!config.aiEnabled) {
   process.exit(2);
 }
 
-const provider = createOpenAiProvider(config);
+const provider = createCopilotProvider(config);
 const ajv = new Ajv({ strict: true });
 const operations = [
   ["draft_rule", draftRuleExecutor, { schemaVersion: "1", policyText: "For NET 30 customers, set maximum past due to 5 percent of AR balance.", activeReleaseId: "credit-1.4.0" }],
@@ -73,3 +73,5 @@ for (const [name, executor, request] of operations) {
     clearTimeout(timer);
   }
 }
+
+await provider.close();

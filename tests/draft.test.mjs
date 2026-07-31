@@ -3,16 +3,16 @@ import { test } from "vite-plus/test";
 import { createApp } from "../server/app.js";
 import { loadConfig } from "../server/config.js";
 import { draftRuleExecutor, validateDraftResult } from "../server/draft-rule.js";
-import { createOpenAiProvider } from "../server/openai-provider.js";
+import { createCopilotProvider } from "../server/copilot-provider.js";
 
 const origin = "https://demo.example";
 const environment = {
   AI_ENABLED: "true",
   DEMO_PASSWORD: "approved-demo-password",
   SESSION_SECRET: "0123456789abcdef0123456789abcdef",
-  LLM_CHAT_COMPLETIONS_URL: "https://gateway.example/chat/completions/gpt-5.6-luna",
-  LLM_API_KEY: "test-key",
-  LLM_MODEL_DISPLAY_NAME: "GPT-5.6 Luna"
+  COPILOT_GITHUB_TOKEN: "test-token",
+  COPILOT_MODEL: "gpt-5.4",
+  COPILOT_HOME: ".copilot-test"
 };
 const dsl = {
   NET30_PAST_DUE_MAX: "RULE NET30_PAST_DUE_MAX\nSCOPE customer.payment_terms == \"NET_30\"\nSET_MAX_RATIO customer.past_due_amount\n    TO customer.ar_balance = 0.05\nEND",
@@ -56,18 +56,24 @@ test("malformed, mismatched, and unsupported candidate DSL is rejected without r
   assert.throws(() => validateDraftResult(invalid[0]), /INVALID_MODEL_RESPONSE/);
 });
 
-test("OpenAI-compatible provider sends non-streaming server-owned JSON Schema request without a model field", async () => {
+test("Copilot provider creates an isolated session with a server-owned model, schema, and tool allowlist", async () => {
   let captured;
-  const provider = createOpenAiProvider(loadConfig(environment), async (url, options) => {
-    captured = { url, options, body: JSON.parse(options.body) };
-    return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ outcome: "UNSUPPORTED_INTENT", summary: "Outside supported policy families." }) } }] }), { status: 200, headers: { "content-type": "application/json" } });
-  });
+  const session = {
+    sessionId: "test-session",
+    async sendAndWait(message) { captured.message = message; return { data: { content: "```json\n{\"outcome\":\"UNSUPPORTED_INTENT\",\"summary\":\"Outside supported policy families.\"}\n```" } }; },
+    async disconnect() {},
+    async abort() {}
+  };
+  const client = { async createSession(options) { captured = { options }; return session; }, async deleteSession(id) { captured.deletedSession = id; } };
+  const provider = createCopilotProvider(loadConfig(environment), client);
   const result = await provider.complete({ input: { schemaName: "draft_rule_v1", responseSchema: { type: "object" }, messages: [{ role: "system", content: "server prompt" }] }, signal: new AbortController().signal });
   assert.equal(result.outcome, "UNSUPPORTED_INTENT");
-  assert.equal(captured.url, environment.LLM_CHAT_COMPLETIONS_URL);
-  assert.equal(captured.body.stream, false);
-  assert.equal(captured.body.response_format.type, "json_schema");
-  assert.equal(captured.body.response_format.json_schema.strict, true);
-  assert.equal(Object.hasOwn(captured.body, "model"), false);
-  assert.equal(captured.options.headers.authorization, `Bearer ${environment.LLM_API_KEY}`);
+  assert.equal(captured.options.model, "gpt-5.4");
+  assert.deepEqual(captured.options.availableTools, []);
+  assert.deepEqual(captured.options.tools, []);
+  assert.match(captured.options.systemMessage.content, /server prompt/);
+  assert.match(captured.options.systemMessage.content, /"type":"object"/);
+  assert.equal(captured.options.memory.enabled, false);
+  assert.equal(captured.message.prompt, "");
+  assert.equal(captured.deletedSession, "test-session");
 });

@@ -4,8 +4,8 @@ An illustrative POC showing a controlled credit-review pattern: a real LLM draft
 
 The product has two independent views:
 
-- **Customer Review** evaluates four engineered fictional Narrative Customers against six illustrative rules, then optionally asks GPT-5.6 Luna for a grounded rationale and bounded fictional Tier-2 Evidence.
-- **Policy Studio** accepts one of two supported policy families, asks GPT-5.6 Luna for a bounded rule draft, validates and compares it deterministically, measures Review impact on a fixed fictional cohort, and activates a Demo Release in the current browser tab only.
+- **Customer Review** evaluates four engineered fictional Narrative Customers against six illustrative rules, then optionally asks GitHub Copilot for a grounded rationale and bounded fictional Tier-2 Evidence.
+- **Policy Studio** accepts one of two supported policy families, asks GitHub Copilot for a bounded rule draft, validates and compares it deterministically, measures Review impact on a fixed fictional cohort, and activates a Demo Release in the current browser tab only.
 
 This is not a production credit system. It has no production customer data, durable audit, user identities or roles, production policy publication, or automatic customer-state mutation. Apache Jena, SHACL, DMN/Kogito/Drools, and Z3 do not run in this POC. See [`NEXT_STEPS.md`](NEXT_STEPS.md) for the separate production integration direction.
 
@@ -34,21 +34,21 @@ The canonical full-mode gateway is the Hono application served by Node. Build fi
 - `AI_ENABLED`
 - `DEMO_PASSWORD`
 - `SESSION_SECRET`
-- `LLM_CHAT_COMPLETIONS_URL`
-- `LLM_API_KEY`
-- `LLM_MODEL_DISPLAY_NAME`
+- `COPILOT_GITHUB_TOKEN` (optional locally; recommended for hosted automation)
+- `COPILOT_MODEL` (optional; defaults to `gpt-5.6-luna`)
+- `COPILOT_HOME` (optional; defaults to `~/.copilot`)
 - `TRUST_PROXY`
 - `PORT` (optional)
 
-The chat-completions URL includes the company-approved model destination. `LLM_MODEL_DISPLAY_NAME` is fixed to GPT-5.6 Luna for this POC. Do not expose any of these values to browser code or commit them. `.env.example` documents the shape without usable credentials.
+For a local single-operator demo, omit `COPILOT_GITHUB_TOKEN` to let the SDK use stored Copilot CLI credentials or `gh auth` credentials from `~/.copilot`; the account needs Copilot access. The SDK can also discover `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, or `GITHUB_TOKEN` from the environment. The SDK disables keychain access in server-safe `empty` mode, so local stored credentials require its `copilot-cli` client mode; the session still receives only the server-owned custom-tool allowlist and no config discovery, memory, or embedding retrieval. Do not use that fallback for hosted or shared deployments: set an explicit `COPILOT_GITHUB_TOKEN`, which enables `empty` mode and prevents the process from inheriting a machine user's identity. `COPILOT_MODEL` selects a model available to that identity, and `COPILOT_HOME` selects a writable SDK runtime-state directory. Do not expose tokens to browser code or commit them. `.env.example` documents the shape without usable credentials.
 
 Persistent product label:
 
-> Illustrative POC · Fictional customer data · Real GPT-5.6 Luna calls
+> Illustrative POC · Fictional customer data · Real GitHub Copilot calls
 
 The shared-password gate warns:
 
-> This POC uses fictional customer data. In AI-enabled mode, policy text and fictional review context are sent to the company-approved GPT-5.6 Luna endpoint. Do not enter production customer data or confidential policy.
+> This POC uses fictional customer data. In AI-enabled mode, policy text and fictional review context are sent through the GitHub Copilot SDK. Do not enter production customer data or confidential policy.
 
 The gateway provides exactly three non-streaming operations: `draft_rule`, `explain_review`, and `explain_policy_analysis`. The browser supplies the selected fictional customer in a minimized review snapshot; the model cannot choose or override that binding, and evidence tools accept no customer argument. The browser cannot choose a provider, model, system prompt, or evidence-tool arguments. Configuration and credentials remain server-side. Deliberate browser tampering is outside this illustrative POC's security claims; generated prose remains non-authoritative and cannot mutate state.
 
@@ -59,7 +59,7 @@ The gateway provides exactly three non-streaming operations: `draft_rule`, `expl
 Cloudflare is optional:
 
 - The checked-in Wrangler configuration deploys the assembled site as **deterministic-only static assets**.
-- A team that wants AI mode on Workers can add a thin environment/asset adapter around `server/app.js`; the Hono routes, contracts, provider `fetch`, and deterministic executors remain the application boundary. The adapter must keep secrets in Worker bindings, preserve same-origin `/api/*`, and reproduce the Node cookie/origin/body-limit behavior.
+- AI-enabled mode requires a Node host that can run the Copilot SDK and its bundled CLI runtime; it does not run on Cloudflare Workers. A separate edge deployment would need to proxy same-origin `/api/*` to that trusted Node service while preserving the cookie, origin, and body-limit behavior.
 - Teammates do not need Cloudflare to run or share the full demo; the Node runtime is canonical.
 
 Do not deploy the repository root. [`scripts/build-site.mjs`](scripts/build-site.mjs) assembles an allowlisted `dist/`: the product at `/`, the independent deck at `/slides/`, and no server source, package metadata, or credentials.
@@ -114,6 +114,6 @@ Generated `dist/` and `build/` output is intentionally untracked.
 - `src/core/`: domain-neutral facts, authoring, governance, and deterministic runtime.
 - `src/domains/credit/`: illustrative ontology, policies, fixtures, action resolution, calculator, and Dispositions.
 - `src/ui/`: the two-view browser product and access gate.
-- `server/`: Hono auth, operation contracts, OpenAI-compatible provider, and bounded orchestration.
+- `server/`: Hono auth, operation contracts, GitHub Copilot SDK provider, and bounded orchestration.
 - `slides/`: independent Slidev presentation.
 - `artifacts/`: illustrative production-direction examples; not executed by the browser POC.

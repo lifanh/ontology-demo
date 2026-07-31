@@ -52,7 +52,7 @@ test("assembled output excludes package and authoring internals", async () => {
 
 test("assembled browser assets contain no server-only configuration or credentials", async () => {
   const contents = (await Promise.all((await filesUnder(path.join(root, "dist"))).map(file => readFile(file)))).map(value => value.toString("utf8")).join("\n");
-  for (const forbidden of ["DEMO_PASSWORD", "SESSION_SECRET", "LLM_CHAT_COMPLETIONS_URL", "LLM_API_KEY", "company-gateway.example"]) assert.doesNotMatch(contents, new RegExp(forbidden));
+  for (const forbidden of ["DEMO_PASSWORD", "SESSION_SECRET", "COPILOT_GITHUB_TOKEN"]) assert.doesNotMatch(contents, new RegExp(forbidden));
 });
 
 test("Customer Review is the default semantic sequence and Policy Studio remains separate", async () => {
@@ -91,7 +91,7 @@ test("maintainer guidance documents both portable modes and exact approved claim
     readFile(path.join(root, "src", "ui", "access.js"), "utf8")
   ]);
   const staticClaim = "Illustrative POC · Fictional customer data · AI features disabled";
-  const aiClaim = "Illustrative POC · Fictional customer data · Real GPT-5.6 Luna calls";
+  const aiClaim = "Illustrative POC · Fictional customer data · Real GitHub Copilot calls";
   assert.match(html, new RegExp(staticClaim));
   assert.match(accessSource, new RegExp(aiClaim));
   assert.match(readme, new RegExp(staticClaim));
