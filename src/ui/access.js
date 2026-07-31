@@ -22,7 +22,7 @@ const unlock = async status => {
   $("#aiStatus").innerHTML = `<span class="pulse"></span>${status.aiEnabled ? `Real ${status.modelDisplayName} calls` : "AI features disabled"}`;
   document.documentElement.dataset.aiEnabled = String(status.aiEnabled);
   if (status.aiEnabled) $("#simulateResponse").classList.add("hidden");
-  $(".brand small").textContent = status.aiEnabled ? "Fictional data · AI enabled" : "Fictional data · Deterministic mode";
+  $(".brand small").textContent = status.aiEnabled ? "Illustrative POC · Fictional data · AI enabled" : "Illustrative POC · Fictional data · Deterministic mode";
   await import("./app.js");
   document.body.classList.remove("auth-pending", "auth-locked");
 };

@@ -242,8 +242,11 @@ async function readAiResponse(response) {
 }
 
 function renderPolicySummary() {
+  const current = governance.current;
   $("#topbarRelease").textContent = governance.activeRelease.id;
   $("#studioActiveRelease").textContent = governance.activeRelease.id;
+  $("#policyWorkbenchTitle").textContent = policyNames[current.logicalId] || current.logicalId;
+  $("#policyWorkbenchMeta").textContent = `Stable ID ${current.logicalId} · candidate revision ${current.revision}`;
 }
 
 function persistStudio() {
@@ -393,10 +396,12 @@ function candidateRelease(rules) {
 function restoreStudio(saved) {
   const restoredCurrent = structuredClone(saved.governance?.revisions?.at(-1));
   const restoredEvidence = structuredClone(saved.governance?.evidence || {});
-  governance.restore(saved.governance);
-  const canonicalIds = activeRules.map(rule => rule.id).sort();
   const storedRuleSets = saved.releaseRuleSets;
   if (!storedRuleSets || typeof storedRuleSets !== "object" || Array.isArray(storedRuleSets)) throw new Error("Invalid stored Demo Release rule sets");
+  const storedReleaseIds = Object.keys(storedRuleSets);
+  if (saved.governance?.activeReleaseId !== release.id || saved.governance?.releaseHistory?.length !== 1 || storedReleaseIds.length !== 1 || storedReleaseIds[0] !== release.id) throw new Error("Legacy Demo Release state cannot be restored by the policy workbench");
+  governance.restore(saved.governance);
+  const canonicalIds = activeRules.map(rule => rule.id).sort();
   const validatedRuleSets = {};
   const validatedManifests = {};
   for (const [index, manifest] of governance.releaseHistory.entries()) {
@@ -583,8 +588,6 @@ function setScenario(id, { resetReleases = false } = {}) {
     invalidatePolicyExplanation();
   }
   document.querySelectorAll(".scenario").forEach(button => button.classList.toggle("active", button.dataset.scenario === id));
-  $("#policyWorkbenchTitle").textContent = policyNames[scenario.logicalId] || scenario.logicalId;
-  $("#policyWorkbenchMeta").textContent = `Stable ID ${scenario.logicalId} · candidate revision ${governance.current.revision}`;
   $("#candidateState").textContent = "Draft";
   $("#policyInput").value = scenarios[id].policy;
   $("#charCount").textContent = `${scenarios[id].policy.length} characters`;

@@ -4,6 +4,10 @@ import { once } from "node:events";
 import net from "node:net";
 import { test } from "node:test";
 import { chromium } from "playwright-chromium";
+import { parseRule, formatRule } from "../src/core/authoring.js";
+import { Governance } from "../src/core/governance.js";
+import { assessReviewImpact, createEvaluator } from "../src/core/runtime.js";
+import { activeRules, analyzeCandidate, compileCandidate, creditPack, nextReleaseId, policyImpactCohort, registry, release, scenarios } from "../src/domains/credit/pack.js";
 
 const freePort = () => new Promise((resolve, reject) => {
   const server = net.createServer();
@@ -39,6 +43,25 @@ const rationale = {
     toolTrace: { eligible: ["get_payment_history", "get_open_disputes"], called: [] }
   }
 };
+
+function legacyActivatedStudioState() {
+  const scenario = scenarios.adp20;
+  const sourceDsl = formatRule(scenario.ast, { root: "customer" });
+  const governance = new Governance({ activeRelease: release, candidate: { logicalId: scenario.logicalId, revision: scenario.revision, sourcePolicy: scenario.policy, sourceDsl, ast: null } });
+  const ast = parseRule(sourceDsl, registry, { root: "customer" });
+  governance.updateDraft({ ast });
+  governance.record("validation", { valid: true, ast });
+  governance.record("analysis", analyzeCandidate(ast, activeRules));
+  const candidateRule = compileCandidate(ast, scenario.revision);
+  const candidateRules = activeRules.map(rule => rule.id === candidateRule.id ? candidateRule : rule);
+  const candidateRelease = { id: `${release.id}-candidate-r${scenario.revision}`, ontologyVersion: release.ontologyVersion, actionPolicyVersion: release.actionPolicyVersion, calculatorVersion: release.calculatorVersion, status: "CANDIDATE_PREVIEW", rules: candidateRules.map(({ id, revision }) => ({ id, revision })) };
+  const evaluate = createEvaluator(creditPack);
+  const batch = assessReviewImpact(policyImpactCohort, customer => evaluate(customer, activeRules, release), customer => evaluate(customer, candidateRules, candidateRelease));
+  governance.record("batch", batch);
+  const activatedRelease = { id: nextReleaseId(release.id), predecessorReleaseId: release.id, ontologyVersion: release.ontologyVersion, actionPolicyVersion: release.actionPolicyVersion, calculatorVersion: release.calculatorVersion, rules: candidateRules.map(({ id, revision }) => ({ id, revision })), compiledRules: candidateRules, candidate: { logicalId: scenario.logicalId, revision: scenario.revision, sourceDsl } };
+  governance.activate(activatedRelease);
+  return { selected: "adp20", governance: governance.snapshot(), releaseRuleSets: { [release.id]: activeRules, [activatedRelease.id]: candidateRules }, batch, policyExplanations: {}, policyInput: scenario.policy, dslInput: sourceDsl };
+}
 
 test("tab product state is keyed, reloadable, isolated, resettable, and preserved through re-authentication", async () => {
   const port = await freePort();
@@ -125,8 +148,11 @@ test("tab product state is keyed, reloadable, isolated, resettable, and preserve
     await page.locator("#reviewQueueView").selectOption("ALL");
 
     await page.locator('[data-view="studio"]').click();
+    await page.locator("#policyInput").fill("For unrestricted customers with balances above $100,000, Average Days to Pay must not exceed 20 days.");
     await page.locator("#generatePrompt").click();
     await page.locator("#editorSection:not(.hidden)").waitFor();
+    assert.equal((await page.locator("#policyWorkbenchTitle").textContent()).trim(), "High-balance payment limit");
+    assert.equal((await page.locator("#policyWorkbenchMeta").textContent()).trim(), "Stable ID HIGH_BALANCE_ADP_MAX · candidate revision 3");
     await page.locator("#validateButton").click();
     await page.locator("#analyzeEvidence").click();
     await page.locator("#runBatch").click();
@@ -136,10 +162,18 @@ test("tab product state is keyed, reloadable, isolated, resettable, and preserve
     await page.reload();
     await page.locator("#studioView:not(.hidden)").waitFor();
     assert.match(await page.locator("#resultSection").textContent(), /Impact assessed/);
+    assert.equal((await page.locator("#policyWorkbenchTitle").textContent()).trim(), "High-balance payment limit");
+    assert.equal((await page.locator("#policyWorkbenchMeta").textContent()).trim(), "Stable ID HIGH_BALANCE_ADP_MAX · candidate revision 3");
     await page.locator('[data-view="review"]').click();
     await page.getByText("Persisted grounded rationale").waitFor();
     assert.match(await page.locator("#dispositionOutput").textContent(), /Recommendation accepted/);
     assert.equal((await page.locator("#caseStatus").textContent()).trim(), "Completed");
+
+    await page.evaluate(state => sessionStorage.setItem("customer-review:policy-studio:v1", JSON.stringify(state)), legacyActivatedStudioState());
+    await page.reload();
+    await page.locator(".product-shell").waitFor({ state: "visible" });
+    assert.equal((await page.locator("#topbarRelease").textContent()).trim(), "credit-1.4.0");
+    assert.equal(await page.evaluate(() => sessionStorage.getItem("customer-review:policy-studio:v1")), null);
 
     const isolated = await context.newPage();
     await configure(isolated);

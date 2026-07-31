@@ -5,7 +5,7 @@ An illustrative POC showing a controlled credit-review pattern: a real LLM draft
 The product has two independent views:
 
 - **Customer Review** evaluates four engineered fictional Narrative Customers against six illustrative rules, then optionally asks GitHub Copilot for a grounded rationale and bounded fictional Tier-2 Evidence.
-- **Policy Studio** accepts one of two supported policy families, asks GitHub Copilot for a bounded rule draft, validates and compares it deterministically, measures Review impact on a fixed fictional cohort, and activates a Demo Release in the current browser tab only.
+- **Review Policy** accepts one of two supported policy families, asks GitHub Copilot for a bounded rule draft, validates and compares it deterministically, and measures Review impact on a fixed fictional cohort. It does not approve, publish, or activate policy.
 
 This is not a production credit system. It has no production customer data, durable audit, user identities or roles, production policy publication, or automatic customer-state mutation. Apache Jena, SHACL, DMN/Kogito/Drools, and Z3 do not run in this POC. See [`NEXT_STEPS.md`](NEXT_STEPS.md) for the separate production integration direction.
 
@@ -13,7 +13,7 @@ This is not a production credit system. It has no production customer data, dura
 
 ### Deterministic-only mode
 
-Static mode needs no password or provider credentials. AI controls are disabled; deterministic review, governance, impact, Dispositions, and tab-scoped Demo Releases remain usable.
+Static mode needs no password or provider credentials. AI controls are disabled; deterministic review, candidate validation and comparison, impact assessment, and session-scoped Dispositions remain usable.
 
 ```sh
 npm clean-install
@@ -23,7 +23,7 @@ AI_ENABLED=false npm start
 
 Persistent product label:
 
-> Illustrative POC · Fictional customer data · AI features disabled
+> Illustrative POC · Fictional data · Deterministic mode
 
 For development, `npm run dev` defaults to this mode and serves the product at `/`. Run `npm run slides:dev` separately while authoring the independent deck. After `npm run build`, `npm start` serves the product at `/` and the deck at `/slides/`.
 
@@ -44,7 +44,7 @@ For a local single-operator demo, omit `COPILOT_GITHUB_TOKEN` to let the SDK use
 
 Persistent product label:
 
-> Illustrative POC · Fictional customer data · Real GitHub Copilot calls
+> Illustrative POC · Fictional data · AI enabled
 
 The shared-password gate warns:
 
@@ -105,9 +105,9 @@ Generated `dist/` and `build/` output is intentionally untracked.
 
 - CIS APIs would supply authoritative fact values in production. In this POC all customer and evidence data is fictional and fixed.
 - Tier-1 Review Context alone drives deterministic Findings, actions, and calculations. Tier-2 Evidence can enrich generated prose but cannot change them.
-- AI output is untrusted. Deterministic code owns DSL parsing, types, units, compatibility, impact, rule evaluation, action resolution, and activation gates.
-- Mutable product state is isolated to `sessionStorage` in one browser tab. Successful artifacts are keyed to their customer/release evidence; auth, loading, failures, provider internals, and quota state are not product state.
-- Dispositions and Demo Releases are session-scoped illustrations, not identities, approvals, publications, customer updates, or audit records.
+- AI output is untrusted. Deterministic code owns DSL parsing, types, units, compatibility, impact, rule evaluation, and action resolution. The current workbench does not expose policy approval, publication, or activation.
+- Mutable product state is isolated to `sessionStorage` in one browser tab. Successful artifacts are keyed to their customer/policy-version evidence; auth, loading, failures, provider internals, and quota state are not product state.
+- Review workflow, Dispositions, and policy authoring state are session-scoped illustrations, not identities, approvals, publications, customer updates, or audit records.
 
 ## Code boundaries
 
