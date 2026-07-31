@@ -219,7 +219,7 @@ function renderReviewExplanation(result) {
 
 async function generateReviewRationale() {
   const snapshot = reviewContext.request, version = ++reviewRequestVersion;
-  $("#aiPlaceholder").innerHTML = `<p role="status"><b>Generating rationale with GitHub Copilot…</b></p><small>The deterministic review and Disposition remain available.</small>`;
+  $("#aiPlaceholder").innerHTML = `<p class="ai-loading" role="status"><span class="ai-spinner" aria-hidden="true"></span><b>Generating rationale with GitHub Copilot…</b></p><small>The deterministic review and Disposition remain available.</small>`;
   try {
     const response = await fetch("/api/ai/explain_review", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify(snapshot) });
     const payload = await readAiResponse(response);
@@ -332,7 +332,7 @@ async function generateDraft() {
   batch = null;
   persistStudio();
   button.disabled = true;
-  $("#promptOutput").textContent = "Drafting with GitHub Copilot…";
+  $("#promptOutput").innerHTML = `<span class="ai-loading" role="status"><span class="ai-spinner" aria-hidden="true"></span><span>Drafting with GitHub Copilot…</span></span>`;
   $("#promptSection").classList.remove("hidden");
   $("#editorSection").classList.add("hidden");
   $("#resultSection").classList.add("hidden");
@@ -520,7 +520,7 @@ function policyExplanationRequest() {
 
 function renderPolicyExplanation() {
   if (policyExplanation?.status === "ready") return `<section class="runtime-panel" id="policyExplanation"><p class="eyebrow">AI change summary</p><h3>${escapeHtml(policyExplanation.result.summary)}</h3><ul>${policyExplanation.result.points.map(point => `<li>${escapeHtml(point.text)} <small>${point.references.map(escapeHtml).join(" · ")}</small></li>`).join("")}</ul><button id="generatePolicyExplanation" class="secondary-button">Generate again</button></section>`;
-  if (policyExplanation?.status === "loading") return `<section class="runtime-panel" id="policyExplanation"><p class="eyebrow">AI change summary</p><h3 role="status">Generating summary…</h3></section>`;
+  if (policyExplanation?.status === "loading") return `<section class="runtime-panel" id="policyExplanation"><p class="eyebrow">AI change summary</p><h3 class="ai-loading" role="status"><span class="ai-spinner" aria-hidden="true"></span><span>Generating summary…</span></h3></section>`;
   if (policyExplanation?.status === "error") return `<section class="runtime-panel" id="policyExplanation"><p class="eyebrow">AI change summary</p><h3 role="alert">Summary unavailable</h3><p>${escapeHtml(policyExplanation.message)}</p><button id="generatePolicyExplanation" class="secondary-button">Retry</button></section>`;
   let ready = false;
   try { policyExplanationRequest(); ready = true; } catch {}
