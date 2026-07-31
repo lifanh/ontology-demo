@@ -398,6 +398,7 @@ body { font-size: 20px; }
 .policy-check-table .table-status,
 .lifecycle span,
 .metric-grid small,
+.batch-table td small,
 .batch-table pre,
 .runtime-panel pre,
 .governance-body pre {
