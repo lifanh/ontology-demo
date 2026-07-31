@@ -14,17 +14,17 @@ const showGate = message => {
   $("#loginPassword").focus();
 };
 
-window.addEventListener("demo-auth-required", () => showGate("Your demo session expired. Sign in again to continue; this tab's product state is preserved."));
+window.addEventListener("demo-auth-required", () => showGate("Your session expired. Sign in again to continue; this tab's workspace state is preserved."));
 
 const unlock = async status => {
-  document.body.classList.remove("auth-pending", "auth-locked");
   $("#accessGate").classList.add("hidden");
   $("#logoutButton").classList.toggle("hidden", !status.aiEnabled);
   $("#aiStatus").innerHTML = `<span class="pulse"></span>${status.aiEnabled ? `Real ${status.modelDisplayName} calls` : "AI features disabled"}`;
   document.documentElement.dataset.aiEnabled = String(status.aiEnabled);
   if (status.aiEnabled) $("#simulateResponse").classList.add("hidden");
-  document.querySelector("#reviewView .workspace-header .eyebrow").textContent = status.aiEnabled ? "Illustrative POC · Fictional customer data · Real GitHub Copilot calls" : "Illustrative POC · Fictional customer data · AI features disabled";
+  $(".brand small").textContent = status.aiEnabled ? "Fictional data · AI enabled" : "Fictional data · Deterministic mode";
   await import("./app.js");
+  document.body.classList.remove("auth-pending", "auth-locked");
 };
 
 const loadSession = async () => {
