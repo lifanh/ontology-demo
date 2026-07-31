@@ -30,9 +30,37 @@ test("unknown or duplicate references reject the complete explanation", async ()
   }
 });
 
+test("the same evidence may ground more than one explanation point", async () => {
+  const reference = request.evidenceRefs[0];
+  const result = await explainPolicyAnalysisExecutor({ request, providerCall: async () => ({
+    summary: "Grounded summary.",
+    points: [
+      { text: "The candidate is stricter.", references: [reference] },
+      { text: "The same comparison also explains the workload change.", references: [reference] }
+    ]
+  }) });
+  assert.deepEqual(result.points.map(point => point.references), [[reference], [reference]]);
+});
+
 test("authority claims reject the complete explanation", async () => {
   for (const output of [
     { summary: "The candidate is approved.", points: [{ text: "Evidence is summarized.", references: [request.evidenceRefs[0]] }] },
     { summary: "Evidence is summarized.", points: [{ text: "Activate this policy.", references: [request.evidenceRefs[0]] }] }
   ]) await assert.rejects(explainPolicyAnalysisExecutor({ request, providerCall: async () => output }), error => error.code === "MODEL_OUTPUT_INVALID");
+});
+
+test("narrow negated authority disclaimers are allowed without masking affirmative claims", async () => {
+  const allowed = await explainPolicyAnalysisExecutor({ request, providerCall: async () => ({
+    summary: "This explanation does not approve or activate the candidate.",
+    points: [{ text: "The candidate is not validated or published by this explanation.", references: [request.evidenceRefs[0]] }]
+  }) });
+  assert.match(allowed.summary, /does not approve/);
+  await assert.rejects(explainPolicyAnalysisExecutor({ request, providerCall: async () => ({
+    summary: "This explanation does not approve the candidate, but it activates the policy.",
+    points: [{ text: "Evidence is summarized.", references: [request.evidenceRefs[0]] }]
+  }) }), error => error.code === "MODEL_OUTPUT_INVALID");
+  await assert.rejects(explainPolicyAnalysisExecutor({ request, providerCall: async () => ({
+    summary: "This explanation does not approve and activates the candidate.",
+    points: [{ text: "Evidence is summarized.", references: [request.evidenceRefs[0]] }]
+  }) }), error => error.code === "MODEL_OUTPUT_INVALID");
 });

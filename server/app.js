@@ -71,9 +71,11 @@ export function createApp({ config, now = Date.now, clientIp = () => "unknown", 
     return error(c, 401, "AUTH_REQUIRED", "Authentication required");
   });
 
-  const ipFor = c => config.trustProxy
-    ? c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || clientIp(c)
-    : clientIp(c);
+  const ipFor = c => {
+    if (!config.trustProxy) return clientIp(c);
+    const forwarded = c.req.header("x-forwarded-for")?.split(",").map(value => value.trim()).filter(Boolean);
+    return forwarded?.at(-1) || clientIp(c);
+  };
   const activeFailures = ip => {
     const cutoff = now() - LOGIN_WINDOW_MS;
     const recent = (failures.get(ip) || []).filter(timestamp => timestamp > cutoff);

@@ -426,6 +426,9 @@ test("Demo Releases reject duplicate IDs and incomplete rule sets", () => {
   };
   assert.throws(() => ready().activate({ id: release.id, rules: release.rules }), /unique/);
   assert.throws(() => ready().activate({ id: "credit-1.5.0", rules: [{ id: scenarios.ratio5.logicalId, revision: scenarios.ratio5.revision }] }), /complete active rule set/);
+  const reused = new Governance({ activeRelease: release, candidate: { ...scenarios.ratio5, revision: 4 } });
+  reused.record("validation", { valid: true }); reused.record("analysis", { status: "COMPATIBLE_REFINEMENT" }); reused.record("batch", { complete: true });
+  assert.throws(() => reused.activate({ id: "credit-1.5.0", rules: release.rules }), /revision must be unique/);
 });
 
 test("corrupt Policy Studio snapshots do not partially mutate Governance", () => {

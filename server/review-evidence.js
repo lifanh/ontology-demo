@@ -65,8 +65,10 @@ export async function explainReviewExecutor({ request, providerCall }) {
       continue;
     }
     if (!output || output.status !== "EXPLAINED") invalid();
-    const refs = new Set();
-    for (const point of output.points || []) for (const ref of point.references || []) { if (!knownRefs.has(ref) || refs.has(ref)) invalid(); refs.add(ref); }
+    for (const point of output.points || []) {
+      const refs = new Set();
+      for (const ref of point.references || []) { if (!knownRefs.has(ref) || refs.has(ref)) invalid(); refs.add(ref); }
+    }
     return { rationale: output, evidenceResults, toolTrace: { eligible, called } };
   }
   invalid();

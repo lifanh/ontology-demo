@@ -59,9 +59,10 @@ test("tab product state is keyed, reloadable, isolated, resettable, and preserve
     await page.route("**/api/ai/draft_rule", route => {
       const policyText = route.request().postDataJSON().policyText;
       const adp = policyText.includes("Average Days to Pay");
+      const ratio = policyText.includes("6%") ? "0.06" : "0.05";
       return route.fulfill({ json: { schemaVersion: "1", operation: "draft_rule", result: adp
         ? { outcome: "CANDIDATE", family: "HIGH_BALANCE_ADP_MAX", summary: "Lower the ADP threshold.", dsl: "RULE HIGH_BALANCE_ADP_MAX\nSCOPE customer.restricted_status == \"N\"\n      AND customer.ar_balance > 100000 USD\nSET_MAX customer.adp_days = 20 DAYS\nEND" }
-        : { outcome: "CANDIDATE", family: "NET30_PAST_DUE_MAX", summary: "Lower the threshold.", dsl: "RULE NET30_PAST_DUE_MAX\nSCOPE customer.payment_terms == \"NET_30\"\nSET_MAX_RATIO customer.past_due_amount\n    TO customer.ar_balance = 0.05\nEND" } } });
+        : { outcome: "CANDIDATE", family: "NET30_PAST_DUE_MAX", summary: "Lower the threshold.", dsl: `RULE NET30_PAST_DUE_MAX\nSCOPE customer.payment_terms == "NET_30"\nSET_MAX_RATIO customer.past_due_amount\n    TO customer.ar_balance = ${ratio}\nEND` } } });
     });
     await page.route("**/api/login", route => { authenticated = true; return route.fulfill({ json: { authenticated: true, expiresInSeconds: 28800 } }); });
     await page.route("**/api/logout", route => { authenticated = false; return route.fulfill({ json: { authenticated: false } }); });
@@ -132,6 +133,21 @@ test("tab product state is keyed, reloadable, isolated, resettable, and preserve
     await page.reload();
     await page.locator("#studioView:not(.hidden)").waitFor();
     assert.equal(await page.locator("#releaseSelector").inputValue(), "credit-1.6.0");
+
+    await page.locator("#releaseSelector").selectOption("credit-1.4.0");
+    await page.locator('[data-scenario="ratio5"]').click();
+    await page.locator("#policyInput").fill("For NET 30 customers, require review when past due exceeds 6% of AR balance.");
+    await page.locator("#generatePrompt").click();
+    await page.waitForFunction(() => document.querySelector("#dslInput")?.value.includes("0.06"));
+    await page.locator("#validateButton").click();
+    assert.match(await page.locator("#resultSection").textContent(), /candidate revision 6/);
+    await page.locator("#analyzeEvidence").click();
+    await page.locator("#runBatch").click();
+    await page.locator("#activateRelease").click();
+    await page.reload();
+    await page.locator("#studioView:not(.hidden)").waitFor();
+    assert.equal(await page.locator("#releaseSelector").inputValue(), "credit-1.7.0");
+    assert.equal(await page.evaluate(() => JSON.parse(sessionStorage.getItem("customer-review:policy-studio:v1")).governance.releaseHistory.find(item => item.id === "credit-1.7.0").candidate.revision), 6);
     await page.locator("#releaseSelector").selectOption("credit-1.4.0");
     await page.locator('[data-view="review"]').click();
     await page.getByText("Persisted grounded rationale").waitFor();

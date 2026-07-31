@@ -64,11 +64,11 @@ test("mutations require same-origin JSON and cap actual bodies at 32 KiB", async
   assert.equal((await request(app, "/api/login", { method: "POST", headers: { origin, "content-type": "application/json" }, body: `{"password":"${"x".repeat(33 * 1024)}"}` })).status, 413);
 });
 
-test("login limits failures by trusted client IP for fifteen minutes", async () => {
+test("login limits failures by the IP appended by one trusted proxy for fifteen minutes", async () => {
   let time = 1_000_000;
   const app = createApp({ config: loadConfig(aiEnvironment({ TRUST_PROXY: "true" })), now: () => time });
-  const forwarded = ip => ({ "x-forwarded-for": ip, "x-forwarded-proto": "https", "x-forwarded-host": "demo.example" });
-  for (let attempt = 0; attempt < 10; attempt += 1) assert.equal((await post(app, "/api/login", { password: "wrong" }, forwarded("192.0.2.10"))).status, 401);
+  const forwarded = (ip, attackerValue = "203.0.113.1") => ({ "x-forwarded-for": `${attackerValue}, ${ip}`, "x-forwarded-proto": "https", "x-forwarded-host": "demo.example" });
+  for (let attempt = 0; attempt < 10; attempt += 1) assert.equal((await post(app, "/api/login", { password: "wrong" }, forwarded("192.0.2.10", `203.0.113.${attempt}`))).status, 401);
   const limited = await post(app, "/api/login", { password: "approved-demo-password" }, forwarded("192.0.2.10"));
   assert.equal(limited.status, 429);
   assert.ok(Number(limited.headers.get("retry-after")) > 0);

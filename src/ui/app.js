@@ -144,6 +144,11 @@ function invalidatePolicyExplanation() {
   policyRequestVersion += 1;
 }
 
+function nextRuleRevision(logicalId) {
+  const revisions = governance.releaseHistory.flatMap(item => item.rules.filter(rule => rule.id === logicalId).map(rule => rule.revision));
+  return Math.max(0, ...revisions) + 1;
+}
+
 function formatFact(id, value) {
   const definition = registry.definition(id);
   if (value == null) return "Not available";
@@ -171,7 +176,7 @@ async function generateDraft() {
   const policyText = $("#policyInput").value.trim();
   const requestVersion = ++draftRequestVersion;
   const scenario = scenarios[selected];
-  governance.startDraft({ logicalId: scenario.logicalId, revision: (activeRuleSet.find(rule => rule.id === scenario.logicalId)?.revision || scenario.revision - 1) + 1, sourcePolicy: policyText, sourceDsl: "", ast: null });
+  governance.startDraft({ logicalId: scenario.logicalId, revision: nextRuleRevision(scenario.logicalId), sourcePolicy: policyText, sourceDsl: "", ast: null });
   batch = null;
   persistStudio();
   button.disabled = true;
@@ -197,7 +202,7 @@ async function generateDraft() {
       if (!Number.isInteger(activeRevision)) throw new Error("The candidate family is not present in the active Demo Release.");
       selected = result.family === "NET30_PAST_DUE_MAX" ? "ratio5" : "adp20";
       document.querySelectorAll(".scenario").forEach(item => item.classList.toggle("active", item.dataset.scenario === selected));
-      governance.startDraft({ logicalId: result.family, revision: activeRevision + 1, sourcePolicy: policyText, sourceDsl: result.dsl, ast: null });
+      governance.startDraft({ logicalId: result.family, revision: nextRuleRevision(result.family), sourcePolicy: policyText, sourceDsl: result.dsl, ast: null });
       batch = null;
       $("#editorSection").classList.remove("hidden");
       persistStudio();
@@ -424,7 +429,7 @@ function setScenario(id, { resetReleases = false } = {}) {
   const scenario = scenarios[selected], sourceDsl = formatRule(scenario.ast, { root: "customer" });
   if (!governance || resetReleases) resetState();
   else {
-    const revision = (activeRuleSet.find(rule => rule.id === scenario.logicalId)?.revision || scenario.revision - 1) + 1;
+    const revision = nextRuleRevision(scenario.logicalId);
     governance.startDraft({ logicalId: scenario.logicalId, revision, sourcePolicy: scenario.policy, sourceDsl, ast: null });
     batch = null;
     invalidatePolicyExplanation();

@@ -97,3 +97,12 @@ test("two tool rounds and three calls are maximum; unknown and duplicate final r
   await assert.rejects(explainReviewExecutor({ request: request(2004, ["CRITICAL_RESTRICTION_TRIGGER"]), providerCall: async () => ({ type: "tool_calls", calls: [{ id: String(++count), name: ["get_payment_history", "get_open_disputes", "get_recent_orders"][count - 1], arguments: "{}" }] }) }), error => error.code === "MODEL_OUTPUT_INVALID");
   for (const references of [["unknown:ref"], [`${ref}-0`, `${ref}-0`]]) await assert.rejects(explainReviewExecutor({ request: request(), providerCall: async () => final(references) }), error => error.code === "MODEL_OUTPUT_INVALID");
 });
+
+test("the same grounded review reference may be reused across points", async () => {
+  const reference = `${ref}-0`;
+  const result = await explainReviewExecutor({ request: request(), providerCall: async () => ({ status: "EXPLAINED", summary: "Grounded explanation.", points: [
+    { text: "The finding establishes the action.", references: [reference] },
+    { text: "The same finding supports the rationale.", references: [reference] }
+  ] }) });
+  assert.deepEqual(result.rationale.points.map(point => point.references), [[reference], [reference]]);
+});

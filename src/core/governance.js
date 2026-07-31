@@ -44,6 +44,7 @@ export class Governance {
   activate(release) {
     if (!this.canActivate()) throw new Error("Activation blocked: current validation, non-conflicting analysis, and complete Review impact are required");
     if (this._releaseHistory.some(item => item.id === release?.id)) throw new Error("Demo Release ID must be unique in this browser tab");
+    if (this._releaseHistory.some(item => item.rules.some(rule => rule.id === this.current.logicalId && rule.revision === this.current.revision))) throw new Error("Candidate revision must be unique across Demo Release history");
     const activeRuleIds = this.activeRelease.rules.map(rule => rule.id).sort();
     const releaseRuleIds = release?.rules?.map(rule => rule.id).sort();
     if (!releaseRuleIds || new Set(releaseRuleIds).size !== releaseRuleIds.length || JSON.stringify(releaseRuleIds) !== JSON.stringify(activeRuleIds)) throw new Error("Demo Release must contain the complete active rule set");

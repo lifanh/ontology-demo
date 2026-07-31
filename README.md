@@ -50,11 +50,11 @@ The shared-password gate warns:
 
 > This POC uses fictional customer data. In AI-enabled mode, policy text and fictional review context are sent to the company-approved GPT-5.6 Luna endpoint. Do not enter production customer data or confidential policy.
 
-The gateway provides exactly three non-streaming operations: `draft_rule`, `explain_review`, and `explain_policy_analysis`. The browser cannot choose a provider, model, system prompt, customer binding, or evidence-tool arguments. Configuration and credentials remain server-side.
+The gateway provides exactly three non-streaming operations: `draft_rule`, `explain_review`, and `explain_policy_analysis`. The browser supplies the selected fictional customer in a minimized review snapshot; the model cannot choose or override that binding, and evidence tools accept no customer argument. The browser cannot choose a provider, model, system prompt, or evidence-tool arguments. Configuration and credentials remain server-side. Deliberate browser tampering is outside this illustrative POC's security claims; generated prose remains non-authoritative and cannot mutate state.
 
 ## Portable hosting
 
-`npm start` is vendor-neutral and serves both built assets and same-origin `/api/*` routes from Node. It can run locally, in a container, or on a Node-capable hosting platform. Put TLS in front of it and set `TRUST_PROXY=true` only when the immediate proxy is trusted.
+`npm start` is vendor-neutral and serves both built assets and same-origin `/api/*` routes from Node. It can run locally, in a container, or on a Node-capable hosting platform. Put TLS in front of it and set `TRUST_PROXY=true` only when Node is reachable exclusively through one trusted immediate proxy. That proxy must sanitize forwarded headers; the gateway treats the rightmost `X-Forwarded-For` entry as the address appended by that one trusted hop.
 
 Cloudflare is optional:
 
