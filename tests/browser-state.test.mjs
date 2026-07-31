@@ -71,97 +71,87 @@ test("tab product state is keyed, reloadable, isolated, resettable, and preserve
     const page = await context.newPage();
     await configure(page);
     await page.goto(`http://127.0.0.1:${port}/`);
+    assert.equal(await page.locator('[data-customer="2002"]').getAttribute("aria-pressed"), "true");
+    assert.equal((await page.locator("#caseStatus").textContent()).trim(), "In review");
+    await page.locator("#reviewQueueView").selectOption("MINE");
+    assert.equal(await page.locator("[data-customer]").count(), 1);
+    await page.locator("#reviewSearch").fill("Cascade");
+    await page.reload();
+    await page.locator(".product-shell").waitFor({ state: "visible" });
+    assert.equal(await page.locator("#reviewQueueView").inputValue(), "MINE");
+    assert.equal(await page.locator("#reviewSearch").inputValue(), "Cascade");
+    assert.equal(await page.locator("[data-customer]").count(), 1);
+    await page.locator("#reviewSearch").fill("");
+    await page.locator("#reviewQueueView").selectOption("ALL");
     await page.locator('[data-customer="2002"]').click();
+    await page.locator("#requestReviewInformation").click();
+    assert.equal((await page.locator("#caseStatus").textContent()).trim(), "Waiting for information");
+    await page.locator("#escalateReview").click();
+    assert.equal((await page.locator("#caseStatus").textContent()).trim(), "Escalated");
+    await page.locator('[data-case-tab="evidence"]').click();
     await page.locator("#generateReviewRationale").click();
     await page.getByText("Persisted grounded rationale").waitFor();
+    await page.locator('[data-case-tab="findings"]').click();
+    await page.locator('[data-case-panel="findings"]:not(.hidden)').waitFor();
     await page.reload();
-    await page.getByText("Persisted grounded rationale").waitFor();
+    await page.locator('[data-case-panel="findings"]:not(.hidden)').waitFor();
+    assert.equal(await page.locator('[data-case-tab="findings"]').getAttribute("aria-selected"), "true");
     assert.equal(await page.locator('[data-customer="2002"]').getAttribute("aria-pressed"), "true");
+    await page.locator('[data-case-tab="evidence"]').click();
+    await page.getByText("Persisted grounded rationale").waitFor();
 
     await page.locator('[data-customer="2001"]').click();
     assert.doesNotMatch(await page.locator("#aiPlaceholder").textContent(), /Persisted grounded rationale/);
     await page.locator('[data-customer="2002"]').click();
     await page.getByText("Persisted grounded rationale").waitFor();
     await page.locator('input[name="reviewDisposition"][value="ACCEPTED"]').check();
-    await page.locator("#saveReviewDisposition").click();
-    await page.getByText(/^Accepted/).waitFor();
+    await page.locator("#saveReviewDraft").click();
+    await page.getByText("Draft saved", { exact: true }).waitFor();
+    assert.equal(await page.evaluate(() => sessionStorage.getItem("customer-review:dispositions:v1")), null);
+    await page.locator("#completeReview").click();
+    await page.getByText("Recommendation accepted", { exact: true }).waitFor();
+    assert.equal((await page.locator("#caseStatus").textContent()).trim(), "Completed");
 
     await page.locator('[data-customer="2001"]').click();
+    await page.locator("#assignReviewToMe").click();
     await page.locator('input[name="reviewDisposition"][value="OVERRIDDEN"]').check();
     await page.locator("#reviewOverrideReason").fill("A documented exception for this test.");
-    await page.locator("#saveReviewDisposition").click();
+    await page.locator("#completeReview").click();
+    await page.getByText("Recommendation replaced", { exact: true }).waitFor();
+    assert.equal((await page.locator("#reviewOpenCount").textContent()).trim(), "2");
+    await page.locator("#reviewQueueView").selectOption("COMPLETED");
+    assert.equal(await page.locator("[data-customer]").count(), 2);
     await page.locator('[data-customer="2002"]').click();
+    await page.locator("#reviewQueueView").selectOption("ALL");
 
     await page.locator('[data-view="studio"]').click();
-    assert.equal((await page.locator("#sessionOverrideCount").textContent()).trim(), "0 associated overrides");
     await page.locator("#generatePrompt").click();
     await page.locator("#editorSection:not(.hidden)").waitFor();
     await page.locator("#validateButton").click();
     await page.locator("#analyzeEvidence").click();
     await page.locator("#runBatch").click();
-    await page.locator("#activateRelease").click();
+    assert.match(await page.locator("#resultSection").textContent(), /Impact assessed/);
+    assert.equal(await page.locator('[data-view="review"], [data-view="studio"]').count(), 2);
+    assert.equal(await page.locator('[data-view="releases"], #releasesView, #activateRelease, #releaseSelector').count(), 0);
     await page.reload();
     await page.locator("#studioView:not(.hidden)").waitFor();
-    assert.equal(await page.locator("#releaseSelector").inputValue(), "credit-1.5.0");
-    await page.locator('[data-view="review"]').click();
-    assert.doesNotMatch(await page.locator("#aiPlaceholder").textContent(), /Persisted grounded rationale/);
-    assert.match(await page.locator("#dispositionOutput").textContent(), /No Disposition recorded/);
-
-    await page.locator('[data-view="studio"]').click();
-    await page.locator("#releaseSelector").selectOption("credit-1.4.0");
+    assert.match(await page.locator("#resultSection").textContent(), /Impact assessed/);
     await page.locator('[data-view="review"]').click();
     await page.getByText("Persisted grounded rationale").waitFor();
-    assert.match(await page.locator("#dispositionOutput").textContent(), /Accepted/);
-    await page.locator('[data-view="studio"]').click();
-    await page.locator("#releaseSelector").selectOption("credit-1.5.0");
-    await page.locator('[data-view="review"]').click();
-    assert.doesNotMatch(await page.locator("#aiPlaceholder").textContent(), /Persisted grounded rationale/);
-    assert.match(await page.locator("#dispositionOutput").textContent(), /No Disposition recorded/);
-    await page.locator('[data-view="studio"]').click();
-    await page.locator("#releaseSelector").selectOption("credit-1.4.0");
-    await page.locator('[data-view="review"]').click();
-    await page.getByText("Persisted grounded rationale").waitFor();
-
-    await page.locator('[data-view="studio"]').click();
-    await page.locator('[data-scenario="adp20"]').click();
-    await page.locator("#generatePrompt").click();
-    await page.locator("#editorSection:not(.hidden)").waitFor();
-    await page.locator("#validateButton").click();
-    await page.locator("#analyzeEvidence").click();
-    await page.locator("#runBatch").click();
-    await page.locator("#activateRelease").click();
-    await page.reload();
-    await page.locator("#studioView:not(.hidden)").waitFor();
-    assert.equal(await page.locator("#releaseSelector").inputValue(), "credit-1.6.0");
-
-    await page.locator("#releaseSelector").selectOption("credit-1.4.0");
-    await page.locator('[data-scenario="ratio5"]').click();
-    await page.locator("#policyInput").fill("For NET 30 customers, require review when past due exceeds 6% of AR balance.");
-    await page.locator("#generatePrompt").click();
-    await page.waitForFunction(() => document.querySelector("#dslInput")?.value.includes("0.06"));
-    await page.locator("#validateButton").click();
-    assert.match(await page.locator("#resultSection").textContent(), /candidate revision 6/);
-    await page.locator("#analyzeEvidence").click();
-    await page.locator("#runBatch").click();
-    await page.locator("#activateRelease").click();
-    await page.reload();
-    await page.locator("#studioView:not(.hidden)").waitFor();
-    assert.equal(await page.locator("#releaseSelector").inputValue(), "credit-1.7.0");
-    assert.equal(await page.evaluate(() => JSON.parse(sessionStorage.getItem("customer-review:policy-studio:v1")).governance.releaseHistory.find(item => item.id === "credit-1.7.0").candidate.revision), 6);
-    await page.locator("#releaseSelector").selectOption("credit-1.4.0");
-    await page.locator('[data-view="review"]').click();
-    await page.getByText("Persisted grounded rationale").waitFor();
+    assert.match(await page.locator("#dispositionOutput").textContent(), /Recommendation accepted/);
+    assert.equal((await page.locator("#caseStatus").textContent()).trim(), "Completed");
 
     const isolated = await context.newPage();
     await configure(isolated);
     await isolated.goto(`http://127.0.0.1:${port}/`);
-    assert.equal(await isolated.locator('[data-customer="2001"]').getAttribute("aria-pressed"), "true");
+    assert.equal(await isolated.locator('[data-customer="2002"]').getAttribute("aria-pressed"), "true");
     assert.doesNotMatch(await isolated.locator("#aiPlaceholder").textContent(), /Persisted grounded rationale/);
     await isolated.close();
 
     expireNext = true;
+    await page.locator('[data-case-tab="evidence"]').click();
     await page.locator("#generateReviewRationale").click();
-    await page.getByText(/demo session expired/i).waitFor();
+    await page.getByText(/session expired/i).waitFor();
     assert.match(await page.evaluate(() => sessionStorage.getItem("customer-review:product:v1")), /Persisted grounded rationale/);
     await page.locator("#loginPassword").fill("approved-demo-password");
     await page.locator("#loginForm button[type=submit]").click();
@@ -173,12 +163,13 @@ test("tab product state is keyed, reloadable, isolated, resettable, and preserve
       sessionStorage.setItem(key, JSON.stringify(product));
     });
     await page.reload();
-    await page.locator("#actionTitle").waitFor();
+    await page.locator('[data-case-panel="evidence"]:not(.hidden)').waitFor();
     assert.doesNotMatch(await page.locator("#aiPlaceholder").textContent(), /onerror|Persisted grounded rationale/);
 
     page.once("dialog", dialog => dialog.accept());
     await page.locator("#resetButton").click();
-    assert.equal(await page.locator('[data-customer="2001"]').getAttribute("aria-pressed"), "true");
+    assert.equal(await page.locator('[data-customer="2002"]').getAttribute("aria-pressed"), "true");
+    assert.equal((await page.locator("#caseStatus").textContent()).trim(), "In review");
     assert.doesNotMatch(await page.evaluate(() => sessionStorage.getItem("customer-review:product:v1")), /Persisted grounded rationale/);
 
     await page.locator('[data-view="studio"]').click();
@@ -244,8 +235,12 @@ test("unattended browser flows preserve semantics, accessibility, terminal state
       await page.locator(`[data-customer="${customer}"]`).click();
       assert.equal(await page.locator("#actionTitle").textContent(), action);
     }
-    const positions = await page.locator(".selector-stage, .action-stage, .traces-stage, .ai-stage, .disposition-stage, .calculator-stage").evaluateAll(elements => elements.map(element => element.getBoundingClientRect().top));
-    assert.equal(positions.every((value, index) => index === 0 || value > positions[index - 1]), true);
+    const reviewLayout = await page.evaluate(() => {
+      const queue = document.querySelector(".queue-panel").getBoundingClientRect();
+      const caseWorkspace = document.querySelector("#caseWorkspace").getBoundingClientRect();
+      return { queueTop: queue.top, queueBottom: queue.bottom, caseTop: caseWorkspace.top };
+    });
+    assert.equal(reviewLayout.queueTop < reviewLayout.caseTop && reviewLayout.queueBottom <= reviewLayout.caseTop, true);
 
     await page.locator('[data-view="studio"]').focus();
     await page.keyboard.press("Enter");
@@ -253,8 +248,14 @@ test("unattended browser flows preserve semantics, accessibility, terminal state
     await page.locator('[data-view="review"]').focus();
     await page.keyboard.press("Enter");
     assert.equal(await page.locator("#reviewView").isVisible(), true);
+    await page.locator('[data-case-tab="overview"]').focus();
+    await page.keyboard.press("ArrowRight");
+    assert.equal(await page.locator('[data-case-tab="findings"]').getAttribute("aria-selected"), "true");
+    assert.equal(await page.locator('[data-case-panel="findings"]').isVisible(), true);
+    await page.locator('[data-case-tab="overview"]').click();
 
     await page.locator('[data-customer="2002"]').click();
+    await page.locator('[data-case-tab="evidence"]').click();
     await page.locator("#generateReviewRationale").click();
     await page.getByText("AI rationale unavailable.").waitFor();
     assert.equal(await page.locator("#actionTitle").textContent(), "Credit manager review");
@@ -270,9 +271,8 @@ test("unattended browser flows preserve semantics, accessibility, terminal state
     await page.locator("#editorSection:not(.hidden)").waitFor();
     await page.locator("#validateButton").click();
     await page.locator("#analyzeEvidence").click();
-    assert.match(await page.locator("#resultSection").textContent(), /CONFLICT/);
+    assert.match(await page.locator("#resultSection").textContent(), /Conflict/);
     assert.equal(await page.locator("#runBatch").isDisabled(), true);
-    assert.equal(await page.locator("#activateRelease").isDisabled(), true);
 
     await page.locator('[data-scenario="ratio5"]').click();
     await page.locator("#generatePrompt").click();
@@ -280,8 +280,7 @@ test("unattended browser flows preserve semantics, accessibility, terminal state
     await page.locator("#validateButton").click();
     await page.locator("#analyzeEvidence").click();
     await page.locator("#runBatch").click();
-    assert.match(await page.locator("#resultSection").textContent(), /BATCH PASSED/);
-    assert.equal(await page.locator("#activateRelease").isEnabled(), true);
+    assert.match(await page.locator("#resultSection").textContent(), /Impact assessed/);
 
     await page.locator("#policyInput").fill("For NET 30 customers, set maximum past due to 8% of AR balance.");
     await page.locator("#generatePrompt").click();
@@ -295,7 +294,7 @@ test("unattended browser flows preserve semantics, accessibility, terminal state
     await page.locator("#editorSection:not(.hidden)").waitFor();
     await page.locator("#validateButton").click();
     await page.locator("#analyzeEvidence").click();
-    assert.match(await page.locator("#resultSection").textContent(), /COMPATIBLE RELAXATION/);
+    assert.match(await page.locator("#resultSection").textContent(), /Compatible relaxation/);
     assert.equal(await page.locator("#runBatch").isEnabled(), true);
   } finally {
     await browser.close();
