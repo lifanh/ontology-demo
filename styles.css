@@ -235,7 +235,7 @@ body { font-size: 20px; }
 .trace-card.finding { border-left-color: var(--amber); background: #fffaf1; }.trace-card.pass { border-left-color: var(--green); }.trace-card.not-applicable { opacity: .72; }
 .trace-card header { display: flex; justify-content: space-between; gap: 18px; }.trace-card h3 { margin: 3px 0; font-size: 17px; }.trace-card code { color: var(--muted); font: 10px var(--mono); overflow-wrap: anywhere; }.trace-card > p { color: #536b62; font-size: 13px; }
 .observation { display: grid; grid-template-columns: 150px 1fr auto; gap: 12px; padding: 9px 0; border-top: 1px solid #e2e9e5; font-size: 12px; }.observation em { color: #567068; font-style: normal; font-weight: 800; }.trace-card footer { margin-top: 10px; color: #865a1a; font: 11px var(--mono); }
-.ai-stage { background: #f6f6fc; border-color: #d8d9ee; }.ai-stage p { color: #454b60; }.ai-stage small { color: #73778a; }
+.ai-stage { background: #f6f6fc; border-color: #d8d9ee; }.ai-stage h3 { font-size: 17px; }.ai-stage p,.ai-stage li { color: #454b60; font-size: 13px; line-height: 1.6; }.ai-stage small,.ai-stage code,.ai-stage pre { color: #73778a; font-size: 12px; }.ai-stage .primary-button,.ai-stage .secondary-button { padding: 10px 14px; font-size: 12px; }
 .disposition-stage { border-style: dashed; background: #fafbf9; }.disposition-stage p { color: #647970; }
 .disposition-controls { display: grid; gap: 12px; margin-top: 18px; padding: 18px; border: 1px solid var(--line); border-radius: 8px; }.disposition-controls legend { padding: 0 6px; font-weight: 800; }.disposition-controls label { display: grid; gap: 5px; color: var(--ink-2); font-size: 13px; }.disposition-controls label:has(input[type="radio"]) { display: flex; align-items: center; }.disposition-controls select,.disposition-controls textarea { width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: white; font: inherit; }.disposition-controls button { justify-self: start; }.disposition-empty { font-style: italic; }
 .calculator-stage summary { display: flex; align-items: center; justify-content: space-between; gap: 15px; cursor: pointer; }.calculator-stage summary small,.calculator-stage summary strong { display: block; }.calculator-stage summary small { color: #17845f; font: 11px var(--mono); text-transform: uppercase; }.calculator-stage summary > span:last-child { color: var(--muted); font-size: 12px; }.calculator-stage dl { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin: 22px 0 0; }.calculator-stage dl div { padding: 12px; background: #edf5f1; }.calculator-stage dt { color: var(--muted); font-size: 10px; text-transform: uppercase; }.calculator-stage dd { margin: 5px 0 0; font-weight: 800; }
@@ -298,7 +298,7 @@ body { font-size: 20px; }
 .case-workspace .disposition-stage { position: static; min-height: 100%; border-left: 1px solid var(--line); background: white; }.disposition-stage .boundary-note { margin-bottom: 17px; font-size: 10px; line-height: 1.5; }
 .workflow-owner { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 7px; margin: 14px 0; }.workflow-owner label { display: grid; gap: 5px; color: var(--muted); font-size: 9px; font-weight: 800; text-transform: uppercase; }.workflow-owner select { min-width: 0; width: 100%; padding: 9px; border: 1px solid var(--line); border-radius: 5px; background: white; }.workflow-owner button { min-width: 0; padding: 9px; font-size: 9px; white-space: nowrap; }.workflow-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 15px; }.workflow-actions button { min-width: 0; padding: 9px 7px; font-size: 9px; white-space: normal; }.workflow-actions .danger-button { border-color: #e4b5b1; background: #fff6f5; color: #a3423d; }.workflow-notice { margin: 0 0 14px; padding: 10px; border-left: 3px solid var(--amber); background: #fff8ec; color: #76551e; font-size: 10px; }.disposition-controls { margin-top: 0; padding: 0; border: 0; }.disposition-controls:disabled { opacity: .55; }.disposition-controls legend { padding: 0 0 10px; font-size: 11px; }.disposition-controls label { font-size: 11px; }.override-fields { display: grid; gap: 10px; }.decision-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }.decision-actions button { min-width: 0; width: 100%; padding-inline: 8px; white-space: normal; }.saved-draft { padding: 10px; border: 1px solid #d4dfd9; border-radius: 6px; background: #f7f9f7; color: var(--muted); font-size: 10px; }.completed-decision { margin-top: 14px; padding: 15px; border: 1px solid #b9dcca; border-radius: 7px; background: #f1faf5; }.completed-decision span { color: #147b57; font-size: 9px; font-weight: 800; text-transform: uppercase; }.completed-decision h3 { margin: 5px 0; font-size: 16px; }.completed-decision p { color: var(--muted); font-size: 11px; line-height: 1.5; }.completed-decision button { width: 100%; }
 .activity-list { margin: 18px 0; display: grid; gap: 8px; }.activity-list div { padding: 14px; border: 1px solid var(--line); border-radius: 7px; background: #f8faf8; }.activity-list dt { color: var(--muted); font-size: 9px; font-weight: 800; text-transform: uppercase; }.activity-list dd { margin: 5px 0 0; color: var(--ink-2); font-size: 12px; }.activity-list dd small { display: block; margin-top: 5px; color: var(--muted); }
-.studio-console { display: grid; grid-template-columns: 340px minmax(0, 1fr); align-items: start; gap: 22px; }
+.studio-console { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 28px; }
 .policy-registry { min-width: 0; }.policy-registry .panel-heading { padding: 0 0 12px; }
 .policy-change-table .scenario { width: 100%; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--ink-2); font-size: 10px; cursor: pointer; text-align: left; }.policy-change-table .scenario:hover { color: #147b57; text-decoration: underline; }.policy-change-table tr:has(.scenario.active) { background: #eef7f2; box-shadow: inset 3px 0 var(--green); }.policy-change-table td span,.policy-change-table td strong { display: block; }.policy-change-table td span { color: var(--muted); font-size: 8px; }.policy-change-table td strong { margin-top: 2px; font-size: 9px; }
 .policy-version-card { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 3px 12px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }.policy-version-card p { grid-column: 1 / -1; margin: 0; }.policy-version-card strong { color: var(--ink-2); font: 12px var(--mono); }.policy-version-card span { color: var(--muted); font-size: 9px; }
@@ -340,4 +340,66 @@ body { font-size: 20px; }
   .workbench-header { align-items: flex-start; flex-direction: column; }.policy-workbench > .step-track { margin-inline: 18px; }.authoring-layout { padding: 10px; }
   .authoring-canvas .workflow-card { grid-template-columns: 1fr; }.authoring-canvas .card-index { padding: 12px 17px; border-right: 0; border-bottom: 1px solid var(--line); text-align: left; }.authoring-canvas .card-content { padding: 20px 16px; }
   .policy-check-table { min-width: 680px; }
+}
+
+/* Keep operational labels legible when the demo is viewed by an audience. */
+.topbar-policy,
+.sidebar-label,
+.product-nav small,
+.review-summary span,
+.panel-count,
+.queue-toolbar label,
+.queue-toolbar input,
+.queue-toolbar select,
+.data-table,
+.data-table thead th,
+.queue-customer-button,
+.queue-customer-button strong,
+.queue-customer-button small,
+.queue-table td:last-child small,
+.queue-badges em,
+.case-workflow-meta span,
+.queue-action,
+.queue-empty,
+.case-header-meta > span,
+.case-header-meta > strong,
+.case-tabs button,
+.case-tabs button span,
+.section-heading > span,
+.calculator-stage summary small,
+.calculator-stage dt,
+.disposition-stage .boundary-note,
+.workflow-owner label,
+.workflow-owner button,
+.workflow-actions button,
+.workflow-notice,
+.disposition-controls legend,
+.disposition-controls label,
+.saved-draft,
+.completed-decision span,
+.completed-decision p,
+.activity-list dt,
+.activity-list dd small,
+.policy-change-table .scenario,
+.policy-change-table td span,
+.policy-change-table td strong,
+.policy-version-card span,
+.workbench-header p:last-child,
+.workbench-state,
+.authoring-canvas .card-index,
+.studio-inspector .ontology-description,
+.ontology-table .table-group th,
+.studio-inspector .ontology-property strong,
+.studio-inspector .ontology-property small,
+.ontology-table td > small,
+.ontology-table td > em,
+.policy-check-table code,
+.table-observation em,
+.policy-check-table .table-status,
+.lifecycle span,
+.metric-grid small,
+.batch-table pre,
+.runtime-panel pre,
+.governance-body pre {
+  font-size: 12px;
 }
