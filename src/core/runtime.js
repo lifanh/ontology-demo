@@ -39,34 +39,92 @@ export class FactRegistry {
   }
 }
 
-const compare = (left, operator, right) => ({ ">": left > right, ">=": left >= right, "<": left < right, "<=": left <= right, "==": left === right, "!=": left !== right })[operator];
+const operators = Object.freeze({
+  ">": (left, right) => left > right,
+  ">=": (left, right) => left >= right,
+  "<": (left, right) => left < right,
+  "<=": (left, right) => left <= right,
+  "==": (left, right) => left === right,
+  "!=": (left, right) => left !== right
+});
 
-export function evaluateRules(context, rules) {
+const deepFreeze = value => {
+  if (!value || typeof value !== "object" || Object.isFrozen(value)) return value;
+  for (const nested of Object.values(value)) deepFreeze(nested);
+  return Object.freeze(value);
+};
+
+const observation = (context, registry, role, condition) => {
+  const definition = registry.definition(condition.fact);
+  const value = context.get(condition.fact);
+  return {
+    role,
+    factId: condition.fact,
+    factLabel: definition.displayName,
+    actual: { value, type: definition.type, unit: definition.unit || null, format: definition.format },
+    comparison: { operator: condition.op, value: condition.value, unit: definition.unit || null, format: definition.format },
+    result: value === null ? "UNKNOWN" : operators[condition.op](value, condition.value) ? "MATCH" : "NO_MATCH",
+    supportingFactIds: [...(definition.dependencies || [])]
+  };
+};
+
+const validateRule = (rule, registry) => {
+  if (!rule.policy?.title || !rule.policy?.statement) throw new Error(`rule ${rule.id} requires authoritative policy text`);
+  if (!rule.conditions?.length) throw new Error(`rule ${rule.id} requires at least one declarative condition`);
+  for (const condition of [...(rule.scope || []), ...rule.conditions]) {
+    const definition = registry.definition(condition.fact);
+    if (!definition) throw new Error(`rule ${rule.id} references unknown property ${condition.fact}`);
+    if (!operators[condition.op]) throw new Error(`rule ${rule.id} uses unsupported operator ${condition.op}`);
+    if (Object.hasOwn(condition, "unit") && (condition.unit || null) !== (definition.unit || null)) throw new Error(`rule ${rule.id}.${condition.fact} unit contract does not match ontology`);
+    if (["decimal", "integer"].includes(definition.type) && (typeof condition.value !== "number" || !Number.isFinite(condition.value))) throw new Error(`rule ${rule.id}.${condition.fact} requires a numeric comparison value`);
+    if (["string", "enum"].includes(definition.type) && typeof condition.value !== "string") throw new Error(`rule ${rule.id}.${condition.fact} requires a text comparison value`);
+    if (definition.type === "enum" && definition.values && !definition.values.includes(condition.value)) throw new Error(`rule ${rule.id}.${condition.fact} comparison is outside the ontology enum`);
+  }
+};
+
+export function evaluateRules(context, rules, { registry, release }) {
   return rules.map(rule => {
-    const scopeFacts = new Set((rule.scope || []).map(condition => condition.fact));
-    const missingScope = [...scopeFacts].filter(id => context.get(id) === null);
-    if (missingScope.length) return { id: rule.id, revision: rule.revision, status: "INDETERMINATE", reasonCode: rule.reasonCode, message: `Missing scope fact${missingScope.length === 1 ? "" : "s"}: ${missingScope.join(", ")}`, material: rule.material !== false, actionHint: rule.actionHint };
-    const applicable = (rule.scope || []).every(condition => compare(context.get(condition.fact), condition.op, condition.value));
-    if (!applicable) return { id: rule.id, revision: rule.revision, status: "NOT_APPLICABLE", reasonCode: rule.reasonCode, material: false };
-    const missing = rule.inputs.filter(input => !scopeFacts.has(input.id) && context.get(input.id) === null);
-    if (missing.length) return { id: rule.id, revision: rule.revision, status: "INDETERMINATE", reasonCode: rule.reasonCode, message: `Missing ${missing.map(x => x.id).join(", ")}`, material: rule.material !== false, actionHint: rule.actionHint };
-    const matched = rule.when(context);
-    if (matched === null) return { id: rule.id, revision: rule.revision, status: "INDETERMINATE", reasonCode: rule.reasonCode, message: "The rule comparison could not be calculated", material: rule.material !== false, actionHint: rule.actionHint };
-    return { id: rule.id, revision: rule.revision, status: matched ? "FINDING" : "PASS", reasonCode: rule.reasonCode, message: matched ? rule.message : "Condition passed", material: matched && rule.material !== false, actionHint: matched ? rule.actionHint : null };
+    validateRule(rule, registry);
+    const applicability = (rule.scope || []).map(condition => observation(context, registry, "APPLICABILITY", condition));
+    const policyRef = { releaseId: release.id, ontologyVersion: release.ontologyVersion, ruleId: rule.id, ruleRevision: rule.revision };
+    const base = { schemaVersion: "1", evaluationRef: `${release.id}/${rule.id}@${rule.revision}`, policyRef, policy: { ...rule.policy } };
+    const missingFactIds = observations => observations.filter(item => item.result === "UNKNOWN").map(item => item.factId);
+    if (applicability.some(item => item.result === "NO_MATCH")) return deepFreeze({ ...base, outcome: "NOT_APPLICABLE", observations: applicability, finding: null });
+    if (applicability.some(item => item.result === "UNKNOWN")) return deepFreeze({ ...base, outcome: "INDETERMINATE", observations: applicability, finding: null, missingFactIds: missingFactIds(applicability) });
+    const conditions = rule.conditions.map(condition => observation(context, registry, "CONDITION", condition));
+    const observations = [...applicability, ...conditions];
+    if (conditions.some(item => item.result === "UNKNOWN")) return deepFreeze({ ...base, outcome: "INDETERMINATE", observations, finding: null, missingFactIds: missingFactIds(conditions) });
+    const outcome = conditions.every(item => item.result === "MATCH") ? "FINDING" : "PASS";
+    const finding = outcome === "FINDING" ? { reasonCode: rule.reasonCode, material: rule.material !== false, actionHint: rule.actionHint } : null;
+    return deepFreeze({ ...base, outcome, observations, finding });
   });
+}
+
+export function assertReleaseRuleSet(rules, release) {
+  if (!Array.isArray(rules) || !Array.isArray(release?.rules) || !release.rules.length) throw new Error("Release and compiled rules are required");
+  const key = rule => `${rule?.id}@${rule?.revision}`;
+  const manifestKeys = release.rules.map(key);
+  const compiledKeys = rules.map(key);
+  const valid = rule => typeof rule?.id === "string" && rule.id.length > 0 && Number.isInteger(rule.revision);
+  if (!release.rules.every(valid) || !rules.every(valid)) throw new Error(`Release ${release.id} contains invalid rule references`);
+  if (new Set(release.rules.map(rule => rule.id)).size !== release.rules.length || new Set(rules.map(rule => rule.id)).size !== rules.length) throw new Error(`Release ${release.id} contains duplicate rule IDs`);
+  if (JSON.stringify([...manifestKeys].sort()) !== JSON.stringify([...compiledKeys].sort())) throw new Error(`Release ${release.id} must exactly match its compiled rule set`);
 }
 
 export function createEvaluator(pack) {
   pack.registry.validateContracts(pack.calculator.inputs, "calculator");
-  for (const rule of pack.rules) {
-    pack.registry.validateContracts(rule.inputs, `rule ${rule.id}`);
-    for (const condition of rule.scope || []) if (!pack.registry.definition(condition.fact)) throw new Error(`rule ${rule.id} references unknown scope property ${condition.fact}`);
-  }
+  for (const rule of pack.rules) validateRule(rule, pack.registry);
   return (source, rules = pack.rules, release = pack.release) => {
     const context = pack.registry.context(source);
-    const findings = evaluateRules(context, rules);
+    const selectedRelease = release === pack.release ? pack.release : { ontologyVersion: pack.release.ontologyVersion, actionPolicyVersion: pack.release.actionPolicyVersion, calculatorVersion: pack.release.calculatorVersion, ...release };
+    assertReleaseRuleSet(rules, selectedRelease);
+    const traces = evaluateRules(context, rules, { registry: pack.registry, release: selectedRelease });
+    const findings = traces.filter(trace => trace.outcome === "FINDING");
+    const findingRecords = findings.map(trace => trace.finding);
     const calculation = pack.calculator.calculate(context);
-    return { customer: source, facts: context.snapshot(), findings, action: pack.resolveAction(context, findings, calculation), calculation, release };
+    const reviewState = { hasIndeterminateRule: traces.some(trace => trace.outcome === "INDETERMINATE") };
+    const action = pack.resolveAction(context, findingRecords, calculation, reviewState);
+    return deepFreeze({ customer: { ...source }, facts: context.snapshot(), traces, findings, action, calculation, release: selectedRelease, versions: { resolver: pack.resolverVersion, calculator: calculation.version } });
   };
 }
 
@@ -74,8 +132,8 @@ export function compareBatch(fixtures, evaluateBaseline, evaluateCandidate) {
   const rows = fixtures.map(customer => {
     try {
       const baseline = evaluateBaseline(customer), candidate = evaluateCandidate(customer);
-      const baseCodes = new Set(baseline.findings.filter(x => x.status === "FINDING").map(x => x.reasonCode));
-      const candidateCodes = new Set(candidate.findings.filter(x => x.status === "FINDING").map(x => x.reasonCode));
+      const baseCodes = new Set(baseline.findings.map(trace => trace.finding.reasonCode));
+      const candidateCodes = new Set(candidate.findings.map(trace => trace.finding.reasonCode));
       return { customer, baseline, candidate, added: [...candidateCodes].filter(x => !baseCodes.has(x)), resolved: [...baseCodes].filter(x => !candidateCodes.has(x)) };
     } catch (error) {
       return { customer, error: error instanceof Error ? error.message : String(error), added: [], resolved: [] };
@@ -91,7 +149,7 @@ export function compareBatch(fixtures, evaluateBaseline, evaluateCandidate) {
     cleared: successful.filter(r => r.baseline.action.primary !== "AUTO_REVIEW_PASS" && r.candidate.action.primary === "AUTO_REVIEW_PASS").length,
     changedPrimaryAction: successful.filter(r => r.baseline.action.primary !== r.candidate.action.primary).length,
     addedFindings: successful.reduce((n, r) => n + r.added.length, 0), resolvedFindings: successful.reduce((n, r) => n + r.resolved.length, 0),
-    indeterminate: successful.reduce((n, r) => n + r.candidate.findings.filter(f => f.status === "INDETERMINATE").length + (r.candidate.calculation.status === "INDETERMINATE" ? 1 : 0), 0), errors: rows.length - successful.length,
+    indeterminate: successful.reduce((n, r) => n + r.candidate.traces.filter(trace => trace.outcome === "INDETERMINATE").length + (r.candidate.calculation.status === "INDETERMINATE" ? 1 : 0), 0), errors: rows.length - successful.length,
     limitIncrease: successful.filter(r => r.candidate.calculation.status === "CALCULATED" && r.candidate.calculation.direction === "INCREASE").length,
     limitDecrease: successful.filter(r => r.candidate.calculation.status === "CALCULATED" && r.candidate.calculation.direction === "DECREASE").length,
     limitNoChange: successful.filter(r => r.candidate.calculation.status === "NO_CHANGE_RECOMMENDED").length,
@@ -99,4 +157,51 @@ export function compareBatch(fixtures, evaluateBaseline, evaluateCandidate) {
     exposureDelta: deltas.reduce((a, b) => a + b, 0), largestDelta: deltas.reduce((a, b) => Math.abs(b) > Math.abs(a) ? b : a, 0)
   };
   return { rows, summary, complete: summary.errors === 0 && summary.indeterminate === 0 };
+}
+
+export function assessReviewImpact(cohort, evaluateBaseline, evaluateCandidate) {
+  const comparison = compareBatch(cohort.records, evaluateBaseline, evaluateCandidate);
+  const indeterminateEvaluations = comparison.rows.filter(row => !row.error && (row.candidate.traces.some(trace => trace.outcome === "INDETERMINATE") || row.candidate.calculation.status === "INDETERMINATE")).length;
+  const complete = comparison.summary.errors === 0 && indeterminateEvaluations === 0;
+  const summary = {
+    cohortId: cohort.id,
+    evaluated: comparison.summary.evaluated,
+    newlyRequiredReviews: comparison.summary.newlyReviewed,
+    reviewsCleared: comparison.summary.cleared,
+    changedPrimaryActions: comparison.summary.changedPrimaryAction,
+    addedFindings: comparison.summary.addedFindings,
+    resolvedFindings: comparison.summary.resolvedFindings,
+    indeterminateEvaluations,
+    errors: comparison.summary.errors,
+    complete
+  };
+  const rows = comparison.rows.map(row => {
+    const base = { customerId: row.customer.customer_number, label: row.customer.name };
+    if (row.error) return { ...base, error: row.error, addedFindings: [], resolvedFindings: [], evidenceRefs: [] };
+    const changedCodes = new Set([...row.added, ...row.resolved]);
+    const findingChanges = (result, codes) => codes.map(reasonCode => {
+      const trace = result.findings.find(item => item.finding.reasonCode === reasonCode);
+      return { reasonCode, policyTitle: trace.policy.title, evidenceRef: trace.evaluationRef };
+    });
+    return {
+      ...base,
+      baselineAction: row.baseline.action.primary,
+      candidateAction: row.candidate.action.primary,
+      addedFindings: row.added,
+      resolvedFindings: row.resolved,
+      addedFindingDetails: findingChanges(row.candidate, row.added),
+      resolvedFindingDetails: findingChanges(row.baseline, row.resolved),
+      evidenceRefs: [...row.baseline.traces, ...row.candidate.traces].filter(trace => trace.finding && changedCodes.has(trace.finding.reasonCode)).map(trace => trace.evaluationRef).filter((value, index, values) => values.indexOf(value) === index),
+      baselineCalculation: row.baseline.calculation.status,
+      candidateCalculation: row.candidate.calculation.status,
+      indeterminate: row.candidate.traces.some(trace => trace.outcome === "INDETERMINATE") || row.candidate.calculation.status === "INDETERMINATE"
+    };
+  });
+  const changedRows = rows.filter(row => row.error || row.indeterminate || row.baselineAction !== row.candidateAction || row.addedFindings.length || row.resolvedFindings.length);
+  const headline = !complete ? "Impact assessment incomplete"
+    : summary.newlyRequiredReviews && summary.reviewsCleared ? `${summary.newlyRequiredReviews} records enter review; ${summary.reviewsCleared} ${summary.reviewsCleared === 1 ? "leaves" : "leave"} review`
+      : summary.newlyRequiredReviews ? `${summary.newlyRequiredReviews} additional records require review`
+        : summary.reviewsCleared ? `${summary.reviewsCleared} records no longer require review`
+          : "No records cross the automatic-review boundary. Findings or review paths may still have changed.";
+  return deepFreeze({ summary, headline, changedRows, rows, complete });
 }

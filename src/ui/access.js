@@ -1,0 +1,63 @@
+const $ = selector => document.querySelector(selector);
+const clearDemoStorage = () => {
+  for (let index = sessionStorage.length - 1; index >= 0; index -= 1) {
+    const key = sessionStorage.key(index);
+    if (key?.startsWith("customer-review:")) sessionStorage.removeItem(key);
+  }
+};
+
+const showGate = message => {
+  document.body.classList.remove("auth-pending");
+  document.body.classList.add("auth-locked");
+  $("#accessGate").classList.remove("hidden");
+  $("#loginError").textContent = message;
+  $("#loginPassword").focus();
+};
+
+window.addEventListener("demo-auth-required", () => showGate("Your demo session expired. Sign in again to continue; this tab's product state is preserved."));
+
+const unlock = async status => {
+  document.body.classList.remove("auth-pending", "auth-locked");
+  $("#accessGate").classList.add("hidden");
+  $("#logoutButton").classList.toggle("hidden", !status.aiEnabled);
+  $("#aiStatus").innerHTML = `<span class="pulse"></span>${status.aiEnabled ? `Real ${status.modelDisplayName} calls` : "AI features disabled"}`;
+  document.documentElement.dataset.aiEnabled = String(status.aiEnabled);
+  if (status.aiEnabled) $("#simulateResponse").classList.add("hidden");
+  document.querySelector("#reviewView .workspace-header .eyebrow").textContent = status.aiEnabled ? "Illustrative POC · Fictional customer data · Real GPT-5.6 Luna calls" : "Illustrative POC · Fictional customer data · AI features disabled";
+  await import("./app.js");
+};
+
+const loadSession = async () => {
+  try {
+    const response = await fetch("/api/session", { credentials: "same-origin" });
+    if (response.status === 404) return unlock({ aiEnabled: false, modelDisplayName: null });
+    if (!response.ok) throw new Error();
+    const status = await response.json();
+    if (status.aiEnabled && !status.authenticated) return showGate("");
+    await unlock(status);
+  } catch { showGate("Session status is unavailable. Reload to try again."); }
+};
+
+$("#loginForm").addEventListener("submit", async event => {
+  event.preventDefault();
+  $("#loginError").textContent = "";
+  try {
+    const response = await fetch("/api/login", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify({ password: $("#loginPassword").value }) });
+    if (!response.ok) {
+      const result = await response.json().catch(() => null);
+      throw new Error(result?.error?.message || "Login failed");
+    }
+    window.location.reload();
+  } catch (error) { $("#loginError").textContent = error instanceof Error ? error.message : "Login failed"; }
+});
+
+$("#logoutButton").addEventListener("click", async () => {
+  try {
+    const response = await fetch("/api/logout", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: "{}" });
+    if (!response.ok) throw new Error();
+    clearDemoStorage();
+    window.location.reload();
+  } catch { $("#toast").textContent = "Logout could not be completed"; $("#toast").classList.add("show"); }
+});
+
+loadSession();
