@@ -45,6 +45,76 @@ Likely challenge: “How many reviews are missed?” We have not measured that. 
 -->
 
 ---
+class: architecture-slide
+---
+
+<p class="kicker">Target production direction · Not running in this POC</p>
+
+# The full architecture keeps operational authority in CIS
+
+<div class="architecture-poster">
+  <section class="architecture-zone experience-zone">
+    <header><i>1</i><b>Experience & workflow</b></header>
+    <div class="experience-parts">
+      <span>Customer Review UI</span><span>Customer Review API / Events</span><span>Identity & roles</span>
+    </div>
+  </section>
+
+  <section class="architecture-zone cis-zone">
+    <header><i>2</i><b>CIS authority</b></header>
+    <ul>
+      <li>Review application service</li><li>Authoritative customer facts</li><li>Review workflow / state / disposition</li><li>Audit</li><li>Customer-state mutation</li>
+    </ul>
+  </section>
+
+  <div class="cis-core" aria-label="CIS is the authority for facts, workflow, and customer state">
+    <div><strong>CIS</strong><span>Authoritative facts<br>workflow · state</span></div>
+    <small class="cis-input">facts →</small>
+    <small class="cis-output">← result</small>
+  </div>
+
+  <section class="architecture-zone runtime-zone">
+    <header><i>3</i><b>Review-time runtime</b><small>Approved policies only</small></header>
+    <ol>
+      <li>Customer facts adapter</li><li>PolicyDecisionPort</li><li>Approved pinned policy release</li><li>Candidate DMN runtime</li><li>Deterministic Findings</li><li>Recommendations + advisory calculations</li>
+    </ol>
+    <p>Fast · deterministic · isolated from authoring</p>
+  </section>
+
+  <div class="release-lane" aria-label="Only an immutable approved release crosses from the policy control plane into the review-time runtime"><b>←</b><span>Only immutable approved release</span></div>
+
+  <section class="architecture-zone control-plane-zone">
+    <header><i>4</i><b>Policy control plane</b><small>Authoring-time only</small></header>
+    <div class="control-sequence">
+      <span>Review Policy UI · policy intent</span><em>↓</em>
+      <span class="ai-part">Optional AI structured draft</span><em>↓</em>
+      <span>JSON schema + canonical typed policy model</span><em>↓</em>
+      <span class="gate-part">Candidate tools<br>Ontology + Jena/SHACL · DMN compiler · Z3 conflict analysis</span><em>↓</em>
+      <span>Batch impact qualification</span><em>↓</em>
+      <span class="human-part">Policy-release approval by authorized people</span><em>↓</em>
+      <span class="release-part">Immutable release publication · rollback</span>
+    </div>
+    <div class="authoring-services"><b>Authoring services</b><span>Approved model provider · optional RDF store</span></div>
+    <p><b>AI + Z3</b> never enter the review-time path</p>
+  </section>
+
+  <section class="architecture-zone platform-zone">
+    <header><i>5</i><b>Platform services</b></header>
+    <div>
+      <span>Existing review DB</span><span>Artifact storage</span><span>Secrets manager</span><span>Observability</span>
+    </div>
+  </section>
+</div>
+
+<p class="architecture-rule"><b>AI drafts. Deterministic systems verify. Authorized people approve.</b> CIS retains operational and customer-state authority.</p>
+
+<!--
+Use this as the map for the rest of the walkthrough. Start in the center: CIS is authoritative for facts, review workflow, disposition, audit, and customer state. Move right through the green review-time runtime, then explain the separately governed policy-authoring path.
+AI may draft structured policy, but deterministic systems validate, compile, compare, and qualify it before an authorized person can approve publication. Only an immutable approved release crosses into the review-time runtime.
+Jena/SHACL, DMN, and Z3 are candidate production components from NEXT_STEPS.md; none runs in the current POC.
+-->
+
+---
 
 <p class="kicker">The objective</p>
 
