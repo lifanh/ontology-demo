@@ -390,6 +390,14 @@ test("unattended browser flows preserve semantics, accessibility, terminal state
     await page.locator("#runBatch").click();
     assert.match(await page.locator("#resultSection").textContent(), /Evidence complete/);
     assert.equal(await page.locator(".batch-table tbody tr").count(), 12);
+    await page.locator(".batch-record").first().click();
+    const dryRunDialog = await page.getByRole("dialog").textContent();
+    assert.match(dryRunDialog, /Impact NET30 4%.*Fictional boundary record · Customer 3001.*4\.0% past-due ratio.*Policy-relevant facts.*Payment terms.*NET 30.*AR balance.*\$100,000.*Past due amount.*\$4,000/s);
+    assert.match(dryRunDialog, /Dry-run outcome.*Active policy.*Candidate policy/s);
+    assert.match(dryRunDialog, /Maximum 8% past due.*Maximum 5% past due.*Within threshold/s);
+    assert.match(dryRunDialog, /Auto review pass.*Candidate impact: The candidate produces no change/s);
+    assert.match(dryRunDialog, /All input facts.*Technical fixture details/s);
+    await page.locator(".dialog-close").click();
     await page.locator("#generatePolicyExplanation").click();
     await page.getByText("Grounded policy evidence summary").waitFor();
 

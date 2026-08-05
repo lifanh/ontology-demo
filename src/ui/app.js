@@ -365,6 +365,54 @@ function formatFact(id, value) {
   return String(value).replaceAll("_", " ");
 }
 
+function formatBusinessFact(id, value) {
+  if (["restricted_status", "discontinued_status"].includes(id)) return value === "Y" ? "Yes" : value === "N" ? "No" : "Not available";
+  return formatFact(id, value);
+}
+
+function policyThreshold(rule) {
+  if (rule.constraint?.type === "SET_MAX_RATIO") return `Maximum ${number(rule.constraint.value * 100)}% past due`;
+  if (rule.constraint?.type === "SET_MAX") return `Maximum ${number(rule.constraint.value)} ${String(rule.constraint.unit || "").toLowerCase()}`;
+  return "See policy statement";
+}
+
+function policyOutcome(result, logicalId) {
+  const outcome = result.traces.find(trace => trace.policyRef.ruleId === logicalId)?.outcome;
+  return { FINDING: "Threshold exceeded", PASS: "Within threshold", NOT_APPLICABLE: "Policy does not apply", INDETERMINATE: "Could not determine" }[outcome] || "Not evaluated";
+}
+
+function renderImpactRecord(record, row) {
+  const context = registry.context(record);
+  const logicalId = governance.current.logicalId;
+  const keyFacts = logicalId === "HIGH_BALANCE_ADP_MAX"
+    ? ["ar_balance", "adp_days", "restricted_status", "payment_terms", "past_due_amount", "past_due_ratio"]
+    : ["payment_terms", "ar_balance", "past_due_amount", "past_due_ratio", "adp_days", "restricted_status"];
+  const factList = ids => `<dl class="impact-fact-grid">${ids.map(id => `<div><dt>${escapeHtml(registry.definition(id).displayName)}</dt><dd>${escapeHtml(formatBusinessFact(id, context.get(id)))}</dd></div>`).join("")}</dl>`;
+  const boundary = logicalId === "HIGH_BALANCE_ADP_MAX"
+    ? `This record tests ${formatBusinessFact("adp_days", context.get("adp_days"))} for an ${formatBusinessFact("restricted_status", context.get("restricted_status")) === "No" ? "unrestricted" : "restricted"} customer with ${formatBusinessFact("ar_balance", context.get("ar_balance"))} in accounts receivable.`
+    : `This record tests a ${formatBusinessFact("past_due_ratio", context.get("past_due_ratio"))} past-due ratio for a ${formatBusinessFact("payment_terms", context.get("payment_terms"))} customer.`;
+  let outcome;
+  if (row.error) {
+    outcome = `<p class="impact-callout"><b>Evaluation could not complete.</b> This record is included so the input and failure remain inspectable.</p>`;
+  } else {
+    const candidateSet = candidateRules();
+    const activeResult = evaluate(record, activeRuleSet, governance.activeRelease);
+    const candidateResult = evaluate(record, candidateSet, candidateRelease(candidateSet));
+    const activeRule = activeRuleSet.find(rule => rule.id === logicalId);
+    const candidateRule = candidateSet.find(rule => rule.id === logicalId);
+    const actionChanged = row.baselineAction !== row.candidateAction;
+    const findingChanged = row.addedFindingDetails.length || row.resolvedFindingDetails.length;
+    const impact = actionChanged
+      ? `The candidate changes the recommended review action from ${labels[row.baselineAction] || row.baselineAction} to ${labels[row.candidateAction] || row.candidateAction}.`
+      : findingChanged
+        ? `The recommended review action remains ${labels[row.candidateAction] || row.candidateAction}, but the candidate changes the policy findings.`
+        : `The candidate produces no change for this record; the recommended action remains ${labels[row.candidateAction] || row.candidateAction}.`;
+    outcome = `<div class="impact-comparison" role="region" aria-label="Active and candidate policy comparison"><table><thead><tr><th></th><th>Active policy</th><th>Candidate policy</th></tr></thead><tbody><tr><th>Threshold</th><td>${escapeHtml(policyThreshold(activeRule))}</td><td>${escapeHtml(policyThreshold(candidateRule))}</td></tr><tr><th>Policy result</th><td>${escapeHtml(policyOutcome(activeResult, logicalId))}</td><td>${escapeHtml(policyOutcome(candidateResult, logicalId))}</td></tr><tr><th>Review action</th><td>${escapeHtml(labels[row.baselineAction] || row.baselineAction)}</td><td>${escapeHtml(labels[row.candidateAction] || row.candidateAction)}</td></tr></tbody></table></div><p class="impact-callout"><b>Candidate impact:</b> ${escapeHtml(impact)}</p>`;
+  }
+  const groupedInputs = Object.entries(properties).filter(([id]) => !["customer_number", "name"].includes(id)).reduce((groups, [id, definition]) => ((groups[definition.group] ||= []).push(id), groups), {});
+  return `<p class="impact-fictional">Fictional boundary record · Customer ${record.customer_number}</p><p>${escapeHtml(boundary)}</p><section class="impact-section"><h4>Policy-relevant facts</h4>${factList(keyFacts)}</section><section class="impact-section"><h4>Dry-run outcome</h4>${outcome}</section><details class="impact-inputs"><summary>All input facts</summary>${Object.entries(groupedInputs).map(([group, ids]) => `<section><h4>${escapeHtml(group)}</h4>${factList(ids)}</section>`).join("")}</details><details><summary>Technical fixture details</summary><pre>${escapeHtml(JSON.stringify(record, null, 2))}</pre></details>`;
+}
+
 function policyStatusLabel(status) {
   return POLICY_STATE_LABELS[status] || status.toLowerCase().replaceAll("_", " ").replace(/^./, character => character.toUpperCase());
 }
@@ -528,8 +576,8 @@ function renderBatch() {
     ["Cohort Size", summary.evaluated]
   ];
   const rows = batch.rows.map(row => row.error
-    ? `<tr class="batch-error"><td>${escapeHtml(row.label)}</td><td colspan="3"><b>Evaluation error:</b> ${escapeHtml(row.error)}</td></tr>`
-    : `<tr><td>${escapeHtml(row.label)}</td><td>${escapeHtml(labels[row.baselineAction] || row.baselineAction)}</td><td>${escapeHtml(labels[row.candidateAction] || row.candidateAction)}</td><td><b>Added:</b> ${row.addedFindingDetails.map(item => `${escapeHtml(item.policyTitle)} <small>(${escapeHtml(item.reasonCode)})</small>`).join(" · ") || "none"}<br><b>Resolved:</b> ${row.resolvedFindingDetails.map(item => `${escapeHtml(item.policyTitle)} <small>(${escapeHtml(item.reasonCode)})</small>`).join(" · ") || "none"}<br><small>${row.evidenceRefs.map(escapeHtml).join(" · ")}</small></td></tr>`).join("");
+    ? `<tr class="batch-error"><td><button class="batch-record" data-impact-record="${row.customerId}">${escapeHtml(row.label)}</button></td><td colspan="3"><b>Evaluation error:</b> ${escapeHtml(row.error)}</td></tr>`
+    : `<tr><td><button class="batch-record" data-impact-record="${row.customerId}">${escapeHtml(row.label)}</button></td><td>${escapeHtml(labels[row.baselineAction] || row.baselineAction)}</td><td>${escapeHtml(labels[row.candidateAction] || row.candidateAction)}</td><td><b>Added:</b> ${row.addedFindingDetails.map(item => `${escapeHtml(item.policyTitle)} <small>(${escapeHtml(item.reasonCode)})</small>`).join(" · ") || "none"}<br><b>Resolved:</b> ${row.resolvedFindingDetails.map(item => `${escapeHtml(item.policyTitle)} <small>(${escapeHtml(item.reasonCode)})</small>`).join(" · ") || "none"}<br><small>${row.evidenceRefs.map(escapeHtml).join(" · ")}</small></td></tr>`).join("");
   const baselineReleaseId = governance.evidence.batch?.releaseId || governance.activeRelease.id;
   return `<section class="batch-panel"><p class="eyebrow">Review impact · Baseline ${escapeHtml(baselineReleaseId)}</p><h3>${escapeHtml(batch.headline)}</h3><p><b>Fixed fictional boundary cohort—not a production portfolio, forecast, or workload estimate.</b></p><div class="metric-grid">${metrics.map(([label, value]) => `<div><small>${escapeHtml(label)}</small><b>${escapeHtml(value)}</b></div>`).join("")}</div><div class="batch-table" role="region" aria-label="Review impact records" tabindex="0"><table><thead><tr><th>Record</th><th>Baseline action</th><th>Candidate action</th><th>Finding changes and evidence</th></tr></thead><tbody>${rows}</tbody></table></div><details><summary>Full cohort output and raw JSON (${summary.evaluated} records)</summary><pre>${escapeHtml(JSON.stringify(batch.rows, null, 2))}</pre></details></section>`;
 }
@@ -735,10 +783,21 @@ document.addEventListener("click", event => {
     renderReview(narrativeCustomers.find(customer => customer.customer_number === selectedCustomerNumber));
     showToast("Workspace reset");
   }
+  const impactRecordButton = event.target.closest("[data-impact-record]");
+  if (impactRecordButton) {
+    const record = policyImpactCohort.records.find(item => item.customer_number === Number(impactRecordButton.dataset.impactRecord));
+    if (record) {
+      const row = batch?.rows.find(item => item.customerId === record.customer_number);
+      $("#propertyDialog").classList.add("impact-dialog");
+      $("#dialogTitle").textContent = record.name;
+      $("#dialogBody").innerHTML = renderImpactRecord(record, row);
+      $("#propertyDialog").showModal();
+    }
+  }
   const property = event.target.closest("[data-property]");
-  if (property) { const id = property.dataset.property, definition = registry.definition(id), value = registry.context(demoCustomer).get(id); $("#dialogTitle").textContent = definition.displayName; $("#dialogBody").textContent = JSON.stringify({ id: `customer.${id}`, ...definition, exampleValue: value }, null, 2); $("#propertyDialog").showModal(); }
-  if (event.target.closest("#browseActivePolicy")) { $("#dialogTitle").textContent = `Active Policy Version ${governance.activeRelease.id}`; $("#dialogBody").innerHTML = activeRuleSet.map(rule => `<article><h4>${escapeHtml(rule.policy.title)} · ${escapeHtml(rule.id)}@${rule.revision}</h4><p>${escapeHtml(rule.policy.statement)}</p></article>`).join(""); $("#propertyDialog").showModal(); }
-  if (event.target.closest("#browseFactCatalog")) { $("#dialogTitle").textContent = "Fact catalog · fictional illustrative values"; $("#dialogBody").innerHTML = $("#ontologyGrid").innerHTML; $("#propertyDialog").showModal(); }
+  if (property) { const id = property.dataset.property, definition = registry.definition(id), value = registry.context(demoCustomer).get(id); $("#propertyDialog").classList.remove("impact-dialog"); $("#dialogTitle").textContent = definition.displayName; $("#dialogBody").textContent = JSON.stringify({ id: `customer.${id}`, ...definition, exampleValue: value }, null, 2); $("#propertyDialog").showModal(); }
+  if (event.target.closest("#browseActivePolicy")) { $("#propertyDialog").classList.remove("impact-dialog"); $("#dialogTitle").textContent = `Active Policy Version ${governance.activeRelease.id}`; $("#dialogBody").innerHTML = activeRuleSet.map(rule => `<article><h4>${escapeHtml(rule.policy.title)} · ${escapeHtml(rule.id)}@${rule.revision}</h4><p>${escapeHtml(rule.policy.statement)}</p></article>`).join(""); $("#propertyDialog").showModal(); }
+  if (event.target.closest("#browseFactCatalog")) { $("#propertyDialog").classList.remove("impact-dialog"); $("#dialogTitle").textContent = "Fact catalog · fictional illustrative values"; $("#dialogBody").innerHTML = $("#ontologyGrid").innerHTML; $("#propertyDialog").showModal(); }
   if (event.target.closest(".dialog-close")) $("#propertyDialog").close();
   if (event.target.closest("#runDmnDemo")) { const result = evaluate(demoCustomer, activeRuleSet, governance.activeRelease); $("#dmnDryRunResult").innerHTML = `<div class="decision-result-heading"><div><span>Ontology-backed runtime · ${escapeHtml(result.release.id)}</span><h5>${escapeHtml(result.action.primary.replaceAll("_", " "))}</h5><p>${result.findings.length} findings · recommended ${money(result.calculation.recommended)}</p></div></div><pre class="artifact-code">${escapeHtml(JSON.stringify({ action: result.action, calculation: result.calculation, traces: result.traces }, null, 2))}</pre>`; }
 });
