@@ -489,6 +489,15 @@ test("unattended browser flows preserve semantics, accessibility, terminal state
     assert.equal((await page.locator("#candidateState").textContent()).trim(), "Validation blocked");
     assert.match(await page.locator("#resultSection").textContent(), /does not match its supported policy family/);
     assert.match(await page.locator("#evidenceSpine").textContent(), /Blocked.*does not match its supported policy family.*Not run · prerequisite unmet.*Not run · prerequisite unmet/s);
+
+    await page.locator("#policyInput").fill("slow draft for a 15% maximum");
+    await page.locator("#generatePrompt").click();
+    await page.locator("#dslInput").fill("RULE NET30_PAST_DUE_MAX\nSCOPE customer.payment_terms == \"NET_30\"\nSET_MAX_RATIO customer.past_due_amount\n    TO customer.ar_balance = 0.06\nEND");
+    await page.locator("#applySourceEdit").click();
+    await page.waitForTimeout(250);
+    assert.match(await page.locator("#dslInput").inputValue(), /= 0\.06/);
+    assert.match(await page.locator("#candidateProvenance").textContent(), /Human-edited candidate/);
+    assert.equal((await page.locator("#candidateState").textContent()).trim(), "Draft");
   } finally {
     await browser.close();
     try { process.kill(-vite.pid, "SIGTERM"); } catch {}

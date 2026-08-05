@@ -844,6 +844,7 @@ document.addEventListener("change", event => {
 });
 
 $("#policyInput").addEventListener("input", () => { invalidateDraftRequest(); $("#charCount").textContent = `${$("#policyInput").value.length} characters`; });
+$("#dslInput").addEventListener("input", invalidateDraftRequest);
 document.querySelectorAll("[data-view]").forEach(button => button.addEventListener("click", () => setProductView(button.dataset.view)));
 $(".case-tabs").addEventListener("keydown", event => {
   if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
