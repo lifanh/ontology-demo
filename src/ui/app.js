@@ -371,6 +371,17 @@ function formatBusinessFact(id, value) {
   return formatFact(id, value);
 }
 
+function renderActiveRule(rule) {
+  const predicate = item => `${registry.definition(item.fact).displayName} ${operator[item.op] || item.op} ${formatBusinessFact(item.fact, item.value)}`;
+  const factIds = [...new Set([...rule.scope, ...rule.conditions].map(item => item.fact).concat(rule.constraint?.fact || [], rule.constraint?.numerator || [], rule.constraint?.denominator || []))];
+  const factLinks = factIds.map(id => `<button class="ontology-property" data-property="${escapeHtml(id)}">${escapeHtml(registry.definition(id).displayName)}</button>`).join(" ");
+  return `<article><h4>${escapeHtml(rule.policy.title)} · ${escapeHtml(rule.id)}@${rule.revision}</h4><p>${escapeHtml(rule.policy.statement)}</p><dl><dt>Scope</dt><dd>${escapeHtml(rule.scope.length ? rule.scope.map(predicate).join(" and ") : "All customers")}</dd><dt>Finding when</dt><dd>${escapeHtml(rule.conditions.map(predicate).join(" and "))}</dd><dt>Constraint</dt><dd>${escapeHtml(rule.constraint ? policyThreshold(rule) : "No separately declared constraint")}</dd><dt>Supporting facts</dt><dd class="active-rule-facts">${factLinks}</dd></dl></article>`;
+}
+
+function showReferenceDialog() {
+  if (!$("#propertyDialog").open) $("#propertyDialog").showModal();
+}
+
 function policyThreshold(rule) {
   if (rule.constraint?.type === "SET_MAX_RATIO") return `Maximum ${number(rule.constraint.value * 100)}% past due`;
   if (rule.constraint?.type === "SET_MAX") return `Maximum ${number(rule.constraint.value)} ${String(rule.constraint.unit || "").toLowerCase()}`;
@@ -458,7 +469,7 @@ async function generateDraft() {
         showToast("The drafted candidate matches the current Policy Change. Existing evidence is unchanged.");
         return;
       }
-      selected = result.family === "NET30_PAST_DUE_MAX" ? "ratio5" : "adp20";
+      selected = Object.entries(scenarios).find(([, scenario]) => scenario.logicalId === result.family && scenario.policy === policyText && formatRule(scenario.ast, { root: "customer" }) === result.dsl)?.[0] || null;
       document.querySelectorAll(".scenario").forEach(item => { const active = item.dataset.scenario === selected; item.classList.toggle("active", active); item.setAttribute("aria-pressed", String(active)); });
       staleCurrentPolicyExplanation();
       const candidate = { logicalId: result.family, revision: nextRuleRevision(result.family), sourcePolicy: policyText, sourceDsl: result.dsl, ast: null, provenance: "AI" };
@@ -743,6 +754,7 @@ document.addEventListener("click", event => {
     else showToast("AI is disabled. Use the example candidate or edit source manually.");
   }
   if (event.target.closest("#simulateResponse")) {
+    if (!selected) return showToast("Choose an example intent before using an example candidate.");
     const sourceDsl = formatRule(scenarios[selected].ast, { root: "customer" });
     $("#dslInput").value = sourceDsl;
     const changes = { sourcePolicy: $("#policyInput").value, sourceDsl, ast: null, provenance: "EXAMPLE" };
@@ -810,13 +822,13 @@ document.addEventListener("click", event => {
       $("#propertyDialog").classList.add("impact-dialog");
       $("#dialogTitle").textContent = record.name;
       $("#dialogBody").innerHTML = renderImpactRecord(record, row);
-      $("#propertyDialog").showModal();
+      showReferenceDialog();
     }
   }
   const property = event.target.closest("[data-property]");
-  if (property) { const id = property.dataset.property, definition = registry.definition(id), value = registry.context(demoCustomer).get(id); $("#propertyDialog").classList.remove("impact-dialog"); $("#dialogTitle").textContent = definition.displayName; $("#dialogBody").textContent = JSON.stringify({ id: `customer.${id}`, ...definition, exampleValue: value }, null, 2); $("#propertyDialog").showModal(); }
-  if (event.target.closest("#browseActivePolicy")) { $("#propertyDialog").classList.remove("impact-dialog"); $("#dialogTitle").textContent = `Active Policy Version ${governance.activeRelease.id}`; $("#dialogBody").innerHTML = activeRuleSet.map(rule => `<article><h4>${escapeHtml(rule.policy.title)} · ${escapeHtml(rule.id)}@${rule.revision}</h4><p>${escapeHtml(rule.policy.statement)}</p></article>`).join(""); $("#propertyDialog").showModal(); }
-  if (event.target.closest("#browseFactCatalog")) { $("#propertyDialog").classList.remove("impact-dialog"); $("#dialogTitle").textContent = "Fact catalog · fictional illustrative values"; $("#dialogBody").innerHTML = $("#ontologyGrid").innerHTML; $("#propertyDialog").showModal(); }
+  if (property) { const id = property.dataset.property, definition = registry.definition(id), value = registry.context(demoCustomer).get(id); $("#propertyDialog").classList.remove("impact-dialog"); $("#dialogTitle").textContent = definition.displayName; $("#dialogBody").textContent = JSON.stringify({ id: `customer.${id}`, ...definition, exampleValue: value }, null, 2); showReferenceDialog(); }
+  if (event.target.closest("#browseActivePolicy")) { $("#propertyDialog").classList.remove("impact-dialog"); $("#dialogTitle").textContent = `Active Policy Version ${governance.activeRelease.id}`; $("#dialogBody").innerHTML = activeRuleSet.map(renderActiveRule).join(""); showReferenceDialog(); }
+  if (event.target.closest("#browseFactCatalog")) { $("#propertyDialog").classList.remove("impact-dialog"); $("#dialogTitle").textContent = "Fact catalog · fictional illustrative values"; $("#dialogBody").innerHTML = $("#ontologyGrid").innerHTML; showReferenceDialog(); }
   if (event.target.closest(".dialog-close")) $("#propertyDialog").close();
   if (event.target.closest("#runDmnDemo")) { const result = evaluate(demoCustomer, activeRuleSet, governance.activeRelease); $("#dmnDryRunResult").innerHTML = `<div class="decision-result-heading"><div><span>Ontology-backed runtime · ${escapeHtml(result.release.id)}</span><h5>${escapeHtml(result.action.primary.replaceAll("_", " "))}</h5><p>${result.findings.length} findings · recommended ${money(result.calculation.recommended)}</p></div></div><pre class="artifact-code">${escapeHtml(JSON.stringify({ action: result.action, calculation: result.calculation, traces: result.traces }, null, 2))}</pre>`; }
 });
@@ -882,12 +894,14 @@ try {
   const saved = JSON.parse(sessionStorage.getItem(STUDIO_STORAGE_KEY) || "null");
   if (saved) {
     resetReleaseBoundReviews = Boolean(saved.governance?.activeReleaseId && (saved.governance.activeReleaseId !== release.id || saved.governance.releaseHistory?.length > 1));
-    selected = Object.hasOwn(scenarios, saved.selected) ? saved.selected : "ratio5";
+    const restoredSelection = saved.selected === null ? null : Object.hasOwn(scenarios, saved.selected) ? saved.selected : "ratio5";
+    selected = restoredSelection || "ratio5";
     resetState();
+    selected = restoredSelection;
     restoreStudio(saved);
     policyExplanations = saved.policyExplanations && typeof saved.policyExplanations === "object" && !Array.isArray(saved.policyExplanations) ? Object.fromEntries(Object.entries(saved.policyExplanations).filter(([, value]) => isPolicyExplanation(value))) : {};
     stalePolicyExplanations = Array.isArray(saved.stalePolicyExplanations) ? saved.stalePolicyExplanations.filter(item => item?.logicalId && Number.isInteger(item.candidateRevision) && item.activeReleaseId === release.id && isPolicyExplanation(item.result)) : [];
-    $("#policyInput").value = saved.policyInput || governance.current.sourcePolicy || scenarios[selected].policy;
+    $("#policyInput").value = saved.policyInput || governance.current.sourcePolicy || scenarios[selected]?.policy || "";
     $("#dslInput").value = governance.current.sourceDsl || "";
     renderPolicySummary();
   }

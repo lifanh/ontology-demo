@@ -257,6 +257,8 @@ test("a static asset host with no session API unlocks deterministic-only mode", 
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage();
+    const pageErrors = [];
+    page.on("pageerror", error => pageErrors.push(error.message));
     await page.route("**/api/session", route => route.fulfill({ status: 404, body: "Not found" }));
     await page.goto(`http://127.0.0.1:${port}/`);
     await page.locator("#actionTitle").waitFor();
@@ -302,7 +304,12 @@ test("a static asset host with no session API unlocks deterministic-only mode", 
     assert.match(await page.locator("#resultSection").textContent(), /Deterministic validation blocked.*RULE_ID_MISMATCH.*Expected stable ID HIGH_BALANCE_ADP_MAX; received NET30_PAST_DUE_MAX/s);
     await page.locator("#browseActivePolicy").click();
     assert.equal(await page.getByRole("dialog").getByText(/Active Policy Version credit-1\.4\.0/).count(), 1);
+    assert.match(await page.getByRole("dialog").textContent(), /High-balance payment limit.*Scope.*Restricted status is No and AR balance is greater than \$100,000.*Finding when.*Average days to pay is greater than 25 days.*Constraint.*Maximum 25 days.*Supporting facts/s);
     await page.locator(".dialog-close").click();
+    await page.locator("#browseFactCatalog").click();
+    await page.getByRole("dialog").getByRole("button", { name: /Payment terms/ }).click();
+    assert.match(await page.getByRole("dialog").textContent(), /Payment terms.*customer\.payment_terms/s);
+    assert.deepEqual(pageErrors, []);
   } finally {
     await browser.close();
     try { process.kill(-vite.pid, "SIGTERM"); } catch {}
@@ -384,6 +391,8 @@ test("unattended browser flows preserve semantics, accessibility, terminal state
     await page.locator('[data-scenario="ratio15"]').click();
     await page.locator("#generatePrompt").click();
     await page.getByText(/AI-drafted candidate/).waitFor();
+    assert.equal(await page.locator('[data-scenario="ratio15"]').getAttribute("aria-pressed"), "true");
+    assert.equal(await page.locator('[data-scenario="ratio5"]').getAttribute("aria-pressed"), "false");
     await page.locator("#validateButton").click();
     await page.locator("#analyzeEvidence").click();
     assert.match(await page.locator("#resultSection").textContent(), /Conflict/);
@@ -439,11 +448,13 @@ test("unattended browser flows preserve semantics, accessibility, terminal state
     assert.match(await page.locator("#dslInput").inputValue(), /= 0\.05/);
     await page.locator("#generatePrompt").click();
     await page.getByText("Stable ID NET30_PAST_DUE_MAX · candidate revision 6", { exact: true }).waitFor();
+    assert.equal(await page.locator('.scenario[aria-pressed="true"]').count(), 0);
     assert.equal((await page.locator("#candidateState").textContent()).trim(), "Draft");
     assert.match(await page.locator("#evidenceSpine").textContent(), /Stale evidence snapshots.*candidate revision 5.*credit-1\.4\.0/s);
     assert.match(await page.locator("#evidenceSpine").textContent(), /Stale generated summaries.*Grounded policy evidence summary/s);
     await page.reload();
     await page.locator("#studioView:not(.hidden)").waitFor();
+    assert.equal(await page.locator('.scenario[aria-pressed="true"]').count(), 0);
     assert.equal((await page.locator("#candidateState").textContent()).trim(), "Draft");
     assert.match(await page.locator("#evidenceSpine").textContent(), /Stale evidence snapshots.*Stale generated summaries/s);
     await page.locator("#openValidation").click();
