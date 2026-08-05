@@ -397,6 +397,13 @@ test("unattended browser flows preserve semantics, accessibility, terminal state
     await page.locator("#analyzeEvidence").click();
     await page.locator("#runBatch").click();
     assert.match(await page.locator("#resultSection").textContent(), /Evidence complete/);
+    const unchangedDraftResponse = page.waitForResponse(response => response.url().endsWith("/api/ai/draft_rule"));
+    await page.locator("#generatePrompt").click();
+    await unchangedDraftResponse;
+    await page.waitForFunction(() => !document.querySelector("#generatePrompt").disabled);
+    assert.equal((await page.locator("#candidateState").textContent()).trim(), "Evidence complete");
+    assert.match(await page.locator("#policyWorkbenchMeta").textContent(), /candidate revision 5/);
+    assert.match(await page.locator("#resultSection").textContent(), /3 additional records require review/);
     const impactRecordIds = await page.locator(".batch-record").evaluateAll(buttons => buttons.map(button => button.dataset.impactRecord));
     assert.deepEqual(impactRecordIds.slice(0, 3), ["3003", "3004", "3005"]);
     assert.equal(impactRecordIds.length, 12);
@@ -431,9 +438,9 @@ test("unattended browser flows preserve semantics, accessibility, terminal state
     assert.equal((await page.locator("#candidateState").textContent()).trim(), "Evidence complete");
     assert.match(await page.locator("#dslInput").inputValue(), /= 0\.05/);
     await page.locator("#generatePrompt").click();
-    await page.getByText("Stable ID NET30_PAST_DUE_MAX · candidate revision 7", { exact: true }).waitFor();
+    await page.getByText("Stable ID NET30_PAST_DUE_MAX · candidate revision 6", { exact: true }).waitFor();
     assert.equal((await page.locator("#candidateState").textContent()).trim(), "Draft");
-    assert.match(await page.locator("#evidenceSpine").textContent(), /Stale evidence snapshots.*candidate revision 6.*credit-1\.4\.0/s);
+    assert.match(await page.locator("#evidenceSpine").textContent(), /Stale evidence snapshots.*candidate revision 5.*credit-1\.4\.0/s);
     assert.match(await page.locator("#evidenceSpine").textContent(), /Stale generated summaries.*Grounded policy evidence summary/s);
     await page.reload();
     await page.locator("#studioView:not(.hidden)").waitFor();
@@ -446,7 +453,7 @@ test("unattended browser flows preserve semantics, accessibility, terminal state
 
     await page.locator("#policyInput").fill("For NET 30 customers, set maximum past due to 9% of AR balance.");
     await page.locator("#generatePrompt").click();
-    await page.getByText("Stable ID NET30_PAST_DUE_MAX · candidate revision 8", { exact: true }).waitFor();
+    await page.getByText("Stable ID NET30_PAST_DUE_MAX · candidate revision 7", { exact: true }).waitFor();
     await page.locator("#validateButton").click();
     await page.locator("#analyzeEvidence").click();
     assert.match(await page.locator("#resultSection").textContent(), /Compatible relaxation/);

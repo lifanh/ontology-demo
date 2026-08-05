@@ -448,6 +448,16 @@ async function generateDraft() {
       $("#dslInput").value = result.dsl;
       const activeRevision = activeRuleSet.find(rule => rule.id === result.family)?.revision;
       if (!Number.isInteger(activeRevision)) throw new Error("The rule family is not present in the active policy version.");
+      if (governance.current.logicalId === result.family && governance.current.sourcePolicy === policyText && governance.current.sourceDsl === result.dsl) {
+        if (governance.current.state === "DRAFT" && governance.current.provenance === "EXAMPLE") {
+          governance.updateDraft({ provenance: "AI" });
+          persistStudio();
+          renderPolicySummary();
+        }
+        $("#editorSection").open = true;
+        showToast("The drafted candidate matches the current Policy Change. Existing evidence is unchanged.");
+        return;
+      }
       selected = result.family === "NET30_PAST_DUE_MAX" ? "ratio5" : "adp20";
       document.querySelectorAll(".scenario").forEach(item => { const active = item.dataset.scenario === selected; item.classList.toggle("active", active); item.setAttribute("aria-pressed", String(active)); });
       staleCurrentPolicyExplanation();
