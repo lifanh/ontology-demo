@@ -472,6 +472,11 @@ async function generateDraft() {
   } finally { if (requestVersion === draftRequestVersion) button.disabled = false; }
 }
 
+function invalidateDraftRequest() {
+  draftRequestVersion += 1;
+  $("#generatePrompt").disabled = false;
+}
+
 function updateDraft(changes, { material = false } = {}) {
   staleCurrentPolicyExplanation();
   if (material || governance.current.state !== "DRAFT") governance.edit(changes);
@@ -670,7 +675,7 @@ function setScenario(id, { resetReleases = false } = {}) {
   const replacingMaterialWork = governance && (governance.revisions.length > 1 || Object.keys(governance.evidence).length || ["AI", "HUMAN_EDIT"].includes(governance.current.provenance));
   const hasUnappliedChanges = governance && ($("#policyInput").value !== governance.current.sourcePolicy || $("#dslInput").value !== governance.current.sourceDsl);
   if (!resetReleases && (replacingMaterialWork || hasUnappliedChanges) && !window.confirm("Replace the current session Policy Change? Candidate edits and evidence for this change will be cleared.")) return;
-  draftRequestVersion += 1;
+  invalidateDraftRequest();
   selected = id;
   resetState();
   document.querySelectorAll(".scenario").forEach(button => { const active = button.dataset.scenario === id; button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active)); });
@@ -751,6 +756,7 @@ document.addEventListener("click", event => {
       if (governance.current.state !== "DRAFT") throw new Error("Edit the DSL to create a new draft revision before validating again.");
       const ast = parseRule($("#dslInput").value, registry, { root: "customer" });
       if (ast.id !== governance.current.logicalId) throw new Error(`RULE_ID_MISMATCH\nExpected stable ID ${governance.current.logicalId}; received ${ast.id}.`);
+      compileCandidate(ast, governance.current.revision);
       governance.updateDraft({ ast, sourceDsl: $("#dslInput").value });
       governance.record("validation", { valid: true, ast });
       renderGovernance("Ontology, types, enums, units, and bounded DSL syntax validated for this exact revision.");
@@ -815,7 +821,7 @@ document.addEventListener("change", event => {
   }
 });
 
-$("#policyInput").addEventListener("input", () => { draftRequestVersion += 1; $("#charCount").textContent = `${$("#policyInput").value.length} characters`; });
+$("#policyInput").addEventListener("input", () => { invalidateDraftRequest(); $("#charCount").textContent = `${$("#policyInput").value.length} characters`; });
 document.querySelectorAll("[data-view]").forEach(button => button.addEventListener("click", () => setProductView(button.dataset.view)));
 $(".case-tabs").addEventListener("keydown", event => {
   if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;

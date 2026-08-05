@@ -331,6 +331,7 @@ test("unattended browser flows preserve semantics, accessibility, terminal state
       if (body.policyText.includes("timeout")) return route.fulfill({ status: 504, json: { error: { code: "PROVIDER_TIMEOUT", message: "Draft request timed out", retryable: true, correlationId: "policy-draft-timeout" } } });
       if (body.policyText.includes("clarify")) return route.fulfill({ json: { schemaVersion: "1", operation: "draft_rule", result: { outcome: "NEEDS_CLARIFICATION", question: "Which supported threshold should change?", missingFields: ["threshold"] } } });
       if (body.policyText.includes("unsupported")) return route.fulfill({ json: { schemaVersion: "1", operation: "draft_rule", result: { outcome: "UNSUPPORTED", summary: "This intent is outside the two supported policy families." } } });
+      if (body.policyText.includes("slow draft")) await new Promise(resolve => setTimeout(resolve, 200));
       const ratio = body.policyText.includes("15%") ? "0.15" : body.policyText.includes("9%") ? "0.09" : body.policyText.includes("8%") ? "0.08" : "0.05";
       await route.fulfill({ json: { schemaVersion: "1", operation: "draft_rule", result: { outcome: "CANDIDATE", family: "NET30_PAST_DUE_MAX", summary: "Bounded candidate.", dsl: `RULE NET30_PAST_DUE_MAX\nSCOPE customer.payment_terms == "NET_30"\nSET_MAX_RATIO customer.past_due_amount\n    TO customer.ar_balance = ${ratio}\nEND` } } });
     });
@@ -420,7 +421,15 @@ test("unattended browser flows preserve semantics, accessibility, terminal state
       assert.match(await page.locator("#resultSection").textContent(), /3 additional records require review/);
     }
 
+    await page.locator("#policyInput").fill("slow draft for a 15% maximum");
+    await page.locator("#generatePrompt").click();
+    assert.equal(await page.locator("#generatePrompt").isDisabled(), true);
     await page.locator("#policyInput").fill("For NET 30 customers, set maximum past due to 8% of AR balance.");
+    assert.equal(await page.locator("#generatePrompt").isEnabled(), true);
+    await page.waitForTimeout(250);
+    assert.equal(await page.locator("#generatePrompt").isEnabled(), true);
+    assert.equal((await page.locator("#candidateState").textContent()).trim(), "Evidence complete");
+    assert.match(await page.locator("#dslInput").inputValue(), /= 0\.05/);
     await page.locator("#generatePrompt").click();
     await page.getByText("Stable ID NET30_PAST_DUE_MAX · candidate revision 7", { exact: true }).waitFor();
     assert.equal((await page.locator("#candidateState").textContent()).trim(), "Draft");
@@ -453,6 +462,15 @@ test("unattended browser flows preserve semantics, accessibility, terminal state
     await page.locator("#validateButton").click();
     assert.equal((await page.locator("#candidateState").textContent()).trim(), "Validation blocked");
     assert.match(await page.locator("#evidenceSpine").textContent(), /Blocked.*Fix validation issues and validate a new revision first/s);
+
+    await page.locator("#dslInput").fill("RULE NET30_PAST_DUE_MAX\nSCOPE ALL\nSET_MAX_RATIO customer.past_due_amount\n    TO customer.ar_balance = 0.07\nEND");
+    await page.locator("#applySourceEdit").click();
+    assert.equal((await page.locator("#candidateState").textContent()).trim(), "Draft");
+    assert.match(await page.locator("#evidenceSpine").textContent(), /Not run.*Not run · prerequisite unmet.*Not run · prerequisite unmet/s);
+    await page.locator("#validateButton").click();
+    assert.equal((await page.locator("#candidateState").textContent()).trim(), "Validation blocked");
+    assert.match(await page.locator("#resultSection").textContent(), /does not match its supported policy family/);
+    assert.match(await page.locator("#evidenceSpine").textContent(), /Blocked.*does not match its supported policy family.*Not run · prerequisite unmet.*Not run · prerequisite unmet/s);
   } finally {
     await browser.close();
     try { process.kill(-vite.pid, "SIGTERM"); } catch {}
