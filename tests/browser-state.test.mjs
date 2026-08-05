@@ -293,6 +293,13 @@ test("a static asset host with no session API unlocks deterministic-only mode", 
       await page.setViewportSize({ width, height: 900 });
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true, `no page overflow at ${width}px`);
     }
+    await page.locator("#editorSection summary").click();
+    await page.locator("#dslInput").fill(formatRule(scenarios.ratio5.ast, { root: "customer" }));
+    await page.locator("#applySourceEdit").click();
+    assert.match(await page.locator("#policyDiff").textContent(), /Candidate diff unavailable.*RULE_ID_MISMATCH.*Expected stable ID HIGH_BALANCE_ADP_MAX; received NET30_PAST_DUE_MAX/s);
+    assert.equal(await page.locator("#policyDiff .structured-diff").count(), 0);
+    await page.locator("#validateButton").click();
+    assert.match(await page.locator("#resultSection").textContent(), /Deterministic validation blocked.*RULE_ID_MISMATCH.*Expected stable ID HIGH_BALANCE_ADP_MAX; received NET30_PAST_DUE_MAX/s);
     await page.locator("#browseActivePolicy").click();
     assert.equal(await page.getByRole("dialog").getByText(/Active Policy Version credit-1\.4\.0/).count(), 1);
     await page.locator(".dialog-close").click();
@@ -389,8 +396,12 @@ test("unattended browser flows preserve semantics, accessibility, terminal state
     await page.locator("#analyzeEvidence").click();
     await page.locator("#runBatch").click();
     assert.match(await page.locator("#resultSection").textContent(), /Evidence complete/);
-    assert.equal(await page.locator(".batch-table tbody tr").count(), 12);
-    await page.locator(".batch-record").first().click();
+    const impactRecordIds = await page.locator(".batch-record").evaluateAll(buttons => buttons.map(button => button.dataset.impactRecord));
+    assert.deepEqual(impactRecordIds.slice(0, 3), ["3003", "3004", "3005"]);
+    assert.equal(impactRecordIds.length, 12);
+    assert.equal(new Set(impactRecordIds).size, 12);
+    assert.ok(impactRecordIds.includes("3001"));
+    await page.locator('[data-impact-record="3001"]').click();
     const dryRunDialog = await page.getByRole("dialog").textContent();
     assert.match(dryRunDialog, /Impact NET30 4%.*Fictional boundary record · Customer 3001.*4\.0% past-due ratio.*Policy-relevant facts.*Payment terms.*NET 30.*AR balance.*\$100,000.*Past due amount.*\$4,000/s);
     assert.match(dryRunDialog, /Dry-run outcome.*Active policy.*Candidate policy/s);

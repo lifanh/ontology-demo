@@ -282,6 +282,7 @@ function renderPolicyDiff() {
   if (!active) return;
   try {
     const ast = current.ast || parseRule(current.sourceDsl, registry, { root: "customer" });
+    if (ast.id !== current.logicalId) throw new Error(`RULE_ID_MISMATCH\nExpected stable ID ${current.logicalId}; received ${ast.id}.`);
     const candidate = compileCandidate(ast, current.revision);
     const unit = candidate.constraint.type === "SET_MAX_RATIO" ? "% of accounts receivable" : candidate.constraint.unit;
     const display = value => candidate.constraint.type === "SET_MAX_RATIO" ? `${number(value * 100)}%` : `${number(value)} ${unit}`;
@@ -289,7 +290,7 @@ function renderPolicyDiff() {
     const sameScope = JSON.stringify(normalizedScope(active.scope)) === JSON.stringify(normalizedScope(candidate.scope));
     $("#policyDiff").innerHTML = `<div class="diff-identity"><b>${escapeHtml(current.logicalId)}</b><span>Active revision ${active.revision} → candidate revision ${current.revision}</span></div><dl class="structured-diff"><div><dt>Scope</dt><dd><span>Active</span>${escapeHtml(scopeText(active.scope))}<br><span>Candidate</span>${escapeHtml(scopeText(candidate.scope))}<br><b>${sameScope ? "Unchanged scope" : "Changed scope"}</b></dd></div><div><dt>Threshold / effect</dt><dd><del>${escapeHtml(display(active.constraint.value))}</del> → <ins>${escapeHtml(display(candidate.constraint.value))}</ins><br><b>${escapeHtml(direction)}</b></dd></div><div><dt>Policy statement</dt><dd><span>Active</span>${escapeHtml(active.policy.statement)}<br><span>Candidate</span>${escapeHtml(candidate.policy.statement)}</dd></div></dl>`;
   } catch (error) {
-    $("#policyDiff").innerHTML = `<p role="alert"><b>Candidate source cannot be parsed.</b> ${escapeHtml(error.message)} Open Edit source to correct it.</p>`;
+    $("#policyDiff").innerHTML = `<p role="alert"><b>Candidate diff unavailable.</b> ${escapeHtml(error.message)} Open Edit source to correct it.</p>`;
   }
 }
 
@@ -575,7 +576,9 @@ function renderBatch() {
     ["Errors", summary.errors],
     ["Cohort Size", summary.evaluated]
   ];
-  const rows = batch.rows.map(row => row.error
+  const priorityIds = new Set(batch.changedRows.map(row => row.customerId));
+  const orderedRows = [...batch.rows.filter(row => priorityIds.has(row.customerId)), ...batch.rows.filter(row => !priorityIds.has(row.customerId))];
+  const rows = orderedRows.map(row => row.error
     ? `<tr class="batch-error"><td><button class="batch-record" data-impact-record="${row.customerId}">${escapeHtml(row.label)}</button></td><td colspan="3"><b>Evaluation error:</b> ${escapeHtml(row.error)}</td></tr>`
     : `<tr><td><button class="batch-record" data-impact-record="${row.customerId}">${escapeHtml(row.label)}</button></td><td>${escapeHtml(labels[row.baselineAction] || row.baselineAction)}</td><td>${escapeHtml(labels[row.candidateAction] || row.candidateAction)}</td><td><b>Added:</b> ${row.addedFindingDetails.map(item => `${escapeHtml(item.policyTitle)} <small>(${escapeHtml(item.reasonCode)})</small>`).join(" · ") || "none"}<br><b>Resolved:</b> ${row.resolvedFindingDetails.map(item => `${escapeHtml(item.policyTitle)} <small>(${escapeHtml(item.reasonCode)})</small>`).join(" · ") || "none"}<br><small>${row.evidenceRefs.map(escapeHtml).join(" · ")}</small></td></tr>`).join("");
   const baselineReleaseId = governance.evidence.batch?.releaseId || governance.activeRelease.id;
