@@ -3,7 +3,7 @@ import { test } from "vite-plus/test";
 import { FactRegistry, createEvaluator, compareBatch, assessReviewImpact } from "../src/core/runtime.js";
 import { parseRule, formatRule } from "../src/core/authoring.js";
 import { Governance } from "../src/core/governance.js";
-import { registry, creditPack, fixtures, narrativeCustomers, policyImpactCohort, eligibleEvidenceTools, activeRules, compileCandidate, analyzeCandidate, nextReleaseId, scenarios, release, illustrativeOverrideHistory } from "../src/domains/credit/pack.js";
+import { registry, creditPack, fixtures, narrativeCustomers, policyImpactCohort, eligibleEvidenceTools, activeRules, compileCandidate, analyzeCandidate, scenarios, release, illustrativeOverrideHistory } from "../src/domains/credit/pack.js";
 import { createDisposition, createDispositionStore } from "../src/domains/credit/dispositions.js";
 
 const evaluate = createEvaluator(creditPack);
@@ -368,77 +368,54 @@ test("evaluation rejects incomplete and duplicate release rule sets", () => {
   assert.throws(() => evaluate(customer({}), [...activeRules, { ...activeRules[0], revision: 999 }], { ...release, rules: [...release.rules, { ...release.rules[0], revision: 999 }] }), /duplicate rule IDs/);
 });
 
-test("activation requires current validation, non-conflicting analysis, and complete Review impact", () => {
+test("evidence complete requires current validation, non-conflicting analysis, and complete Review impact", () => {
   const invalid = new Governance({ activeRelease: release, candidate: scenarios.ratio5 });
   assert.equal(invalid.record("validation", { valid: false }), false);
   assert.equal(invalid.current.state, "DRAFT");
   const blocked = new Governance({ activeRelease: release, candidate: scenarios.ratio15 });
-  assert.equal(blocked.canActivate(), false);
+  assert.equal(blocked.evidenceComplete(), false);
   blocked.record("validation", { valid: true });
   assert.equal(blocked.record("analysis", { status: "CONFLICT" }), false);
-  assert.equal(blocked.canActivate(), false);
+  assert.equal(blocked.evidenceComplete(), false);
   const incomplete = new Governance({ activeRelease: release, candidate: scenarios.ratio5 });
   incomplete.record("validation", { valid: true }); incomplete.record("analysis", { status: "COMPATIBLE_REFINEMENT" });
   assert.equal(incomplete.record("batch", { complete: false }), false);
-  assert.equal(incomplete.canActivate(), false);
+  assert.equal(incomplete.evidenceComplete(), false);
   const good = new Governance({ activeRelease: release, candidate: scenarios.ratio5 });
   good.record("validation", { valid: true }); good.record("analysis", { status: "COMPATIBLE_REFINEMENT" }); good.record("batch", { complete: true });
-  assert.equal(good.canActivate(), true);
-  const replacement = compileCandidate(scenarios.ratio5.ast, scenarios.ratio5.revision);
-  const rules = activeRules.map(rule => rule.id === replacement.id ? replacement : rule);
-  const next = { id: nextReleaseId(release.id), rules: rules.map(({ id, revision }) => ({ id, revision })) };
-  assert.equal(good.activate(next).id, "credit-1.5.0");
-  assert.equal(good.current.state, "APPROVED_AND_ACTIVATED");
-  assert.equal(Object.isFrozen(good.activeRelease), true);
-  assert.equal(Object.isFrozen(good.activeRelease.rules), true);
-  assert.equal(good.activeRelease.rules.length, activeRules.length);
-  assert.equal(evaluate(customer({ past_due_amount: 2400 }), rules, good.activeRelease).release.id, "credit-1.5.0");
-  const nextDraft = { ...scenarios.ratio5.ast, effect: { ...scenarios.ratio5.ast.effect, value: .04 } };
-  assert.match(analyzeCandidate(nextDraft, rules).summary, /Active 5%/);
+  assert.equal(good.evidenceComplete(), true);
+  assert.equal(typeof good.activate, "undefined");
 });
 
 test("editing creates immutable revision and invalidates evidence", () => {
   const g = new Governance({ activeRelease: release, candidate: { ...scenarios.ratio5, revision: 5, ast: scenarios.ratio5.ast } });
   g.record("validation", { valid: true });
   const old = g.revisions[0]; g.edit({ sourceDsl: "changed" });
-  assert.equal(old.state, "VALIDATED"); assert.equal(g.current.revision, 6); assert.equal(g.current.ast, null); assert.deepEqual(g.evidence, {}); assert.equal(g.canActivate(), false);
+  assert.equal(old.state, "VALIDATED"); assert.equal(g.current.revision, 6); assert.equal(g.current.ast, null); assert.deepEqual(g.evidence, {}); assert.equal(g.evidenceComplete(), false);
+  assert.equal(g.staleEvidence.length, 1);
+  assert.equal(g.staleEvidence[0].logicalId, "NET30_PAST_DUE_MAX");
+  assert.equal(g.staleEvidence[0].candidateRevision, 5);
+  assert.equal(g.staleEvidence[0].activeReleaseId, release.id);
 });
 
-test("Demo Release history is immutable and reset restores only baseline", () => {
+test("reset clears current and stale Policy Change evidence", () => {
   const g = new Governance({ activeRelease: release, candidate: scenarios.ratio5 });
-  g.record("validation", { valid: true }); g.record("analysis", { status: "COMPATIBLE_REFINEMENT" }); g.record("batch", { complete: true });
-  const rules = activeRules.map(rule => rule.id === scenarios.ratio5.logicalId ? compileCandidate(scenarios.ratio5.ast, scenarios.ratio5.revision) : rule);
-  g.activate({ id: "credit-1.5.0", rules: rules.map(({ id, revision }) => ({ id, revision })) });
-  const history = g.releaseHistory;
-  assert.throws(() => history.push(release), TypeError);
-  assert.throws(() => { history[1].rules[0].revision = 999; }, TypeError);
+  g.record("validation", { valid: true }); g.edit({ sourceDsl: "changed" });
   g.reset({ activeRelease: release, candidate: scenarios.ratio5 });
   assert.equal(g.activeRelease.id, "credit-1.4.0");
-  assert.deepEqual(g.releaseHistory.map(item => item.id), ["credit-1.4.0"]);
   assert.equal(g.current.state, "DRAFT");
+  assert.deepEqual(g.evidence, {});
+  assert.deepEqual(g.staleEvidence, []);
 });
 
-test("Demo Releases reject duplicate IDs and incomplete rule sets", () => {
-  const ready = () => {
-    const g = new Governance({ activeRelease: release, candidate: scenarios.ratio5 });
-    g.record("validation", { valid: true }); g.record("analysis", { status: "COMPATIBLE_REFINEMENT" }); g.record("batch", { complete: true });
-    return g;
-  };
-  assert.throws(() => ready().activate({ id: release.id, rules: release.rules }), /unique/);
-  assert.throws(() => ready().activate({ id: "credit-1.5.0", rules: [{ id: scenarios.ratio5.logicalId, revision: scenarios.ratio5.revision }] }), /complete active rule set/);
-  const reused = new Governance({ activeRelease: release, candidate: { ...scenarios.ratio5, revision: 4 } });
-  reused.record("validation", { valid: true }); reused.record("analysis", { status: "COMPATIBLE_REFINEMENT" }); reused.record("batch", { complete: true });
-  assert.throws(() => reused.activate({ id: "credit-1.5.0", rules: release.rules }), /revision must be unique/);
-});
-
-test("corrupt Policy Studio snapshots do not partially mutate Governance", () => {
+test("legacy release snapshots are rejected without partially mutating Governance", () => {
   const g = new Governance({ activeRelease: release, candidate: scenarios.ratio5 });
-  assert.throws(() => g.restore({ activeReleaseId: release.id, releaseHistory: [null], revisions: [{}] }), /Invalid Demo Release/);
+  assert.throws(() => g.restore({ activeReleaseId: release.id, releaseHistory: [release], revisions: [{}] }), /Legacy activation or release state/);
   assert.equal(g.activeRelease.id, release.id);
   assert.deepEqual(g.releaseHistory.map(item => item.id), [release.id]);
 });
 
-test("restored Policy Studio snapshots cannot claim qualification from stored evidence", () => {
+test("restoration retains stale history but never trusts current qualification evidence", () => {
   const source = new Governance({ activeRelease: release, candidate: scenarios.ratio5 });
   const snapshot = source.snapshot();
   snapshot.revisions[0] = { ...snapshot.revisions[0], state: "BATCH_PASSED", ast: scenarios.ratio5.ast };
@@ -447,10 +424,14 @@ test("restored Policy Studio snapshots cannot claim qualification from stored ev
     analysis: { status: "COMPATIBLE_REFINEMENT", revision: scenarios.ratio5.revision, releaseId: release.id },
     batch: { complete: true, revision: scenarios.ratio5.revision, releaseId: release.id }
   };
+  snapshot.staleEvidence = [{ logicalId: "R", candidateRevision: 4, activeReleaseId: release.id, evidence: { validation: { valid: true, revision: 4, releaseId: release.id } } }];
   const restored = new Governance({ activeRelease: release, candidate: scenarios.ratio5 }).restore(snapshot);
   assert.equal(restored.current.state, "DRAFT");
   assert.deepEqual(restored.evidence, {});
-  assert.equal(restored.canActivate(), false);
+  assert.equal(restored.evidenceComplete(), false);
+  assert.equal(restored.staleEvidence[0].candidateRevision, 4);
+  snapshot.evidence.batch.releaseId = "wrong-baseline";
+  assert.throws(() => new Governance({ activeRelease: release, candidate: scenarios.ratio5 }).restore(snapshot), /provenance/);
 });
 
 test("seeded override feedback is exactly three immutable NET 30 Illustrative history records", () => {

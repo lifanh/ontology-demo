@@ -242,12 +242,12 @@ class: live-demo-slide
 
 <!--
 LIVE DEMO SCRIPT — REVIEW POLICY
-1. Open Review Policy and select the NET 30 threshold change.
+1. Open Review Policy and choose the NET 30 example intent. Point out the Policy Change canvas, Active Policy Version, structured diff, and persistent evidence spine; the examples are not a queue.
 2. Enter: “For customers on NET 30 terms, reduce the maximum past-due ratio from 8% to 5%.”
 3. Ask GitHub Copilot to draft the bounded candidate.
 4. Run deterministic validation and compatibility analysis.
 5. Show that three additional records require review in the illustrative 12-record Policy Impact Cohort.
-6. Request the grounded policy-analysis explanation. If it fails, continue—the deterministic assessment remains available.
+6. At Evidence complete, read the outside-this-POC governance boundary, then optionally request the grounded policy-analysis explanation. If it fails, continue—the deterministic assessment remains available.
 7. Point out that the workbench stops at impact assessment: it cannot approve, publish, or activate the candidate.
 Challenge response: this POC prepares evidence for an authorized policy decision; it does not make or execute that decision.
 -->

@@ -59,8 +59,11 @@ function legacyActivatedStudioState() {
   const batch = assessReviewImpact(policyImpactCohort, customer => evaluate(customer, activeRules, release), customer => evaluate(customer, candidateRules, candidateRelease));
   governance.record("batch", batch);
   const activatedRelease = { id: nextReleaseId(release.id), predecessorReleaseId: release.id, ontologyVersion: release.ontologyVersion, actionPolicyVersion: release.actionPolicyVersion, calculatorVersion: release.calculatorVersion, rules: candidateRules.map(({ id, revision }) => ({ id, revision })), compiledRules: candidateRules, candidate: { logicalId: scenario.logicalId, revision: scenario.revision, sourceDsl } };
-  governance.activate(activatedRelease);
-  return { selected: "adp20", governance: governance.snapshot(), releaseRuleSets: { [release.id]: activeRules, [activatedRelease.id]: candidateRules }, batch, policyExplanations: {}, policyInput: scenario.policy, dslInput: sourceDsl };
+  const legacy = governance.snapshot();
+  legacy.activeReleaseId = activatedRelease.id;
+  legacy.revisions[legacy.revisions.length - 1].state = "APPROVED_AND_ACTIVATED";
+  legacy.releaseHistory = [release, activatedRelease];
+  return { selected: "adp20", governance: legacy, releaseRuleSets: { [release.id]: activeRules, [activatedRelease.id]: candidateRules }, batch, policyExplanations: {}, policyInput: scenario.policy, dslInput: sourceDsl };
 }
 
 test("tab product state is keyed, reloadable, isolated, resettable, and preserved through re-authentication", async () => {
@@ -150,24 +153,35 @@ test("tab product state is keyed, reloadable, isolated, resettable, and preserve
     await page.locator('[data-view="studio"]').click();
     await page.locator("#policyInput").fill("For unrestricted customers with balances above $100,000, Average Days to Pay must not exceed 20 days.");
     await page.locator("#generatePrompt").click();
-    await page.locator("#editorSection:not(.hidden)").waitFor();
+    await page.getByText(/AI-drafted candidate/).waitFor();
     assert.equal((await page.locator("#policyWorkbenchTitle").textContent()).trim(), "High-balance payment limit");
     assert.equal((await page.locator("#policyWorkbenchMeta").textContent()).trim(), "Stable ID HIGH_BALANCE_ADP_MAX · candidate revision 3");
+    assert.match(await page.locator("#policyDiff").textContent(), /Unchanged scope.*25 DAYS.*20 DAYS/s);
     await page.locator("#validateButton").click();
     await page.locator("#analyzeEvidence").click();
     await page.locator("#runBatch").click();
-    assert.match(await page.locator("#resultSection").textContent(), /Impact assessed/);
+    assert.match(await page.locator("#resultSection").textContent(), /Evidence complete/);
     assert.equal(await page.locator('[data-view="review"], [data-view="studio"]').count(), 2);
     assert.equal(await page.locator('[data-view="releases"], #releasesView, #activateRelease, #releaseSelector').count(), 0);
     await page.reload();
     await page.locator("#studioView:not(.hidden)").waitFor();
-    assert.match(await page.locator("#resultSection").textContent(), /Impact assessed/);
+    assert.match(await page.locator("#resultSection").textContent(), /Evidence complete/);
     assert.equal((await page.locator("#policyWorkbenchTitle").textContent()).trim(), "High-balance payment limit");
     assert.equal((await page.locator("#policyWorkbenchMeta").textContent()).trim(), "Stable ID HIGH_BALANCE_ADP_MAX · candidate revision 3");
     await page.locator('[data-view="review"]').click();
     await page.getByText("Persisted grounded rationale").waitFor();
     assert.match(await page.locator("#dispositionOutput").textContent(), /Recommendation accepted/);
     assert.equal((await page.locator("#caseStatus").textContent()).trim(), "Completed");
+
+    await page.evaluate(() => {
+      const key = "customer-review:policy-studio:v1";
+      const stored = JSON.parse(sessionStorage.getItem(key));
+      stored.governance.evidence.batch.headline = "Forged restored impact";
+      sessionStorage.setItem(key, JSON.stringify(stored));
+    });
+    await page.reload();
+    await page.locator(".product-shell").waitFor({ state: "visible" });
+    assert.equal(await page.evaluate(() => sessionStorage.getItem("customer-review:policy-studio:v1")), null);
 
     const isolated = await context.newPage();
     await configure(isolated);
@@ -249,6 +263,39 @@ test("a static asset host with no session API unlocks deterministic-only mode", 
     assert.equal(await page.locator("#accessGate").getAttribute("class"), "access-gate hidden");
     assert.match(await page.locator("#aiStatus").textContent(), /AI features disabled/);
     assert.equal(await page.locator("#generateReviewRationale").isDisabled(), true);
+    await page.locator('[data-view="studio"]').click();
+    assert.equal(await page.locator("#generatePrompt").isHidden(), true);
+    assert.equal(await page.locator("#simulateResponse").isVisible(), true);
+    assert.match(await page.locator("#policyAiMode").textContent(), /no model response is simulated/i);
+    assert.match(await page.locator("#policyDiff").textContent(), /Unchanged scope.*8%.*5%/s);
+    assert.match(await page.locator("#evidenceSpine").textContent(), /1\. Validation.*2\. Compatibility.*3\. Review impact/s);
+    const initialRevision = (await page.locator("#policyWorkbenchMeta").textContent()).trim();
+    await page.locator("#simulateResponse").click();
+    assert.equal((await page.locator("#policyWorkbenchMeta").textContent()).trim(), initialRevision);
+    assert.equal(await page.locator(".evidence-history").count(), 0);
+    const originalSource = await page.locator("#dslInput").inputValue();
+    await page.locator("#dslInput").fill(`${originalSource}\n# unapplied source edit`);
+    await page.locator('[data-scenario="ratio5"]').click();
+    assert.match(await page.locator("#dslInput").inputValue(), /unapplied source edit/);
+    await page.locator('[data-scenario="adp20"]').click();
+    assert.equal(await page.locator('[data-scenario="ratio5"]').getAttribute("aria-pressed"), "true");
+    assert.match(await page.locator("#dslInput").inputValue(), /unapplied source edit/);
+    await page.locator("#dslInput").fill(originalSource);
+    await page.locator("#policyInput").fill("Unapplied intent that must not be lost");
+    await page.locator('[data-scenario="adp20"]').click();
+    assert.equal(await page.locator('[data-scenario="ratio5"]').getAttribute("aria-pressed"), "true");
+    assert.equal(await page.locator("#policyInput").inputValue(), "Unapplied intent that must not be lost");
+    page.once("dialog", dialog => dialog.accept());
+    await page.locator('[data-scenario="adp20"]').click();
+    assert.equal(await page.locator('[data-scenario="adp20"]').getAttribute("aria-pressed"), "true");
+    assert.match(await page.locator("#policyDiff").textContent(), /Unchanged scope.*25 DAYS.*20 DAYS/s);
+    for (const width of [1280, 900, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true, `no page overflow at ${width}px`);
+    }
+    await page.locator("#browseActivePolicy").click();
+    assert.equal(await page.getByRole("dialog").getByText(/Active Policy Version credit-1\.4\.0/).count(), 1);
+    await page.locator(".dialog-close").click();
   } finally {
     await browser.close();
     try { process.kill(-vite.pid, "SIGTERM"); } catch {}
@@ -274,8 +321,18 @@ test("unattended browser flows preserve semantics, accessibility, terminal state
     });
     await page.route("**/api/ai/draft_rule", async route => {
       const body = route.request().postDataJSON();
+      if (body.policyText.includes("timeout")) return route.fulfill({ status: 504, json: { error: { code: "PROVIDER_TIMEOUT", message: "Draft request timed out", retryable: true, correlationId: "policy-draft-timeout" } } });
+      if (body.policyText.includes("clarify")) return route.fulfill({ json: { schemaVersion: "1", operation: "draft_rule", result: { outcome: "NEEDS_CLARIFICATION", question: "Which supported threshold should change?", missingFields: ["threshold"] } } });
+      if (body.policyText.includes("unsupported")) return route.fulfill({ json: { schemaVersion: "1", operation: "draft_rule", result: { outcome: "UNSUPPORTED", summary: "This intent is outside the two supported policy families." } } });
       const ratio = body.policyText.includes("15%") ? "0.15" : body.policyText.includes("9%") ? "0.09" : body.policyText.includes("8%") ? "0.08" : "0.05";
       await route.fulfill({ json: { schemaVersion: "1", operation: "draft_rule", result: { outcome: "CANDIDATE", family: "NET30_PAST_DUE_MAX", summary: "Bounded candidate.", dsl: `RULE NET30_PAST_DUE_MAX\nSCOPE customer.payment_terms == "NET_30"\nSET_MAX_RATIO customer.past_due_amount\n    TO customer.ar_balance = ${ratio}\nEND` } } });
+    });
+    let policyExplanationCall = 0;
+    await page.route("**/api/ai/explain_policy_analysis", route => {
+      policyExplanationCall += 1;
+      const request = route.request().postDataJSON();
+      if (policyExplanationCall === 1) return route.fulfill({ json: { schemaVersion: "1", operation: "explain_policy_analysis", result: { summary: "Grounded policy evidence summary", points: [{ text: "Three fictional cohort records newly require review.", references: [request.evidenceRefs[1]] }] } } });
+      return route.fulfill({ json: { schemaVersion: "1", operation: "explain_policy_analysis", result: {} } });
     });
     await page.goto(`http://127.0.0.1:${port}/`);
 
@@ -315,36 +372,68 @@ test("unattended browser flows preserve semantics, accessibility, terminal state
     assert.equal(await page.locator("#aiPlaceholder img, #aiPlaceholder script").count(), 0);
 
     await page.locator('[data-view="studio"]').click();
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true);
     await page.locator('[data-scenario="ratio15"]').click();
     await page.locator("#generatePrompt").click();
-    await page.locator("#editorSection:not(.hidden)").waitFor();
+    await page.getByText(/AI-drafted candidate/).waitFor();
     await page.locator("#validateButton").click();
     await page.locator("#analyzeEvidence").click();
     assert.match(await page.locator("#resultSection").textContent(), /Conflict/);
     assert.equal(await page.locator("#runBatch").isDisabled(), true);
 
+    page.once("dialog", dialog => dialog.accept());
     await page.locator('[data-scenario="ratio5"]').click();
     await page.locator("#generatePrompt").click();
-    await page.locator("#editorSection:not(.hidden)").waitFor();
+    await page.getByText(/AI-drafted candidate/).waitFor();
     await page.locator("#validateButton").click();
     await page.locator("#analyzeEvidence").click();
     await page.locator("#runBatch").click();
-    assert.match(await page.locator("#resultSection").textContent(), /Impact assessed/);
+    assert.match(await page.locator("#resultSection").textContent(), /Evidence complete/);
+    assert.equal(await page.locator(".batch-table tbody tr").count(), 12);
+    await page.locator("#generatePolicyExplanation").click();
+    await page.getByText("Grounded policy evidence summary").waitFor();
+
+    for (const [intent, outcome] of [["timeout while drafting", /Draft unavailable.*Draft request timed out/s], ["clarify this policy intent", /NEEDS CLARIFICATION.*Which supported threshold should change/s], ["unsupported policy intent", /UNSUPPORTED.*outside the two supported policy families/s]]) {
+      await page.locator("#policyInput").fill(intent);
+      await page.locator("#generatePrompt").click();
+      await page.getByText(outcome).waitFor();
+      assert.equal((await page.locator("#candidateState").textContent()).trim(), "Evidence complete");
+      assert.match(await page.locator("#resultSection").textContent(), /3 additional records require review/);
+    }
 
     await page.locator("#policyInput").fill("For NET 30 customers, set maximum past due to 8% of AR balance.");
     await page.locator("#generatePrompt").click();
-    await page.locator("#editorSection:not(.hidden)").waitFor();
+    await page.getByText("Stable ID NET30_PAST_DUE_MAX · candidate revision 7", { exact: true }).waitFor();
+    assert.equal((await page.locator("#candidateState").textContent()).trim(), "Draft");
+    assert.match(await page.locator("#evidenceSpine").textContent(), /Stale evidence snapshots.*candidate revision 6.*credit-1\.4\.0/s);
+    assert.match(await page.locator("#evidenceSpine").textContent(), /Stale generated summaries.*Grounded policy evidence summary/s);
+    await page.reload();
+    await page.locator("#studioView:not(.hidden)").waitFor();
+    assert.equal((await page.locator("#candidateState").textContent()).trim(), "Draft");
+    assert.match(await page.locator("#evidenceSpine").textContent(), /Stale evidence snapshots.*Stale generated summaries/s);
+    await page.locator("#openValidation").click();
     await page.locator("#validateButton").click();
     await page.locator("#analyzeEvidence").click();
     assert.match(await page.locator("#resultSection").textContent(), /REDUNDANT/);
 
     await page.locator("#policyInput").fill("For NET 30 customers, set maximum past due to 9% of AR balance.");
     await page.locator("#generatePrompt").click();
-    await page.locator("#editorSection:not(.hidden)").waitFor();
+    await page.getByText("Stable ID NET30_PAST_DUE_MAX · candidate revision 8", { exact: true }).waitFor();
     await page.locator("#validateButton").click();
     await page.locator("#analyzeEvidence").click();
     assert.match(await page.locator("#resultSection").textContent(), /Compatible relaxation/);
     assert.equal(await page.locator("#runBatch").isEnabled(), true);
+    await page.locator("#runBatch").click();
+    await page.locator("#generatePolicyExplanation").click();
+    await page.getByText("Summary unavailable").waitFor();
+    assert.equal((await page.locator("#candidateState").textContent()).trim(), "Evidence complete");
+    assert.match(await page.locator("#resultSection").textContent(), /1 records no longer require review/);
+
+    await page.locator("#dslInput").fill("RULE NET30_PAST_DUE_MAX\nSCOPE customer.payment_terms == \"NET_30\"\nEND");
+    await page.locator("#applySourceEdit").click();
+    await page.locator("#validateButton").click();
+    assert.equal((await page.locator("#candidateState").textContent()).trim(), "Validation blocked");
+    assert.match(await page.locator("#evidenceSpine").textContent(), /Blocked.*Fix validation issues and validate a new revision first/s);
   } finally {
     await browser.close();
     try { process.kill(-vite.pid, "SIGTERM"); } catch {}
