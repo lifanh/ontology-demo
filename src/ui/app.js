@@ -773,6 +773,8 @@ document.addEventListener("click", event => {
   if (event.target.closest("#simulateResponse")) {
     if (!selected) return showToast("Choose an example intent before using an example candidate.");
     const sourceDsl = formatRule(scenarios[selected].ast, { root: "customer" });
+    const replacingUnappliedSource = $("#dslInput").value !== governance.current.sourceDsl && $("#dslInput").value !== sourceDsl;
+    if (replacingUnappliedSource && !window.confirm("Replace the unapplied source edits with the selected example candidate?")) return;
     $("#dslInput").value = sourceDsl;
     const changes = { sourcePolicy: $("#policyInput").value, sourceDsl, ast: null, provenance: "EXAMPLE" };
     const material = changes.sourcePolicy !== governance.current.sourcePolicy || changes.sourceDsl !== governance.current.sourceDsl;

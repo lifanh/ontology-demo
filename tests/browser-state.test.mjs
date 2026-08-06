@@ -302,6 +302,9 @@ test("a static asset host with no session API unlocks deterministic-only mode", 
     assert.match(await page.locator("#dslInput").inputValue(), /unapplied source edit/);
     assert.equal((await page.locator("#policyWorkbenchMeta").textContent()).trim(), initialRevision);
     assert.equal(await page.locator(".evidence-history").count(), 0);
+    page.once("dialog", dialog => dialog.dismiss());
+    await page.locator("#simulateResponse").click();
+    assert.match(await page.locator("#dslInput").inputValue(), /unapplied source edit/);
     await page.locator('[data-scenario="ratio5"]').click();
     assert.match(await page.locator("#dslInput").inputValue(), /unapplied source edit/);
     await page.locator('[data-scenario="adp20"]').click();
