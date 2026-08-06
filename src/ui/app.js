@@ -913,7 +913,7 @@ try {
     restoreStudio(saved);
     policyExplanations = saved.policyExplanations && typeof saved.policyExplanations === "object" && !Array.isArray(saved.policyExplanations) ? Object.fromEntries(Object.entries(saved.policyExplanations).filter(([, value]) => isPolicyExplanation(value))) : {};
     stalePolicyExplanations = Array.isArray(saved.stalePolicyExplanations) ? saved.stalePolicyExplanations.filter(item => item?.logicalId && Number.isInteger(item.candidateRevision) && item.activeReleaseId === release.id && isPolicyExplanation(item.result)) : [];
-    $("#policyInput").value = saved.policyInput || governance.current.sourcePolicy || scenarios[selected]?.policy || "";
+    $("#policyInput").value = typeof saved.policyInput === "string" ? saved.policyInput : governance.current.sourcePolicy || scenarios[selected]?.policy || "";
     $("#dslInput").value = typeof saved.dslInput === "string" ? saved.dslInput : governance.current.sourceDsl || "";
     renderPolicySummary();
   }
