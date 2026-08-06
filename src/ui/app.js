@@ -1,6 +1,6 @@
-import { createEvaluator, assessReviewImpact, assertReleaseRuleSet } from "../core/runtime.js";
+import { createEvaluator, assessReviewImpact } from "../core/runtime.js";
 import { parseRule, formatRule } from "../core/authoring.js";
-import { Governance, STATES } from "../core/governance.js";
+import { Governance } from "../core/governance.js";
 import { properties, derived, registry, creditPack, activeRules, compileCandidate, analyzeCandidate, scenarios, narrativeCustomers, policyImpactCohort, eligibleEvidenceTools, demoCustomer, release } from "../domains/credit/pack.js";
 import { createDispositionStore, dispositionActions } from "../domains/credit/dispositions.js";
 
@@ -13,7 +13,6 @@ const actionOptions = dispositionActions;
 const dispositionStore = createDispositionStore(sessionStorage);
 const STUDIO_STORAGE_KEY = "customer-review:policy-studio:v1";
 const PRODUCT_STORAGE_KEY = "customer-review:product:v1";
-const POLICY_WORKFLOW_STATES = STATES.filter(state => state !== "APPROVED_AND_ACTIVATED");
 const POLICY_STATE_LABELS = { DRAFT: "Draft", VALIDATED: "Validated", ANALYZED: "Compatibility checked", BATCH_PASSED: "Impact assessed" };
 const REVIEW_STATUS_LABELS = { UNASSIGNED: "Unassigned", IN_REVIEW: "In review", WAITING_INFORMATION: "Waiting for information", ESCALATED: "Escalated", COMPLETED: "Completed" };
 const REVIEW_ASSIGNEES = { JORDAN_LEE: "Jordan Lee (you)", MAYA_CHEN: "Maya Chen", ANDRE_SILVA: "Andre Silva" };
@@ -26,7 +25,7 @@ const REVIEW_CASE_DEFAULTS = Object.freeze({
 const PRIORITY_RANK = { LOW: 1, MEDIUM: 2, HIGH: 3, CRITICAL: 4 };
 const createReviewCases = () => Object.fromEntries(Object.entries(REVIEW_CASE_DEFAULTS).map(([customerNumber, value]) => [customerNumber, { ...value, draft: null, events: [] }]));
 let reviewContext, reviewRequestVersion = 0;
-let selected = "ratio5", selectedCustomerNumber = 2002, activeView = "review", activeCaseTab = "overview", governance, activeRuleSet, batch, releaseRuleSets = {}, draftRequestVersion = 0, policyExplanation, policyRequestVersion = 0, reviewExplanations = {}, policyExplanations = {}, reviewCases = createReviewCases(), reviewQueueState = { query: "", view: "ALL", sort: "PRIORITY" };
+let selected = "ratio5", selectedCustomerNumber = 2002, activeView = "review", activeCaseTab = "overview", governance, activeRuleSet, batch, draftRequestVersion = 0, policyExplanation, policyRequestVersion = 0, reviewExplanations = {}, policyExplanations = {}, stalePolicyExplanations = [], reviewCases = createReviewCases(), reviewQueueState = { query: "", view: "ALL", sort: "PRIORITY" };
 
 const labels = { AUTO_REVIEW_PASS: "Auto review pass", NEED_CREDIT_MANAGER_REVIEW: "Credit manager review", REQUEST_UPDATED_FINANCIAL_STATEMENTS: "Request updated financial statements", NEED_TO_RESTRICT: "Restrict customer", NEED_MANUAL_REVIEW: "Manual review", RECOMMEND_CREDIT_LIMIT_REASSESSMENT: "Reassess credit limit" };
 const operator = { "==": "is", "!=": "is not", ">": "is greater than", ">=": "is at least", "<": "is less than", "<=": "is at most" };
@@ -209,6 +208,7 @@ function setProductView(view) {
   document.querySelectorAll("[data-view]").forEach(button => button.classList.toggle("active", button.dataset.view === activeView));
   document.querySelectorAll(".product-view").forEach(productView => productView.classList.toggle("hidden", productView.id !== `${activeView}View`));
   if (activeView === "studio" && governance.current.state !== "DRAFT") renderGovernance();
+  window.scrollTo({ top: 0, behavior: "instant" });
   persistProduct();
 }
 
@@ -243,14 +243,77 @@ async function readAiResponse(response) {
 
 function renderPolicySummary() {
   const current = governance.current;
+  const active = activeRuleSet.find(rule => rule.id === current.logicalId);
   $("#topbarRelease").textContent = governance.activeRelease.id;
   $("#studioActiveRelease").textContent = governance.activeRelease.id;
+  $("#workbenchBaseline").textContent = governance.activeRelease.id;
+  $("#workbenchActiveRevision").textContent = active?.revision ?? "—";
   $("#policyWorkbenchTitle").textContent = policyNames[current.logicalId] || current.logicalId;
   $("#policyWorkbenchMeta").textContent = `Stable ID ${current.logicalId} · candidate revision ${current.revision}`;
+  const provenance = current.provenance === "AI" ? "AI-drafted candidate" : current.provenance === "HUMAN_EDIT" ? "Human-edited candidate" : "Example candidate";
+  $("#candidateProvenance").textContent = `${provenance} · ${current.state === "DRAFT" ? current.provenance === "HUMAN_EDIT" ? "Requires validation" : "Unvalidated" : "Deterministically validated"}`;
+  $("#candidateState").textContent = policyOverallState();
+  $("#diffState").textContent = `Active vs candidate · ${current.state === "DRAFT" ? "Unvalidated" : "Validated"}`;
+  renderPolicyDiff();
+  renderEvidenceSpine();
+}
+
+function policyOverallState() {
+  const { current, evidence } = governance;
+  if (governance.evidenceComplete()) return "Evidence complete";
+  if (evidence.batch && !evidence.batch.complete) return "Impact incomplete";
+  if (evidence.analysis?.status === "CONFLICT") return "Conflict";
+  if (evidence.analysis?.status === "INDETERMINATE") return "Analysis indeterminate";
+  if (evidence.analysis?.status) return policyStatusLabel(evidence.analysis.status);
+  if (evidence.validation?.valid === false) return "Validation blocked";
+  return POLICY_STATE_LABELS[current.state] || "Draft";
+}
+
+function normalizedScope(scope) {
+  return scope.map(item => ({ fact: item.fact, op: item.op, value: item.value, unit: item.unit || registry.definition(item.fact)?.unit || null }));
+}
+
+function canonicalScope(scope) {
+  return normalizedScope(scope).sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+}
+
+function scopeText(scope) {
+  return normalizedScope(scope).map(item => `${item.fact} ${item.op} ${item.value}${item.unit ? ` ${item.unit}` : ""}`).join(" AND ");
+}
+
+function renderPolicyDiff() {
+  const current = governance.current, active = activeRuleSet.find(rule => rule.id === current.logicalId);
+  if (!active) return;
+  try {
+    const ast = current.ast || parseRule(current.sourceDsl, registry, { root: "customer" });
+    if (ast.id !== current.logicalId) throw new Error(`RULE_ID_MISMATCH\nExpected stable ID ${current.logicalId}; received ${ast.id}.`);
+    const candidate = compileCandidate(ast, current.revision);
+    const unit = candidate.constraint.type === "SET_MAX_RATIO" ? "% of accounts receivable" : candidate.constraint.unit;
+    const display = value => candidate.constraint.type === "SET_MAX_RATIO" ? `${number(value * 100)}%` : `${number(value)} ${unit}`;
+    const direction = candidate.constraint.value === active.constraint.value ? "Unchanged" : candidate.constraint.value < active.constraint.value ? "Lower threshold · tightening" : "Higher threshold · relaxation";
+    const sameScope = JSON.stringify(canonicalScope(active.scope)) === JSON.stringify(canonicalScope(candidate.scope));
+    $("#policyDiff").innerHTML = `<div class="diff-identity"><b>${escapeHtml(current.logicalId)}</b><span>Active revision ${active.revision} → candidate revision ${current.revision}</span></div><dl class="structured-diff"><div><dt>Scope</dt><dd><span>Active</span>${escapeHtml(scopeText(active.scope))}<br><span>Candidate</span>${escapeHtml(scopeText(candidate.scope))}<br><b>${sameScope ? "Unchanged scope" : "Changed scope"}</b></dd></div><div><dt>Threshold / effect</dt><dd><del>${escapeHtml(display(active.constraint.value))}</del> → <ins>${escapeHtml(display(candidate.constraint.value))}</ins><br><b>${escapeHtml(direction)}</b></dd></div><div><dt>Policy statement</dt><dd><span>Active</span>${escapeHtml(active.policy.statement)}<br><span>Candidate</span>${escapeHtml(candidate.policy.statement)}</dd></div></dl>`;
+  } catch (error) {
+    $("#policyDiff").innerHTML = `<p role="alert"><b>Candidate diff unavailable.</b> ${escapeHtml(error.message)} Open Edit source to correct it.</p>`;
+  }
+}
+
+function renderEvidenceSpine() {
+  const current = governance.current, evidence = governance.evidence;
+  const state = (kind, ready) => evidence[kind] ? (kind === "validation" ? evidence[kind].valid ? "Passed" : "Blocked" : kind === "analysis" ? ["CONFLICT", "INDETERMINATE"].includes(evidence[kind].status) ? evidence[kind].status === "CONFLICT" ? "Blocked · conflict" : "Indeterminate" : "Passed" : evidence[kind].complete ? "Passed" : "Incomplete") : ready ? "Not run" : "Not run · prerequisite unmet";
+  const detail = kind => kind === "validation" ? evidence.validation?.valid === false ? evidence.validation.error : "Parser, stable ID, property, datatype, enum, unit, domain, and supported-family checks passed."
+    : kind === "analysis" ? evidence.analysis?.summary : evidence.batch?.headline;
+  const item = (title, kind, ready, prerequisite, action) => `<section class="evidence-item"><h3>${title}</h3><strong>${state(kind, ready)}</strong>${evidence[kind] ? `<small>Candidate revision ${evidence[kind].revision} · Active Policy Version ${escapeHtml(evidence[kind].releaseId)}</small><p>${escapeHtml(detail(kind))}</p>` : `<p>${escapeHtml(prerequisite)}</p>`}${action && !evidence[kind] ? `<button class="${ready ? "secondary-button" : "primary-button"}" id="${action.id}" ${ready ? "" : "disabled"}>${escapeHtml(action.label)}</button>` : ""}</section>`;
+  const stale = governance.staleEvidence.length ? `<details class="evidence-history"><summary>Stale evidence snapshots (${governance.staleEvidence.length})</summary>${governance.staleEvidence.map(snapshot => `<details><summary>Stale · ${escapeHtml(snapshot.logicalId)} · candidate revision ${snapshot.candidateRevision} · ${escapeHtml(snapshot.activeReleaseId)}</summary><p>Read-only and excluded from current readiness.</p><pre>${escapeHtml(JSON.stringify(snapshot.evidence, null, 2))}</pre></details>`).join("")}</details>` : "";
+  const staleAi = stalePolicyExplanations.length ? `<details class="evidence-history"><summary>Stale generated summaries (${stalePolicyExplanations.length})</summary><p>Generated prose—not deterministic evidence or current qualification.</p>${stalePolicyExplanations.map(item => `<details><summary>Stale · ${escapeHtml(item.logicalId)} · candidate revision ${item.candidateRevision} · ${escapeHtml(item.activeReleaseId)}</summary><p>${escapeHtml(item.result.summary)}</p></details>`).join("")}</details>` : "";
+  $("#evidenceSpine").innerHTML = item("1. Validation", "validation", true, "Run deterministic validation for this candidate source.", { id: "openValidation", label: "Open source and validate" })
+    + item("2. Compatibility", "analysis", current.state === "VALIDATED", evidence.validation?.valid === false ? "Fix validation issues and validate a new revision first." : "Validation must pass first.", { id: "analyzeEvidence", label: "Check compatibility" })
+    + item("3. Review impact", "batch", current.state === "ANALYZED", evidence.analysis?.status === "CONFLICT" ? `Blocked by conflict: ${evidence.analysis.summary}` : evidence.analysis?.status === "INDETERMINATE" ? "Blocked because the deterministic reasoner could not classify compatibility." : "A non-blocking compatibility result is required first.", { id: "runBatch", label: "Assess Review impact" })
+    + stale + staleAi;
 }
 
 function persistStudio() {
-  sessionStorage.setItem(STUDIO_STORAGE_KEY, JSON.stringify({ selected, governance: governance.snapshot(), releaseRuleSets, batch, policyExplanations, policyInput: $("#policyInput").value, dslInput: $("#dslInput").value }));
+  sessionStorage.setItem(STUDIO_STORAGE_KEY, JSON.stringify({ selected, governance: governance.snapshot(), policyExplanations, stalePolicyExplanations, policyInput: $("#policyInput").value, dslInput: $("#dslInput").value }));
 }
 
 function clearReviewWorkspace() {
@@ -273,17 +336,12 @@ function showToast(message) {
   setTimeout(() => $("#toast").classList.remove("show"), 1800);
 }
 
-function setProgress(step) {
-  document.querySelectorAll(".track-step").forEach((element, index) => element.classList.toggle("active", index < step));
-  $("#progressLine").style.width = `${((step - 1) / 3) * 100}%`;
-}
-
 function resetState() {
   const scenario = scenarios[selected], sourceDsl = formatRule(scenario.ast, { root: "customer" });
   activeRuleSet = [...activeRules];
-  releaseRuleSets = { [release.id]: activeRuleSet };
-  governance = new Governance({ activeRelease: release, candidate: { logicalId: scenario.logicalId, revision: scenario.revision, sourcePolicy: scenario.policy, sourceDsl, ast: null } });
+  governance = new Governance({ activeRelease: release, candidate: { logicalId: scenario.logicalId, revision: scenario.revision, sourcePolicy: scenario.policy, sourceDsl, ast: null, provenance: "EXAMPLE" } });
   batch = null;
+  stalePolicyExplanations = [];
   invalidatePolicyExplanation();
 }
 
@@ -292,9 +350,19 @@ function invalidatePolicyExplanation() {
   policyRequestVersion += 1;
 }
 
+function staleCurrentPolicyExplanation() {
+  if (policyExplanation?.status === "ready") stalePolicyExplanations.push({ logicalId: governance.current.logicalId, candidateRevision: governance.current.revision, activeReleaseId: governance.activeRelease.id, result: policyExplanation.result });
+  invalidatePolicyExplanation();
+}
+
 function nextRuleRevision(logicalId) {
-  const revisions = governance.releaseHistory.flatMap(item => item.rules.filter(rule => rule.id === logicalId).map(rule => rule.revision));
+  const revisions = [...governance.releaseHistory.flatMap(item => item.rules.filter(rule => rule.id === logicalId).map(rule => rule.revision)), ...governance.revisions.filter(item => item.logicalId === logicalId).map(item => item.revision), ...governance.staleEvidence.filter(item => item.logicalId === logicalId).map(item => item.candidateRevision)];
   return Math.max(0, ...revisions) + 1;
+}
+
+function selectMatchingScenario(logicalId, sourcePolicy, sourceDsl) {
+  selected = Object.entries(scenarios).find(([, scenario]) => scenario.logicalId === logicalId && scenario.policy === sourcePolicy && formatRule(scenario.ast, { root: "customer" }) === sourceDsl)?.[0] || null;
+  document.querySelectorAll(".scenario").forEach(item => { const active = item.dataset.scenario === selected; item.classList.toggle("active", active); item.setAttribute("aria-pressed", String(active)); });
 }
 
 function formatFact(id, value) {
@@ -307,6 +375,65 @@ function formatFact(id, value) {
   return String(value).replaceAll("_", " ");
 }
 
+function formatBusinessFact(id, value) {
+  if (["restricted_status", "discontinued_status"].includes(id)) return value === "Y" ? "Yes" : value === "N" ? "No" : "Not available";
+  return formatFact(id, value);
+}
+
+function renderActiveRule(rule) {
+  const predicate = item => `${registry.definition(item.fact).displayName} ${operator[item.op] || item.op} ${formatBusinessFact(item.fact, item.value)}`;
+  const factIds = [...new Set([...rule.scope, ...rule.conditions].map(item => item.fact).concat(rule.constraint?.fact || [], rule.constraint?.numerator || [], rule.constraint?.denominator || []))];
+  const factLinks = factIds.map(id => `<button class="ontology-property" data-property="${escapeHtml(id)}">${escapeHtml(registry.definition(id).displayName)}</button>`).join(" ");
+  return `<article><h4>${escapeHtml(rule.policy.title)} · ${escapeHtml(rule.id)}@${rule.revision}</h4><p>${escapeHtml(rule.policy.statement)}</p><dl><dt>Scope</dt><dd>${escapeHtml(rule.scope.length ? rule.scope.map(predicate).join(" and ") : "All customers")}</dd><dt>Finding when</dt><dd>${escapeHtml(rule.conditions.map(predicate).join(" and "))}</dd><dt>Constraint</dt><dd>${escapeHtml(rule.constraint ? policyThreshold(rule) : "No separately declared constraint")}</dd><dt>Supporting facts</dt><dd class="active-rule-facts">${factLinks}</dd></dl></article>`;
+}
+
+function showReferenceDialog() {
+  if (!$("#propertyDialog").open) $("#propertyDialog").showModal();
+}
+
+function policyThreshold(rule) {
+  if (rule.constraint?.type === "SET_MAX_RATIO") return `Maximum ${number(rule.constraint.value * 100)}% past due`;
+  if (rule.constraint?.type === "SET_MAX") return `Maximum ${number(rule.constraint.value)} ${String(rule.constraint.unit || "").toLowerCase()}`;
+  return "See policy statement";
+}
+
+function policyOutcome(result, logicalId) {
+  const outcome = result.traces.find(trace => trace.policyRef.ruleId === logicalId)?.outcome;
+  return { FINDING: "Threshold exceeded", PASS: "Within threshold", NOT_APPLICABLE: "Policy does not apply", INDETERMINATE: "Could not determine" }[outcome] || "Not evaluated";
+}
+
+function renderImpactRecord(record, row) {
+  const context = registry.context(record);
+  const logicalId = governance.current.logicalId;
+  const keyFacts = logicalId === "HIGH_BALANCE_ADP_MAX"
+    ? ["ar_balance", "adp_days", "restricted_status", "payment_terms", "past_due_amount", "past_due_ratio"]
+    : ["payment_terms", "ar_balance", "past_due_amount", "past_due_ratio", "adp_days", "restricted_status"];
+  const factList = ids => `<dl class="impact-fact-grid">${ids.map(id => `<div><dt>${escapeHtml(registry.definition(id).displayName)}</dt><dd>${escapeHtml(formatBusinessFact(id, context.get(id)))}</dd></div>`).join("")}</dl>`;
+  const boundary = logicalId === "HIGH_BALANCE_ADP_MAX"
+    ? `This record tests ${formatBusinessFact("adp_days", context.get("adp_days"))} for an ${formatBusinessFact("restricted_status", context.get("restricted_status")) === "No" ? "unrestricted" : "restricted"} customer with ${formatBusinessFact("ar_balance", context.get("ar_balance"))} in accounts receivable.`
+    : `This record tests a ${formatBusinessFact("past_due_ratio", context.get("past_due_ratio"))} past-due ratio for a ${formatBusinessFact("payment_terms", context.get("payment_terms"))} customer.`;
+  let outcome;
+  if (row.error) {
+    outcome = `<p class="impact-callout"><b>Evaluation could not complete.</b> This record is included so the input and failure remain inspectable.</p>`;
+  } else {
+    const candidateSet = candidateRules();
+    const activeResult = evaluate(record, activeRuleSet, governance.activeRelease);
+    const candidateResult = evaluate(record, candidateSet, candidateRelease(candidateSet));
+    const activeRule = activeRuleSet.find(rule => rule.id === logicalId);
+    const candidateRule = candidateSet.find(rule => rule.id === logicalId);
+    const actionChanged = row.baselineAction !== row.candidateAction;
+    const findingChanged = row.addedFindingDetails.length || row.resolvedFindingDetails.length;
+    const impact = actionChanged
+      ? `The candidate changes the recommended review action from ${labels[row.baselineAction] || row.baselineAction} to ${labels[row.candidateAction] || row.candidateAction}.`
+      : findingChanged
+        ? `The recommended review action remains ${labels[row.candidateAction] || row.candidateAction}, but the candidate changes the policy findings.`
+        : `The candidate produces no change for this record; the recommended action remains ${labels[row.candidateAction] || row.candidateAction}.`;
+    outcome = `<div class="impact-comparison" role="region" aria-label="Active and candidate policy comparison"><table><thead><tr><th></th><th>Active policy</th><th>Candidate policy</th></tr></thead><tbody><tr><th>Threshold</th><td>${escapeHtml(policyThreshold(activeRule))}</td><td>${escapeHtml(policyThreshold(candidateRule))}</td></tr><tr><th>Policy result</th><td>${escapeHtml(policyOutcome(activeResult, logicalId))}</td><td>${escapeHtml(policyOutcome(candidateResult, logicalId))}</td></tr><tr><th>Review action</th><td>${escapeHtml(labels[row.baselineAction] || row.baselineAction)}</td><td>${escapeHtml(labels[row.candidateAction] || row.candidateAction)}</td></tr></tbody></table></div><p class="impact-callout"><b>Candidate impact:</b> ${escapeHtml(impact)}</p>`;
+  }
+  const groupedInputs = Object.entries(properties).filter(([id]) => !["customer_number", "name"].includes(id)).reduce((groups, [id, definition]) => ((groups[definition.group] ||= []).push(id), groups), {});
+  return `<p class="impact-fictional">Fictional boundary record · Customer ${record.customer_number}</p><p>${escapeHtml(boundary)}</p><section class="impact-section"><h4>Policy-relevant facts</h4>${factList(keyFacts)}</section><section class="impact-section"><h4>Dry-run outcome</h4>${outcome}</section><details class="impact-inputs"><summary>All input facts</summary>${Object.entries(groupedInputs).map(([group, ids]) => `<section><h4>${escapeHtml(group)}</h4>${factList(ids)}</section>`).join("")}</details><details><summary>Technical fixture details</summary><pre>${escapeHtml(JSON.stringify(record, null, 2))}</pre></details>`;
+}
+
 function policyStatusLabel(status) {
   return POLICY_STATE_LABELS[status] || status.toLowerCase().replaceAll("_", " ").replace(/^./, character => character.toUpperCase());
 }
@@ -317,25 +444,15 @@ function renderOntology() {
   $("#ontologyGrid").innerHTML = `<div class="table-scroll"><table class="data-table ontology-table"><thead><tr><th>Fact</th><th>Current value</th></tr></thead><tbody>${Object.entries(groups).map(([group, entries]) => `<tr class="table-group"><th colspan="2">${escapeHtml(group)}</th></tr>${entries.map(([id, definition]) => `<tr><td><button class="ontology-property" data-property="${escapeHtml(id)}"><strong>${escapeHtml(definition.displayName)}</strong><small>customer.${escapeHtml(id)} · ${escapeHtml(definition.type)}${definition.unit ? ` · ${definition.unit}` : ""}</small></button></td><td><em>${escapeHtml(formatFact(id, context.get(id)))}</em>${derived[id] ? `<small>Derived from ${escapeHtml(definition.dependencies.join(", "))}</small>` : ""}</td></tr>`).join("")}`).join("")}</tbody></table></div>`;
 }
 
-function promptText() {
-  const ontology = Object.entries({ ...properties, ...derived }).map(([id, definition]) => `customer.${id}: ${definition.type}${definition.unit ? ` [${definition.unit}]` : ""}${definition.values ? ` {${definition.values.join("|")}}` : ""}`).join("\n");
-  return `STATIC DRAFTING PROMPT — AI features disabled\nCreate one draft only. Never validate, calculate, approve, activate, or select a customer action.\n\nONTOLOGY v2.0\n${ontology}\n\nDSL\nRULE <STABLE_ID>\nSCOPE ALL | customer.<property> <operator> <typed value> [AND ...]\nSET_MAX customer.<numeric_property> = <value> [unit]\nSET_MIN customer.<numeric_property> = <value> [unit]\nSET_MAX_RATIO customer.<decimal_property>\n  TO customer.<decimal_property> = <ratio>\nEND\n\nBUSINESS POLICY\n${$("#policyInput").value.trim()}`;
-}
-
 async function generateDraft() {
   const button = $("#generatePrompt");
   const requestedRelease = governance.activeRelease.id;
-  const policyText = $("#policyInput").value.trim();
+  const policyBuffer = $("#policyInput").value;
+  const policyText = policyBuffer.trim();
   const requestVersion = ++draftRequestVersion;
-  const scenario = scenarios[selected];
-  governance.startDraft({ logicalId: scenario.logicalId, revision: nextRuleRevision(scenario.logicalId), sourcePolicy: policyText, sourceDsl: "", ast: null });
-  batch = null;
-  persistStudio();
   button.disabled = true;
   $("#promptOutput").innerHTML = `<span class="ai-loading" role="status"><span class="ai-spinner" aria-hidden="true"></span><span>Drafting with GitHub Copilot…</span></span>`;
   $("#promptSection").classList.remove("hidden");
-  $("#editorSection").classList.add("hidden");
-  $("#resultSection").classList.add("hidden");
   try {
     const response = await fetch("/api/ai/draft_rule", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify({ schemaVersion: "1", policyText, activeReleaseId: requestedRelease }) });
     const payload = await readAiResponse(response);
@@ -344,7 +461,7 @@ async function generateDraft() {
       failure.retryable = payload.error?.retryable;
       throw failure;
     }
-    if (draftRequestVersion !== requestVersion || governance.activeRelease.id !== requestedRelease || $("#policyInput").value.trim() !== policyText) throw new Error("The rule intent or active policy changed while drafting. Retry against the current state.");
+    if (draftRequestVersion !== requestVersion || governance.activeRelease.id !== requestedRelease || $("#policyInput").value !== policyBuffer) throw new Error("The rule intent or active policy changed while drafting. Retry against the current state.");
     const result = payload.result;
     $("#draftBadge").textContent = result.outcome.replaceAll("_", " ");
     if (result.outcome === "CANDIDATE") {
@@ -352,31 +469,57 @@ async function generateDraft() {
       $("#dslInput").value = result.dsl;
       const activeRevision = activeRuleSet.find(rule => rule.id === result.family)?.revision;
       if (!Number.isInteger(activeRevision)) throw new Error("The rule family is not present in the active policy version.");
-      selected = result.family === "NET30_PAST_DUE_MAX" ? "ratio5" : "adp20";
-      document.querySelectorAll(".scenario").forEach(item => item.classList.toggle("active", item.dataset.scenario === selected));
-      governance.startDraft({ logicalId: result.family, revision: nextRuleRevision(result.family), sourcePolicy: policyText, sourceDsl: result.dsl, ast: null });
+      if (governance.current.logicalId === result.family && governance.current.sourcePolicy === policyBuffer && governance.current.sourceDsl === result.dsl) {
+        if (governance.current.state === "DRAFT" && governance.current.provenance === "EXAMPLE") {
+          governance.updateDraft({ provenance: "AI" });
+          persistStudio();
+          renderPolicySummary();
+        }
+        $("#editorSection").open = true;
+        showToast("The drafted candidate matches the current Policy Change. Existing evidence is unchanged.");
+        return;
+      }
+      selectMatchingScenario(result.family, policyBuffer, result.dsl);
+      const sameFamily = governance.current.logicalId === result.family;
+      if (sameFamily) staleCurrentPolicyExplanation();
+      else { invalidatePolicyExplanation(); stalePolicyExplanations = []; }
+      const candidate = { logicalId: result.family, revision: nextRuleRevision(result.family), sourcePolicy: policyBuffer, sourceDsl: result.dsl, ast: null, provenance: "AI" };
+      if (sameFamily) governance.edit(candidate);
+      else governance.startDraft(candidate);
       batch = null;
-      $("#editorSection").classList.remove("hidden");
+      $("#resultSection").classList.add("hidden");
+      $("#editorSection").open = true;
       persistStudio();
       renderPolicySummary();
-      setProgress(3);
     } else if (result.outcome === "NEEDS_CLARIFICATION") {
       $("#promptOutput").textContent = `${result.question}\n\nMissing: ${result.missingFields.join(", ")}`;
     } else {
       $("#promptOutput").textContent = result.summary;
     }
   } catch (error) {
+    if (requestVersion !== draftRequestVersion) return;
     $("#draftBadge").textContent = "Draft unavailable";
     $("#promptOutput").textContent = error instanceof Error ? error.message : "Drafting failed";
     button.textContent = error?.retryable ? "Retry draft candidate →" : "Draft candidate →";
-  } finally { button.disabled = false; }
+  } finally { if (requestVersion === draftRequestVersion) button.disabled = false; }
 }
 
-function updateDraft(changes) {
-  if (governance.current.state === "DRAFT") governance.updateDraft(changes);
-  else governance.edit(changes);
+function invalidateDraftRequest() {
+  const button = $("#generatePrompt");
+  const loading = $("#promptOutput").querySelector(".ai-loading");
+  draftRequestVersion += 1;
+  button.disabled = false;
+  if (loading) {
+    $("#draftBadge").textContent = "Draft outdated";
+    $("#promptOutput").textContent = "Intent or source changed while drafting. Draft again against the current edits.";
+  }
+}
+
+function updateDraft(changes, { material = false } = {}) {
+  staleCurrentPolicyExplanation();
+  if (material || governance.current.state !== "DRAFT") governance.edit(changes);
+  else governance.updateDraft(changes);
   batch = null;
-  invalidatePolicyExplanation();
   renderPolicySummary();
 }
 
@@ -398,75 +541,57 @@ function candidateRelease(rules) {
 }
 
 function restoreStudio(saved) {
-  const restoredCurrent = structuredClone(saved.governance?.revisions?.at(-1));
-  const restoredEvidence = structuredClone(saved.governance?.evidence || {});
-  const storedRuleSets = saved.releaseRuleSets;
-  if (!storedRuleSets || typeof storedRuleSets !== "object" || Array.isArray(storedRuleSets)) throw new Error("Invalid stored Demo Release rule sets");
-  const storedReleaseIds = Object.keys(storedRuleSets);
-  if (saved.governance?.activeReleaseId !== release.id || saved.governance?.releaseHistory?.length !== 1 || storedReleaseIds.length !== 1 || storedReleaseIds[0] !== release.id) throw new Error("Legacy Demo Release state cannot be restored by the policy workbench");
+  if (saved.governance?.releaseHistory || saved.governance?.revisions?.some(item => item.state === "APPROVED_AND_ACTIVATED")) throw new Error("Legacy activation or release state cannot be restored by the Policy Change workbench");
+  const expected = structuredClone(saved.governance?.revisions?.at(-1));
+  const storedEvidence = structuredClone(saved.governance?.evidence || {});
   governance.restore(saved.governance);
-  const canonicalIds = activeRules.map(rule => rule.id).sort();
-  const validatedRuleSets = {};
-  const validatedManifests = {};
-  for (const [index, manifest] of governance.releaseHistory.entries()) {
-    const manifestIds = manifest.rules.map(rule => rule.id).sort();
-    if (new Set(manifestIds).size !== manifestIds.length || JSON.stringify(manifestIds) !== JSON.stringify(canonicalIds)) throw new Error("Stored Demo Release does not contain the canonical rule families");
-    if (index === 0) {
-      assertReleaseRuleSet(activeRules, manifest);
-      if (manifest.id !== release.id || manifest.ontologyVersion !== release.ontologyVersion || manifest.actionPolicyVersion !== release.actionPolicyVersion || manifest.calculatorVersion !== release.calculatorVersion) throw new Error("Stored Demo Release history must begin with the canonical baseline");
-      validatedRuleSets[manifest.id] = activeRules;
-      validatedManifests[manifest.id] = manifest;
-      continue;
-    }
-    const predecessorManifest = validatedManifests[manifest.predecessorReleaseId];
-    const predecessorRules = validatedRuleSets[manifest.predecessorReleaseId];
-    if (!predecessorManifest || !predecessorRules) throw new Error("Stored Demo Release predecessor must occur earlier in its history");
-    const source = manifest.candidate;
-    if (!source?.sourceDsl || !source.logicalId || !Number.isInteger(source.revision)) throw new Error("Stored Demo Release is missing its deterministic candidate source");
-    const ast = parseRule(source.sourceDsl, registry, { root: "customer" });
-    if (ast.id !== source.logicalId) throw new Error("Stored Demo Release candidate stable ID does not match its DSL");
-    const replacement = compileCandidate(ast, source.revision);
-    const expectedRules = predecessorRules.map(rule => rule.id === replacement.id ? replacement : rule);
-    assertReleaseRuleSet(expectedRules, manifest);
-    if (JSON.stringify(storedRuleSets[manifest.id]) !== JSON.stringify(expectedRules)) throw new Error("Stored Demo Release compiled rules do not match its candidate source");
-    const analysis = analyzeCandidate(ast, predecessorRules);
-    if (["CONFLICT", "INDETERMINATE"].includes(analysis.status)) throw new Error("Stored Demo Release no longer passes compatibility analysis");
-    const impact = assessReviewImpact(policyImpactCohort, customer => evaluate(customer, predecessorRules, predecessorManifest), customer => evaluate(customer, expectedRules, manifest));
-    if (!impact.summary.complete) throw new Error("Stored Demo Release no longer has complete Review impact");
-    validatedRuleSets[manifest.id] = expectedRules;
-    validatedManifests[manifest.id] = manifest;
-  }
-  releaseRuleSets = validatedRuleSets;
-  activeRuleSet = releaseRuleSets[governance.activeRelease.id];
+  activeRuleSet = [...activeRules];
   batch = null;
-  if (restoredCurrent.state === "DRAFT" || restoredCurrent.state === "APPROVED_AND_ACTIVATED") return;
-
-  governance.startDraft({ ...restoredCurrent, ast: null });
-  const ast = parseRule(restoredCurrent.sourceDsl, registry, { root: "customer" });
-  if (ast.id !== restoredCurrent.logicalId) throw new Error("Restored candidate stable ID does not match its DSL");
-  governance.updateDraft({ ast });
-  governance.record("validation", { valid: true, ast });
-  if (restoredEvidence.analysis || STATES.indexOf(restoredCurrent.state) >= STATES.indexOf("ANALYZED")) {
-    const analysis = analyzeCandidate(ast, activeRuleSet);
-    const passed = governance.record("analysis", analysis);
-    if (!passed && STATES.indexOf(restoredCurrent.state) >= STATES.indexOf("ANALYZED")) throw new Error("Restored candidate no longer passes compatibility analysis");
+  if (!Object.keys(storedEvidence).length) {
+    if (expected.state !== "DRAFT") throw new Error("Stored candidate state has no current deterministic evidence");
+    return;
   }
-  if (restoredEvidence.batch || STATES.indexOf(restoredCurrent.state) >= STATES.indexOf("BATCH_PASSED")) {
-    if (governance.current.state !== "ANALYZED") throw new Error("Restored Review impact has no compatible analysis baseline");
+
+  let ast;
+  try {
+    ast = parseRule(expected.sourceDsl, registry, { root: "customer" });
+    if (ast.id !== expected.logicalId) throw new Error(`RULE_ID_MISMATCH\nExpected stable ID ${expected.logicalId}; received ${ast.id}.`);
+    compileCandidate(ast, expected.revision);
+  } catch (error) {
+    if (storedEvidence.validation?.valid !== false || expected.state !== "DRAFT" || storedEvidence.analysis || storedEvidence.batch) throw new Error("Stored validation evidence disagrees with the current candidate source");
+    const message = error instanceof Error ? error.message : String(error);
+    governance.record("validation", { valid: false, error: message, category: message.split("\n", 1)[0] });
+    return;
+  }
+  if (storedEvidence.validation?.valid !== true) throw new Error("Stored validation evidence disagrees with the current candidate source");
+  governance.updateDraft({ ast, sourceDsl: expected.sourceDsl });
+  governance.record("validation", { valid: true, ast });
+
+  if (storedEvidence.analysis) {
+    const analysis = analyzeCandidate(ast, activeRuleSet);
+    if (analysis.status !== storedEvidence.analysis.status) throw new Error("Stored compatibility evidence disagrees with deterministic analysis");
+    governance.record("analysis", analysis);
+  }
+  if (storedEvidence.batch) {
+    if (governance.current.state !== "ANALYZED") throw new Error("Stored Review impact has no compatible deterministic analysis");
     const candidateSet = candidateRules();
     const impact = assessReviewImpact(policyImpactCohort, customer => evaluate(customer, activeRuleSet, governance.activeRelease), customer => evaluate(customer, candidateSet, candidateRelease(candidateSet)));
-    const passed = governance.record("batch", impact);
-    if (!passed && STATES.indexOf(restoredCurrent.state) >= STATES.indexOf("BATCH_PASSED")) throw new Error("Restored candidate no longer has complete Review impact");
-    batch = impact;
+    const comparable = value => JSON.stringify({ summary: value.summary, headline: value.headline, changedRows: value.changedRows, rows: value.rows, complete: value.complete });
+    if (comparable(impact) !== comparable(storedEvidence.batch)) throw new Error("Stored Review impact disagrees with deterministic reassessment");
+    governance.record("batch", impact);
+    batch = governance.evidence.batch;
   }
+  if (governance.current.state !== expected.state) throw new Error("Stored candidate state disagrees with reconstructed deterministic evidence");
 }
 
 function renderAuthoringError(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  if (governance.current.state === "DRAFT") governance.record("validation", { valid: false, error: message, category: message.split("\n", 1)[0] });
   $("#resultSection").className = "result-section";
-  $("#resultSection").innerHTML = `<div class="error-result"><p class="eyebrow">Deterministic validation failed</p><h2>INVALID RULE</h2><pre>${escapeHtml(error instanceof Error ? error.message : error)}</pre></div>`;
+  $("#resultSection").innerHTML = `<div class="error-result" role="alert"><p class="eyebrow">Deterministic validation blocked</p><h2>${escapeHtml(message.split("\n", 1)[0])}</h2><pre>${escapeHtml(message)}</pre><p>Compatibility and Review impact cannot run until a new candidate revision passes validation.</p></div>`;
   $("#resultSection").classList.remove("hidden");
-  $("#candidateState").textContent = "Invalid";
   renderPolicySummary();
+  persistStudio();
 }
 
 function singleResult() {
@@ -494,11 +619,13 @@ function renderBatch() {
     ["Errors", summary.errors],
     ["Cohort Size", summary.evaluated]
   ];
-  const rows = batch.changedRows.map(row => row.error
-    ? `<tr class="batch-error"><td>${escapeHtml(row.label)}</td><td colspan="3"><b>Evaluation error:</b> ${escapeHtml(row.error)}</td></tr>`
-    : `<tr><td>${escapeHtml(row.label)}</td><td>${escapeHtml(labels[row.baselineAction] || row.baselineAction)}</td><td>${escapeHtml(labels[row.candidateAction] || row.candidateAction)}</td><td><b>Added:</b> ${row.addedFindingDetails.map(item => `${escapeHtml(item.policyTitle)} <small>(${escapeHtml(item.reasonCode)})</small>`).join(" · ") || "none"}<br><b>Resolved:</b> ${row.resolvedFindingDetails.map(item => `${escapeHtml(item.policyTitle)} <small>(${escapeHtml(item.reasonCode)})</small>`).join(" · ") || "none"}<br><small>${row.evidenceRefs.map(escapeHtml).join(" · ")}</small></td></tr>`).join("");
+  const priorityIds = new Set(batch.changedRows.map(row => row.customerId));
+  const orderedRows = [...batch.rows.filter(row => priorityIds.has(row.customerId)), ...batch.rows.filter(row => !priorityIds.has(row.customerId))];
+  const rows = orderedRows.map(row => row.error
+    ? `<tr class="batch-error"><td><button class="batch-record" data-impact-record="${row.customerId}">${escapeHtml(row.label)}</button></td><td colspan="3"><b>Evaluation error:</b> ${escapeHtml(row.error)}</td></tr>`
+    : `<tr><td><button class="batch-record" data-impact-record="${row.customerId}">${escapeHtml(row.label)}</button></td><td>${escapeHtml(labels[row.baselineAction] || row.baselineAction)}</td><td>${escapeHtml(labels[row.candidateAction] || row.candidateAction)}</td><td><b>Added:</b> ${row.addedFindingDetails.map(item => `${escapeHtml(item.policyTitle)} <small>(${escapeHtml(item.reasonCode)})</small>`).join(" · ") || "none"}<br><b>Resolved:</b> ${row.resolvedFindingDetails.map(item => `${escapeHtml(item.policyTitle)} <small>(${escapeHtml(item.reasonCode)})</small>`).join(" · ") || "none"}<br><small>${row.evidenceRefs.map(escapeHtml).join(" · ")}</small></td></tr>`).join("");
   const baselineReleaseId = governance.evidence.batch?.releaseId || governance.activeRelease.id;
-  return `<section class="batch-panel"><p class="eyebrow">Customer impact · Baseline ${escapeHtml(baselineReleaseId)}</p><h3>${escapeHtml(batch.headline)}</h3><p>Compared with the active policy across ${summary.evaluated} fictional test records.</p><div class="metric-grid">${metrics.map(([label, value]) => `<div><small>${escapeHtml(label)}</small><b>${escapeHtml(value)}</b></div>`).join("")}</div><div class="batch-table"><table><thead><tr><th>Record</th><th>Baseline action</th><th>Candidate action</th><th>Finding changes and evidence</th></tr></thead><tbody>${rows}</tbody></table></div><details><summary>Show all ${summary.evaluated}</summary><pre>${escapeHtml(JSON.stringify(batch.rows, null, 2))}</pre></details></section>`;
+  return `<section class="batch-panel"><p class="eyebrow">Review impact · Baseline ${escapeHtml(baselineReleaseId)}</p><h3>${escapeHtml(batch.headline)}</h3><p><b>Fixed fictional boundary cohort—not a production portfolio, forecast, or workload estimate.</b></p><div class="metric-grid">${metrics.map(([label, value]) => `<div><small>${escapeHtml(label)}</small><b>${escapeHtml(value)}</b></div>`).join("")}</div><div class="batch-table" role="region" aria-label="Review impact records" tabindex="0"><table><thead><tr><th>Record</th><th>Baseline action</th><th>Candidate action</th><th>Finding changes and evidence</th></tr></thead><tbody>${rows}</tbody></table></div><details><summary>Full cohort output and raw JSON (${summary.evaluated} records)</summary><pre>${escapeHtml(JSON.stringify(batch.rows, null, 2))}</pre></details></section>`;
 }
 
 function policyExplanationRequest() {
@@ -539,6 +666,7 @@ async function generatePolicyExplanation() {
     const response = await fetch("/api/ai/explain_policy_analysis", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify(snapshot) });
     const payload = await readAiResponse(response);
     if (!response.ok) throw new Error(`${payload.error?.message || "Explanation unavailable"} · ${payload.error?.correlationId || "no correlation ID"}`);
+    if (!isPolicyExplanation(payload.result)) throw new Error("AI explanation response was invalid. Deterministic evidence is unchanged.");
     let current;
     try { current = policyExplanationRequest(); } catch { return; }
     if (version !== policyRequestVersion || JSON.stringify(current) !== JSON.stringify(snapshot)) return;
@@ -561,46 +689,43 @@ function renderGovernance(message = "") {
     } catch {}
   }
   const expectedAnalysis = current.ast ? analyzeCandidate(current.ast, activeRuleSet) : null;
-  const headline = current.state === "BATCH_PASSED" ? POLICY_STATE_LABELS.BATCH_PASSED : policyStatusLabel(analysis?.status || current.state);
+  const headline = policyOverallState();
   const conflict = analysis?.status === "CONFLICT";
-  const blocked = analysis && !["REDUNDANT", "COMPATIBLE_REFINEMENT", "COMPATIBLE_RELAXATION"].includes(analysis.status);
-  const impactEligible = current.state === "ANALYZED" && !blocked;
   const activeRevision = activeRuleSet.find(rule => rule.id === current.logicalId)?.revision;
   $("#resultSection").className = `result-section governance-panel${conflict ? " conflict" : ""}`;
   $("#candidateState").textContent = headline;
   $("#resultSection").innerHTML = `<div class="result-hero"><div class="result-icon">${conflict ? "!" : "✓"}</div><div><span class="result-label">Rule analysis</span><h2>${escapeHtml(headline)}</h2><p>Active revision ${activeRevision} · candidate revision ${current.revision}${expectedAnalysis ? ` · ${escapeHtml(expectedAnalysis.summary)}` : ""}</p></div></div>
-    <div class="governance-body"><div class="lifecycle" aria-label="Rule change workflow">${POLICY_WORKFLOW_STATES.map(state => `<span class="${state === current.state ? "current" : STATES.indexOf(state) < STATES.indexOf(current.state) ? "complete" : ""}">${POLICY_STATE_LABELS[state]}</span>`).join("")}</div>
+    <div class="governance-body">
     ${message ? `<p class="notice">${escapeHtml(message)}</p>` : ""}
-    <div class="governance-actions"><button id="analyzeEvidence" class="secondary-button" ${current.state === "VALIDATED" ? "" : "disabled"}>Check compatibility</button><button id="runBatch" class="primary-button" ${impactEligible ? "" : "disabled"}>Assess customer impact</button></div>
     ${current.ast ? singleResult() : `<section class="runtime-panel"><p class="eyebrow">Draft revision ${current.revision}</p><h3>Validation required</h3><p>Regenerate or edit the DSL, then validate it before deterministic preview or compatibility analysis.</p></section>`}
     ${batch ? renderBatch() : ""}
-    ${current.state === "BATCH_PASSED" ? renderPolicyExplanation() : ""}
-    <details><summary>Revision and evidence details</summary><pre>${escapeHtml(JSON.stringify({ revisions: governance.revisions, evidence: governance.evidence }, null, 2))}</pre></details></div>`;
+    ${current.state === "BATCH_PASSED" ? `<p class="evidence-boundary"><b>Evidence complete for candidate revision ${current.revision} against ${escapeHtml(governance.activeRelease.id)}.</b> Governed review, approval, publication, and activation happen outside this POC.</p>${renderPolicyExplanation()}` : ""}
+    <details><summary>Raw revision and evidence output</summary><pre>${escapeHtml(JSON.stringify({ revisions: governance.revisions, evidence: governance.evidence }, null, 2))}</pre></details></div>`;
   $("#resultSection").classList.remove("hidden");
   renderPolicySummary();
 }
 
 function setScenario(id, { resetReleases = false } = {}) {
-  draftRequestVersion += 1;
+  const target = scenarios[id];
+  const targetDsl = formatRule(target.ast, { root: "customer" });
+  const exactlyCurrent = governance && governance.current.logicalId === target.logicalId && governance.current.sourcePolicy === target.policy && governance.current.sourceDsl === targetDsl && $("#policyInput").value === target.policy && $("#dslInput").value === targetDsl;
+  if (!resetReleases && exactlyCurrent) return showToast("The current candidate already matches this example");
+  const replacingMaterialWork = governance && (governance.revisions.length > 1 || Object.keys(governance.evidence).length || ["AI", "HUMAN_EDIT"].includes(governance.current.provenance));
+  const hasUnappliedChanges = governance && ($("#policyInput").value !== governance.current.sourcePolicy || $("#dslInput").value !== governance.current.sourceDsl);
+  if (!resetReleases && (replacingMaterialWork || hasUnappliedChanges) && !window.confirm("Replace the current session Policy Change? Candidate edits and evidence for this change will be cleared.")) return;
+  invalidateDraftRequest();
   selected = id;
-  const scenario = scenarios[selected], sourceDsl = formatRule(scenario.ast, { root: "customer" });
-  if (!governance || resetReleases) resetState();
-  else {
-    const revision = nextRuleRevision(scenario.logicalId);
-    governance.startDraft({ logicalId: scenario.logicalId, revision, sourcePolicy: scenario.policy, sourceDsl, ast: null });
-    batch = null;
-    invalidatePolicyExplanation();
-  }
-  document.querySelectorAll(".scenario").forEach(button => button.classList.toggle("active", button.dataset.scenario === id));
+  resetState();
+  document.querySelectorAll(".scenario").forEach(button => { const active = button.dataset.scenario === id; button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active)); });
   $("#candidateState").textContent = "Draft";
   $("#policyInput").value = scenarios[id].policy;
   $("#charCount").textContent = `${scenarios[id].policy.length} characters`;
   $("#dslInput").value = formatRule(scenarios[id].ast, { root: "customer" });
   $("#promptSection").classList.add("hidden");
-  $("#editorSection").classList.add("hidden");
+  $("#editorSection").open = false;
   $("#resultSection").classList.add("hidden");
-  setProgress(1);
   renderPolicySummary();
+  if (!resetReleases) persistStudio();
 }
 
 document.addEventListener("click", event => {
@@ -640,25 +765,52 @@ document.addEventListener("click", event => {
   }
   const scenario = event.target.closest(".scenario");
   if (scenario) setScenario(scenario.dataset.scenario);
+  if (event.target.closest("#openValidation")) { $("#editorSection").open = true; $("#validateButton").focus(); }
   if (event.target.closest("#generatePrompt")) {
     if (document.documentElement.dataset.aiEnabled === "true") generateDraft();
-    else { $("#promptOutput").textContent = promptText(); $("#promptSection").classList.remove("hidden"); $("#simulateResponse").classList.remove("hidden"); setProgress(2); }
+    else showToast("AI is disabled. Use the example candidate or edit source manually.");
   }
-  if (event.target.closest("#simulateResponse")) { const sourceDsl = formatRule(scenarios[selected].ast, { root: "customer" }); $("#dslInput").value = sourceDsl; updateDraft({ sourceDsl, ast: null }); $("#editorSection").classList.remove("hidden"); setProgress(3); }
+  if (event.target.closest("#simulateResponse")) {
+    if (!selected) return showToast("Choose an example intent before using an example candidate.");
+    const sourceDsl = formatRule(scenarios[selected].ast, { root: "customer" });
+    const replacingUnappliedSource = $("#dslInput").value !== governance.current.sourceDsl && $("#dslInput").value !== sourceDsl;
+    if (replacingUnappliedSource && !window.confirm("Replace the unapplied source edits with the selected example candidate?")) return;
+    $("#dslInput").value = sourceDsl;
+    const changes = { sourcePolicy: $("#policyInput").value, sourceDsl, ast: null, provenance: "EXAMPLE" };
+    const material = changes.sourcePolicy !== governance.current.sourcePolicy || changes.sourceDsl !== governance.current.sourceDsl;
+    if (!material) { $("#editorSection").open = true; return showToast("The current candidate already matches this example"); }
+    updateDraft(changes, { material });
+    $("#editorSection").open = true;
+    persistStudio();
+  }
+  if (event.target.closest("#applySourceEdit")) {
+    const sourceDsl = $("#dslInput").value;
+    const sourcePolicy = $("#policyInput").value;
+    if (sourceDsl === governance.current.sourceDsl && sourcePolicy === governance.current.sourcePolicy) return showToast("No material source or intent change to apply");
+    updateDraft({ sourcePolicy, sourceDsl, ast: null, provenance: "HUMAN_EDIT" }, { material: true });
+    selectMatchingScenario(governance.current.logicalId, sourcePolicy, sourceDsl);
+    renderGovernance("Source edit applied as a material candidate revision. Prior evidence is stale.");
+    persistStudio();
+  }
   if (event.target.closest("#validateButton")) {
+    if ($("#dslInput").value !== governance.current.sourceDsl || $("#policyInput").value !== governance.current.sourcePolicy) {
+      $("#editorSection").open = true;
+      $("#applySourceEdit").focus();
+      return showToast("Apply source and intent edits before running validation.");
+    }
     try {
       if (governance.current.state !== "DRAFT") throw new Error("Edit the DSL to create a new draft revision before validating again.");
       const ast = parseRule($("#dslInput").value, registry, { root: "customer" });
       if (ast.id !== governance.current.logicalId) throw new Error(`RULE_ID_MISMATCH\nExpected stable ID ${governance.current.logicalId}; received ${ast.id}.`);
+      compileCandidate(ast, governance.current.revision);
       governance.updateDraft({ ast, sourceDsl: $("#dslInput").value });
       governance.record("validation", { valid: true, ast });
       renderGovernance("Ontology, types, enums, units, and bounded DSL syntax validated for this exact revision.");
       persistStudio();
-      setProgress(3);
     } catch (error) { renderAuthoringError(error); }
   }
   if (event.target.closest("#analyzeEvidence")) {
-    try { invalidatePolicyExplanation(); const analysis = analyzeCandidate(governance.current.ast, activeRuleSet); governance.record("analysis", analysis); renderGovernance(analysis.status === "CONFLICT" ? "This change conflicts with the active policy." : `${policyStatusLabel(analysis.status)} against the active policy.`); persistStudio(); setProgress(4); }
+    try { invalidatePolicyExplanation(); const analysis = analyzeCandidate(governance.current.ast, activeRuleSet); governance.record("analysis", analysis); renderGovernance(analysis.status === "CONFLICT" ? "This change conflicts with the active policy." : `${policyStatusLabel(analysis.status)} against the active policy.`); persistStudio(); }
     catch (error) { renderGovernance(error.message); }
   }
   if (event.target.closest("#runBatch")) {
@@ -666,7 +818,7 @@ document.addEventListener("click", event => {
       const candidateSet = candidateRules();
       const candidateBatch = assessReviewImpact(policyImpactCohort, customer => evaluate(customer, activeRuleSet, governance.activeRelease), customer => evaluate(customer, candidateSet, candidateRelease(candidateSet)));
       governance.record("batch", candidateBatch);
-      batch = candidateBatch;
+      batch = governance.evidence.batch;
       invalidatePolicyExplanation();
       renderGovernance(candidateBatch.summary.complete ? "Customer impact assessment complete." : "Impact assessment incomplete: errors or indeterminate evaluations block a definitive result.");
       persistStudio();
@@ -686,8 +838,21 @@ document.addEventListener("click", event => {
     renderReview(narrativeCustomers.find(customer => customer.customer_number === selectedCustomerNumber));
     showToast("Workspace reset");
   }
+  const impactRecordButton = event.target.closest("[data-impact-record]");
+  if (impactRecordButton) {
+    const record = policyImpactCohort.records.find(item => item.customer_number === Number(impactRecordButton.dataset.impactRecord));
+    if (record) {
+      const row = batch?.rows.find(item => item.customerId === record.customer_number);
+      $("#propertyDialog").classList.add("impact-dialog");
+      $("#dialogTitle").textContent = record.name;
+      $("#dialogBody").innerHTML = renderImpactRecord(record, row);
+      showReferenceDialog();
+    }
+  }
   const property = event.target.closest("[data-property]");
-  if (property) { const id = property.dataset.property, definition = registry.definition(id), value = registry.context(demoCustomer).get(id); $("#dialogTitle").textContent = definition.displayName; $("#dialogBody").textContent = JSON.stringify({ id: `customer.${id}`, ...definition, exampleValue: value }, null, 2); $("#propertyDialog").showModal(); }
+  if (property) { const id = property.dataset.property, definition = registry.definition(id), value = registry.context(demoCustomer).get(id); $("#propertyDialog").classList.remove("impact-dialog"); $("#dialogTitle").textContent = definition.displayName; $("#dialogBody").textContent = JSON.stringify({ id: `customer.${id}`, ...definition, exampleValue: value }, null, 2); showReferenceDialog(); }
+  if (event.target.closest("#browseActivePolicy")) { $("#propertyDialog").classList.remove("impact-dialog"); $("#dialogTitle").textContent = `Active Policy Version ${governance.activeRelease.id}`; $("#dialogBody").innerHTML = activeRuleSet.map(renderActiveRule).join(""); showReferenceDialog(); }
+  if (event.target.closest("#browseFactCatalog")) { $("#propertyDialog").classList.remove("impact-dialog"); $("#dialogTitle").textContent = "Fact catalog · fictional illustrative values"; $("#dialogBody").innerHTML = $("#ontologyGrid").innerHTML; showReferenceDialog(); }
   if (event.target.closest(".dialog-close")) $("#propertyDialog").close();
   if (event.target.closest("#runDmnDemo")) { const result = evaluate(demoCustomer, activeRuleSet, governance.activeRelease); $("#dmnDryRunResult").innerHTML = `<div class="decision-result-heading"><div><span>Ontology-backed runtime · ${escapeHtml(result.release.id)}</span><h5>${escapeHtml(result.action.primary.replaceAll("_", " "))}</h5><p>${result.findings.length} findings · recommended ${money(result.calculation.recommended)}</p></div></div><pre class="artifact-code">${escapeHtml(JSON.stringify({ action: result.action, calculation: result.calculation, traces: result.traces }, null, 2))}</pre>`; }
 });
@@ -702,9 +867,8 @@ document.addEventListener("change", event => {
   }
 });
 
-$("#policyInput").addEventListener("input", () => { draftRequestVersion += 1; updateDraft({ sourcePolicy: $("#policyInput").value, ast: null }); persistStudio(); $("#charCount").textContent = `${$("#policyInput").value.length} characters`; if (!$("#resultSection").classList.contains("hidden")) renderGovernance("Business-intent edit created or updated a draft; regenerate and validate its executable DSL."); });
-$("#dslInput").addEventListener("input", () => { updateDraft({ sourceDsl: $("#dslInput").value, ast: null }); persistStudio(); if (!$("#resultSection").classList.contains("hidden")) renderGovernance("DSL edit created or updated a draft revision; prior evidence is stale."); });
-$("#copyPrompt").addEventListener("click", async () => { try { await navigator.clipboard.writeText($("#promptOutput").textContent); showToast("Prompt copied"); } catch { showToast("Select the prompt text to copy"); } });
+$("#policyInput").addEventListener("input", () => { invalidateDraftRequest(); $("#charCount").textContent = `${$("#policyInput").value.length} characters`; persistStudio(); });
+$("#dslInput").addEventListener("input", () => { invalidateDraftRequest(); persistStudio(); });
 document.querySelectorAll("[data-view]").forEach(button => button.addEventListener("click", () => setProductView(button.dataset.view)));
 $(".case-tabs").addEventListener("keydown", event => {
   if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
@@ -755,14 +919,18 @@ try {
   const saved = JSON.parse(sessionStorage.getItem(STUDIO_STORAGE_KEY) || "null");
   if (saved) {
     resetReleaseBoundReviews = Boolean(saved.governance?.activeReleaseId && (saved.governance.activeReleaseId !== release.id || saved.governance.releaseHistory?.length > 1));
-    selected = Object.hasOwn(scenarios, saved.selected) ? saved.selected : "ratio5";
+    const restoredSelection = saved.selected === null ? null : Object.hasOwn(scenarios, saved.selected) ? saved.selected : "ratio5";
+    selected = restoredSelection || "ratio5";
     resetState();
+    selected = restoredSelection;
     restoreStudio(saved);
     policyExplanations = saved.policyExplanations && typeof saved.policyExplanations === "object" && !Array.isArray(saved.policyExplanations) ? Object.fromEntries(Object.entries(saved.policyExplanations).filter(([, value]) => isPolicyExplanation(value))) : {};
-    $("#policyInput").value = saved.policyInput || governance.current.sourcePolicy || scenarios[selected].policy;
-    $("#dslInput").value = governance.current.sourceDsl || "";
+    stalePolicyExplanations = Array.isArray(saved.stalePolicyExplanations) ? saved.stalePolicyExplanations.filter(item => item?.logicalId && Number.isInteger(item.candidateRevision) && item.activeReleaseId === release.id && isPolicyExplanation(item.result)) : [];
+    $("#policyInput").value = typeof saved.policyInput === "string" ? saved.policyInput : governance.current.sourcePolicy || scenarios[selected]?.policy || "";
+    $("#dslInput").value = typeof saved.dslInput === "string" ? saved.dslInput : governance.current.sourceDsl || "";
+    renderPolicySummary();
   }
-  document.querySelectorAll(".scenario").forEach(button => button.classList.toggle("active", button.dataset.scenario === selected));
+  document.querySelectorAll(".scenario").forEach(button => { const active = button.dataset.scenario === selected; button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active)); });
   $("#charCount").textContent = `${$("#policyInput").value.length} characters`;
 } catch {
   sessionStorage.removeItem(STUDIO_STORAGE_KEY);

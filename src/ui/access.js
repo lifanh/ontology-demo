@@ -21,7 +21,11 @@ const unlock = async status => {
   $("#logoutButton").classList.toggle("hidden", !status.aiEnabled);
   $("#aiStatus").innerHTML = `<span class="pulse"></span>${status.aiEnabled ? `Real ${status.modelDisplayName} calls` : "AI features disabled"}`;
   document.documentElement.dataset.aiEnabled = String(status.aiEnabled);
-  if (status.aiEnabled) $("#simulateResponse").classList.add("hidden");
+  $("#generatePrompt").classList.toggle("hidden", !status.aiEnabled);
+  $("#simulateResponse").classList.toggle("hidden", status.aiEnabled);
+  $("#policyAiMode").textContent = status.aiEnabled
+    ? "AI can optionally draft a bounded candidate. It does not validate or qualify policy."
+    : "AI is disabled. Use the supported example candidate or edit source manually; no model response is simulated.";
   $(".brand small").textContent = status.aiEnabled ? "Illustrative POC · Fictional data · AI enabled" : "Illustrative POC · Fictional data · Deterministic mode";
   await import("./app.js");
   document.body.classList.remove("auth-pending", "auth-locked");

@@ -5,7 +5,7 @@ An illustrative POC showing a controlled credit-review pattern: a real LLM draft
 The product has two independent views:
 
 - **Customer Review** evaluates four engineered fictional Narrative Customers against six illustrative rules, then optionally asks GitHub Copilot for a grounded rationale and bounded fictional Tier-2 Evidence.
-- **Review Policy** accepts one of two supported policy families, asks GitHub Copilot for a bounded rule draft, validates and compares it deterministically, and measures Review impact on a fixed fictional cohort. It does not approve, publish, or activate policy.
+- **Review Policy** is a session-scoped Policy Change workbench. It compares a structured candidate with the Active Policy Version and pins deterministic validation, compatibility, and Review impact evidence to the exact candidate revision and baseline. GitHub Copilot may optionally draft or explain; deterministic-only mode offers example candidates and manual source editing. Evidence complete is the terminal POC state—not approval, publication, or activation.
 
 This is not a production credit system. It has no production customer data, durable audit, user identities or roles, production policy publication, or automatic customer-state mutation. Apache Jena, SHACL, DMN/Kogito/Drools, and Z3 do not run in this POC. See [`NEXT_STEPS.md`](NEXT_STEPS.md) for the separate production integration direction.
 

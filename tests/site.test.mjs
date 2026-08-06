@@ -70,21 +70,21 @@ test("the product has customer-review and review-policy workbenches without rele
   assert.match(html, /data-case-tab="evidence"/);
   assert.match(html, /data-case-tab="activity"/);
   assert.ok(html.indexOf('class="policy-registry"') < html.indexOf('class="policy-workbench"'));
-  assert.match(html, /class="studio-inspector"/);
-  assert.match(html, /Fact catalog/);
-  assert.match(productSource, /id="runBatch"/);
+  assert.match(html, /class="evidence-rail"/);
+  assert.match(html, /fact catalog/i);
+  assert.match(productSource, /id: "runBatch"/);
   const studioSource = html.slice(html.indexOf('id="studioView"'), html.indexOf("</main>"));
   assert.match(studioSource, /id="resultSection"/);
   assert.match(studioSource, /Compatibility/);
-  assert.match(studioSource, /Impact/);
+  assert.match(studioSource, /Review impact/);
   assert.doesNotMatch(productSource, /id="activateRelease"|data-view="releases"|id="releasesView"|id="releaseSelector"|id="releaseRegistryList"|data-open-view|Release Management/);
   assert.match(html, /id="customerSwitcher"/);
   assert.match(html, /id="reviewSearch"/);
   assert.match(html, /id="reviewQueueView"/);
   assert.match(html, /id="reviewSort"/);
   assert.match(html, /class="data-table queue-table"/);
-  assert.match(html, /class="data-table policy-change-table"/);
-  assert.match(productSource, /class="data-table policy-check-table"/);
+  assert.match(html, /Example intents/);
+  assert.match(html, /Structured policy diff/);
   assert.match(productSource, /class="data-table ontology-table"/);
   assert.match(productSource, /id="saveReviewDraft"/);
   assert.match(productSource, /id="completeReview"/);
@@ -101,6 +101,9 @@ test("the product has customer-review and review-policy workbenches without rele
   assert.match(html, /Illustrative POC/);
   assert.match(html, /fictional customer data/i);
   assert.doesNotMatch(productSource, /get_parent_exposure|production-path|artifact-showcase|Approve &amp; publish|APPROVED_AND_PUBLISHED|Mocked output|MOCKED TRANSLATION/);
+  assert.doesNotMatch(productSource, /Policy change queue|STATIC DRAFTING PROMPT|step-track/);
+  assert.match(productSource, /Fixed fictional boundary cohort—not a production portfolio, forecast, or workload estimate/);
+  assert.match(productSource, /Governed review, approval, publication, and activation happen outside this POC/);
 });
 
 test("maintainer guidance documents both portable modes and exact approved claims", async () => {
