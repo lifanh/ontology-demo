@@ -151,9 +151,11 @@ test("tab product state is keyed, reloadable, isolated, resettable, and preserve
     await page.locator("#reviewQueueView").selectOption("ALL");
 
     await page.locator('[data-view="studio"]').click();
-    await page.locator("#policyInput").fill("For unrestricted customers with balances above $100,000, Average Days to Pay must not exceed 20 days.");
+    const spacedPolicyIntent = "  For unrestricted customers with balances above $100,000, Average Days to Pay must not exceed 20 days.\n";
+    await page.locator("#policyInput").fill(spacedPolicyIntent);
     await page.locator("#generatePrompt").click();
     await page.getByText(/AI-drafted candidate/).waitFor();
+    assert.equal(await page.locator("#policyInput").inputValue(), spacedPolicyIntent);
     assert.equal((await page.locator("#policyWorkbenchTitle").textContent()).trim(), "High-balance payment limit");
     assert.equal((await page.locator("#policyWorkbenchMeta").textContent()).trim(), "Stable ID HIGH_BALANCE_ADP_MAX · candidate revision 3");
     assert.match(await page.locator("#policyDiff").textContent(), /Unchanged scope.*25 DAYS.*20 DAYS/s);

@@ -438,7 +438,8 @@ function renderOntology() {
 async function generateDraft() {
   const button = $("#generatePrompt");
   const requestedRelease = governance.activeRelease.id;
-  const policyText = $("#policyInput").value.trim();
+  const policyBuffer = $("#policyInput").value;
+  const policyText = policyBuffer.trim();
   const requestVersion = ++draftRequestVersion;
   button.disabled = true;
   $("#promptOutput").innerHTML = `<span class="ai-loading" role="status"><span class="ai-spinner" aria-hidden="true"></span><span>Drafting with GitHub Copilot…</span></span>`;
@@ -451,7 +452,7 @@ async function generateDraft() {
       failure.retryable = payload.error?.retryable;
       throw failure;
     }
-    if (draftRequestVersion !== requestVersion || governance.activeRelease.id !== requestedRelease || $("#policyInput").value.trim() !== policyText) throw new Error("The rule intent or active policy changed while drafting. Retry against the current state.");
+    if (draftRequestVersion !== requestVersion || governance.activeRelease.id !== requestedRelease || $("#policyInput").value !== policyBuffer) throw new Error("The rule intent or active policy changed while drafting. Retry against the current state.");
     const result = payload.result;
     $("#draftBadge").textContent = result.outcome.replaceAll("_", " ");
     if (result.outcome === "CANDIDATE") {
@@ -459,7 +460,7 @@ async function generateDraft() {
       $("#dslInput").value = result.dsl;
       const activeRevision = activeRuleSet.find(rule => rule.id === result.family)?.revision;
       if (!Number.isInteger(activeRevision)) throw new Error("The rule family is not present in the active policy version.");
-      if (governance.current.logicalId === result.family && governance.current.sourcePolicy === policyText && governance.current.sourceDsl === result.dsl) {
+      if (governance.current.logicalId === result.family && governance.current.sourcePolicy === policyBuffer && governance.current.sourceDsl === result.dsl) {
         if (governance.current.state === "DRAFT" && governance.current.provenance === "EXAMPLE") {
           governance.updateDraft({ provenance: "AI" });
           persistStudio();
@@ -469,12 +470,12 @@ async function generateDraft() {
         showToast("The drafted candidate matches the current Policy Change. Existing evidence is unchanged.");
         return;
       }
-      selected = Object.entries(scenarios).find(([, scenario]) => scenario.logicalId === result.family && scenario.policy === policyText && formatRule(scenario.ast, { root: "customer" }) === result.dsl)?.[0] || null;
+      selected = Object.entries(scenarios).find(([, scenario]) => scenario.logicalId === result.family && scenario.policy === policyBuffer && formatRule(scenario.ast, { root: "customer" }) === result.dsl)?.[0] || null;
       document.querySelectorAll(".scenario").forEach(item => { const active = item.dataset.scenario === selected; item.classList.toggle("active", active); item.setAttribute("aria-pressed", String(active)); });
       const sameFamily = governance.current.logicalId === result.family;
       if (sameFamily) staleCurrentPolicyExplanation();
       else { invalidatePolicyExplanation(); stalePolicyExplanations = []; }
-      const candidate = { logicalId: result.family, revision: nextRuleRevision(result.family), sourcePolicy: policyText, sourceDsl: result.dsl, ast: null, provenance: "AI" };
+      const candidate = { logicalId: result.family, revision: nextRuleRevision(result.family), sourcePolicy: policyBuffer, sourceDsl: result.dsl, ast: null, provenance: "AI" };
       if (sameFamily) governance.edit(candidate);
       else governance.startDraft(candidate);
       batch = null;
