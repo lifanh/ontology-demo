@@ -43,9 +43,9 @@ export class Governance {
     return this.current.state === "BATCH_PASSED" && current && this.evidence.validation?.valid === true && compatible && this.evidence.batch?.complete === true;
   }
   startDraft(candidate) {
-    if (Object.keys(this.evidence).length) this.staleEvidence.push(immutable({ logicalId: this.current.logicalId, candidateRevision: this.current.revision, activeReleaseId: this.activeRelease.id, evidence: pinned(this.evidence, this.current.revision, this.activeRelease.id) }));
     this.revisions = [immutable({ ...candidate, state: "DRAFT" })];
     this.evidence = {};
+    this.staleEvidence = [];
     return this.current;
   }
   snapshot() { return structuredClone({ activeReleaseId: this.activeRelease.id, revisions: this.revisions, evidence: this.evidence, staleEvidence: this.staleEvidence }); }

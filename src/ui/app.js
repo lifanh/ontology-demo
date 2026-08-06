@@ -471,9 +471,11 @@ async function generateDraft() {
       }
       selected = Object.entries(scenarios).find(([, scenario]) => scenario.logicalId === result.family && scenario.policy === policyText && formatRule(scenario.ast, { root: "customer" }) === result.dsl)?.[0] || null;
       document.querySelectorAll(".scenario").forEach(item => { const active = item.dataset.scenario === selected; item.classList.toggle("active", active); item.setAttribute("aria-pressed", String(active)); });
-      staleCurrentPolicyExplanation();
+      const sameFamily = governance.current.logicalId === result.family;
+      if (sameFamily) staleCurrentPolicyExplanation();
+      else { invalidatePolicyExplanation(); stalePolicyExplanations = []; }
       const candidate = { logicalId: result.family, revision: nextRuleRevision(result.family), sourcePolicy: policyText, sourceDsl: result.dsl, ast: null, provenance: "AI" };
-      if (governance.current.logicalId === result.family) governance.edit(candidate);
+      if (sameFamily) governance.edit(candidate);
       else governance.startDraft(candidate);
       batch = null;
       $("#resultSection").classList.add("hidden");

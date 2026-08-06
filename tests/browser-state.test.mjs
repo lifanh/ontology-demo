@@ -338,6 +338,7 @@ test("unattended browser flows preserve semantics, accessibility, terminal state
       if (body.policyText.includes("timeout")) return route.fulfill({ status: 504, json: { error: { code: "PROVIDER_TIMEOUT", message: "Draft request timed out", retryable: true, correlationId: "policy-draft-timeout" } } });
       if (body.policyText.includes("clarify")) return route.fulfill({ json: { schemaVersion: "1", operation: "draft_rule", result: { outcome: "NEEDS_CLARIFICATION", question: "Which supported threshold should change?", missingFields: ["threshold"] } } });
       if (body.policyText.includes("unsupported")) return route.fulfill({ json: { schemaVersion: "1", operation: "draft_rule", result: { outcome: "UNSUPPORTED", summary: "This intent is outside the two supported policy families." } } });
+      if (body.policyText.includes("high-balance switch")) return route.fulfill({ json: { schemaVersion: "1", operation: "draft_rule", result: { outcome: "CANDIDATE", family: "HIGH_BALANCE_ADP_MAX", summary: "Bounded high-balance candidate.", dsl: "RULE HIGH_BALANCE_ADP_MAX\nSCOPE customer.restricted_status == \"N\"\n      AND customer.ar_balance > 100000 USD\nSET_MAX customer.adp_days = 20 DAYS\nEND" } } });
       if (body.policyText.includes("slow draft")) await new Promise(resolve => setTimeout(resolve, 200));
       const ratio = body.policyText.includes("15%") ? "0.15" : body.policyText.includes("9%") ? "0.09" : body.policyText.includes("8%") ? "0.08" : "0.05";
       await route.fulfill({ json: { schemaVersion: "1", operation: "draft_rule", result: { outcome: "CANDIDATE", family: "NET30_PAST_DUE_MAX", summary: "Bounded candidate.", dsl: `RULE NET30_PAST_DUE_MAX\nSCOPE customer.payment_terms == "NET_30"\nSET_MAX_RATIO customer.past_due_amount\n    TO customer.ar_balance = ${ratio}\nEND` } } });
@@ -498,6 +499,12 @@ test("unattended browser flows preserve semantics, accessibility, terminal state
     assert.match(await page.locator("#dslInput").inputValue(), /= 0\.06/);
     assert.match(await page.locator("#candidateProvenance").textContent(), /Human-edited candidate/);
     assert.equal((await page.locator("#candidateState").textContent()).trim(), "Draft");
+
+    await page.locator("#policyInput").fill("high-balance switch");
+    await page.locator("#generatePrompt").click();
+    await page.getByText(/Stable ID HIGH_BALANCE_ADP_MAX/).waitFor();
+    assert.equal(await page.locator(".evidence-history").count(), 0);
+    assert.match(await page.locator("#evidenceSpine").textContent(), /Not run.*Not run · prerequisite unmet.*Not run · prerequisite unmet/s);
   } finally {
     await browser.close();
     try { process.kill(-vite.pid, "SIGTERM"); } catch {}

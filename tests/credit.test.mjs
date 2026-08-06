@@ -408,6 +408,16 @@ test("reset clears current and stale Policy Change evidence", () => {
   assert.deepEqual(g.staleEvidence, []);
 });
 
+test("starting a different Policy Change clears evidence from the prior stable family", () => {
+  const g = new Governance({ activeRelease: release, candidate: scenarios.ratio5 });
+  g.record("validation", { valid: true });
+  g.edit({ sourceDsl: "changed" });
+  g.startDraft(scenarios.adp20);
+  assert.equal(g.current.logicalId, "HIGH_BALANCE_ADP_MAX");
+  assert.deepEqual(g.evidence, {});
+  assert.deepEqual(g.staleEvidence, []);
+});
+
 test("legacy release snapshots are rejected without partially mutating Governance", () => {
   const g = new Governance({ activeRelease: release, candidate: scenarios.ratio5 });
   assert.throws(() => g.restore({ activeReleaseId: release.id, releaseHistory: [release], revisions: [{}] }), /Legacy activation or release state/);
