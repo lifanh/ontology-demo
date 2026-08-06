@@ -775,8 +775,12 @@ document.addEventListener("click", event => {
     persistStudio();
   }
   if (event.target.closest("#validateButton")) {
+    if ($("#dslInput").value !== governance.current.sourceDsl || $("#policyInput").value !== governance.current.sourcePolicy) {
+      $("#editorSection").open = true;
+      $("#applySourceEdit").focus();
+      return showToast("Apply source and intent edits before running validation.");
+    }
     try {
-      if ($("#dslInput").value !== governance.current.sourceDsl || $("#policyInput").value !== governance.current.sourcePolicy) updateDraft({ sourcePolicy: $("#policyInput").value, sourceDsl: $("#dslInput").value, ast: null, provenance: "HUMAN_EDIT" }, { material: true });
       if (governance.current.state !== "DRAFT") throw new Error("Edit the DSL to create a new draft revision before validating again.");
       const ast = parseRule($("#dslInput").value, registry, { root: "customer" });
       if (ast.id !== governance.current.logicalId) throw new Error(`RULE_ID_MISMATCH\nExpected stable ID ${governance.current.logicalId}; received ${ast.id}.`);
@@ -846,7 +850,7 @@ document.addEventListener("change", event => {
 });
 
 $("#policyInput").addEventListener("input", () => { invalidateDraftRequest(); $("#charCount").textContent = `${$("#policyInput").value.length} characters`; persistStudio(); });
-$("#dslInput").addEventListener("input", invalidateDraftRequest);
+$("#dslInput").addEventListener("input", () => { invalidateDraftRequest(); persistStudio(); });
 document.querySelectorAll("[data-view]").forEach(button => button.addEventListener("click", () => setProductView(button.dataset.view)));
 $(".case-tabs").addEventListener("keydown", event => {
   if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
@@ -905,7 +909,7 @@ try {
     policyExplanations = saved.policyExplanations && typeof saved.policyExplanations === "object" && !Array.isArray(saved.policyExplanations) ? Object.fromEntries(Object.entries(saved.policyExplanations).filter(([, value]) => isPolicyExplanation(value))) : {};
     stalePolicyExplanations = Array.isArray(saved.stalePolicyExplanations) ? saved.stalePolicyExplanations.filter(item => item?.logicalId && Number.isInteger(item.candidateRevision) && item.activeReleaseId === release.id && isPolicyExplanation(item.result)) : [];
     $("#policyInput").value = saved.policyInput || governance.current.sourcePolicy || scenarios[selected]?.policy || "";
-    $("#dslInput").value = governance.current.sourceDsl || "";
+    $("#dslInput").value = typeof saved.dslInput === "string" ? saved.dslInput : governance.current.sourceDsl || "";
     renderPolicySummary();
   }
   document.querySelectorAll(".scenario").forEach(button => { const active = button.dataset.scenario === selected; button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active)); });
