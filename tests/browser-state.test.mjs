@@ -311,11 +311,14 @@ test("a static asset host with no session API unlocks deterministic-only mode", 
     await page.locator('[data-scenario="adp20"]').click();
     assert.equal(await page.locator('[data-scenario="adp20"]').getAttribute("aria-pressed"), "true");
     assert.match(await page.locator("#policyDiff").textContent(), /Unchanged scope.*25 DAYS.*20 DAYS/s);
+    await page.locator("#editorSection summary").click();
+    await page.locator("#dslInput").fill("RULE HIGH_BALANCE_ADP_MAX\nSCOPE customer.ar_balance > 100000 USD\n      AND customer.restricted_status == \"N\"\nSET_MAX customer.adp_days = 20 DAYS\nEND");
+    await page.locator("#applySourceEdit").click();
+    assert.match(await page.locator("#policyDiff").textContent(), /Unchanged scope.*25 DAYS.*20 DAYS/s);
     for (const width of [1280, 900, 390]) {
       await page.setViewportSize({ width, height: 900 });
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true, `no page overflow at ${width}px`);
     }
-    await page.locator("#editorSection summary").click();
     await page.locator("#dslInput").fill(formatRule(scenarios.ratio5.ast, { root: "customer" }));
     await page.locator("#applySourceEdit").click();
     assert.match(await page.locator("#policyDiff").textContent(), /Candidate diff unavailable.*RULE_ID_MISMATCH.*Expected stable ID HIGH_BALANCE_ADP_MAX; received NET30_PAST_DUE_MAX/s);

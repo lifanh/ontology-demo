@@ -273,6 +273,10 @@ function normalizedScope(scope) {
   return scope.map(item => ({ fact: item.fact, op: item.op, value: item.value, unit: item.unit || registry.definition(item.fact)?.unit || null }));
 }
 
+function canonicalScope(scope) {
+  return normalizedScope(scope).sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+}
+
 function scopeText(scope) {
   return normalizedScope(scope).map(item => `${item.fact} ${item.op} ${item.value}${item.unit ? ` ${item.unit}` : ""}`).join(" AND ");
 }
@@ -287,7 +291,7 @@ function renderPolicyDiff() {
     const unit = candidate.constraint.type === "SET_MAX_RATIO" ? "% of accounts receivable" : candidate.constraint.unit;
     const display = value => candidate.constraint.type === "SET_MAX_RATIO" ? `${number(value * 100)}%` : `${number(value)} ${unit}`;
     const direction = candidate.constraint.value === active.constraint.value ? "Unchanged" : candidate.constraint.value < active.constraint.value ? "Lower threshold · tightening" : "Higher threshold · relaxation";
-    const sameScope = JSON.stringify(normalizedScope(active.scope)) === JSON.stringify(normalizedScope(candidate.scope));
+    const sameScope = JSON.stringify(canonicalScope(active.scope)) === JSON.stringify(canonicalScope(candidate.scope));
     $("#policyDiff").innerHTML = `<div class="diff-identity"><b>${escapeHtml(current.logicalId)}</b><span>Active revision ${active.revision} → candidate revision ${current.revision}</span></div><dl class="structured-diff"><div><dt>Scope</dt><dd><span>Active</span>${escapeHtml(scopeText(active.scope))}<br><span>Candidate</span>${escapeHtml(scopeText(candidate.scope))}<br><b>${sameScope ? "Unchanged scope" : "Changed scope"}</b></dd></div><div><dt>Threshold / effect</dt><dd><del>${escapeHtml(display(active.constraint.value))}</del> → <ins>${escapeHtml(display(candidate.constraint.value))}</ins><br><b>${escapeHtml(direction)}</b></dd></div><div><dt>Policy statement</dt><dd><span>Active</span>${escapeHtml(active.policy.statement)}<br><span>Candidate</span>${escapeHtml(candidate.policy.statement)}</dd></div></dl>`;
   } catch (error) {
     $("#policyDiff").innerHTML = `<p role="alert"><b>Candidate diff unavailable.</b> ${escapeHtml(error.message)} Open Edit source to correct it.</p>`;
