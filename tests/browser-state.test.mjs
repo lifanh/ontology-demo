@@ -321,6 +321,8 @@ test("a static asset host with no session API unlocks deterministic-only mode", 
     await page.locator("#dslInput").fill("RULE HIGH_BALANCE_ADP_MAX\nSCOPE customer.ar_balance > 100000 USD\n      AND customer.restricted_status == \"N\"\nSET_MAX customer.adp_days = 20 DAYS\nEND");
     await page.locator("#applySourceEdit").click();
     assert.match(await page.locator("#policyDiff").textContent(), /Unchanged scope.*25 DAYS.*20 DAYS/s);
+    assert.equal(await page.locator('.scenario[aria-pressed="true"]').count(), 0);
+    assert.equal(await page.evaluate(() => JSON.parse(sessionStorage.getItem("customer-review:policy-studio:v1")).selected), null);
     for (const width of [1280, 900, 390]) {
       await page.setViewportSize({ width, height: 900 });
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true, `no page overflow at ${width}px`);
@@ -472,6 +474,8 @@ test("unattended browser flows preserve semantics, accessibility, terminal state
     assert.equal(await page.locator("#generatePrompt").isDisabled(), true);
     await page.locator("#policyInput").fill("For NET 30 customers, set maximum past due to 8% of AR balance.");
     assert.equal(await page.locator("#generatePrompt").isEnabled(), true);
+    assert.match(await page.locator("#promptSection").textContent(), /Draft outdated.*Intent or source changed while drafting/s);
+    assert.equal(await page.locator("#promptSection .ai-loading").count(), 0);
     await page.waitForTimeout(250);
     assert.equal(await page.locator("#generatePrompt").isEnabled(), true);
     assert.equal((await page.locator("#candidateState").textContent()).trim(), "Evidence complete");

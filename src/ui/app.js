@@ -360,6 +360,11 @@ function nextRuleRevision(logicalId) {
   return Math.max(0, ...revisions) + 1;
 }
 
+function selectMatchingScenario(logicalId, sourcePolicy, sourceDsl) {
+  selected = Object.entries(scenarios).find(([, scenario]) => scenario.logicalId === logicalId && scenario.policy === sourcePolicy && formatRule(scenario.ast, { root: "customer" }) === sourceDsl)?.[0] || null;
+  document.querySelectorAll(".scenario").forEach(item => { const active = item.dataset.scenario === selected; item.classList.toggle("active", active); item.setAttribute("aria-pressed", String(active)); });
+}
+
 function formatFact(id, value) {
   const definition = registry.definition(id);
   if (value == null) return "Not available";
@@ -474,8 +479,7 @@ async function generateDraft() {
         showToast("The drafted candidate matches the current Policy Change. Existing evidence is unchanged.");
         return;
       }
-      selected = Object.entries(scenarios).find(([, scenario]) => scenario.logicalId === result.family && scenario.policy === policyBuffer && formatRule(scenario.ast, { root: "customer" }) === result.dsl)?.[0] || null;
-      document.querySelectorAll(".scenario").forEach(item => { const active = item.dataset.scenario === selected; item.classList.toggle("active", active); item.setAttribute("aria-pressed", String(active)); });
+      selectMatchingScenario(result.family, policyBuffer, result.dsl);
       const sameFamily = governance.current.logicalId === result.family;
       if (sameFamily) staleCurrentPolicyExplanation();
       else { invalidatePolicyExplanation(); stalePolicyExplanations = []; }
@@ -501,8 +505,14 @@ async function generateDraft() {
 }
 
 function invalidateDraftRequest() {
+  const button = $("#generatePrompt");
+  const loading = $("#promptOutput").querySelector(".ai-loading");
   draftRequestVersion += 1;
-  $("#generatePrompt").disabled = false;
+  button.disabled = false;
+  if (loading) {
+    $("#draftBadge").textContent = "Draft outdated";
+    $("#promptOutput").textContent = "Intent or source changed while drafting. Draft again against the current edits.";
+  }
 }
 
 function updateDraft(changes, { material = false } = {}) {
@@ -776,6 +786,7 @@ document.addEventListener("click", event => {
     const sourcePolicy = $("#policyInput").value;
     if (sourceDsl === governance.current.sourceDsl && sourcePolicy === governance.current.sourcePolicy) return showToast("No material source or intent change to apply");
     updateDraft({ sourcePolicy, sourceDsl, ast: null, provenance: "HUMAN_EDIT" }, { material: true });
+    selectMatchingScenario(governance.current.logicalId, sourcePolicy, sourceDsl);
     renderGovernance("Source edit applied as a material candidate revision. Prior evidence is stale.");
     persistStudio();
   }
