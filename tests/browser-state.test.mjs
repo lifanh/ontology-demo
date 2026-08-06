@@ -168,6 +168,12 @@ test("tab product state is keyed, reloadable, isolated, resettable, and preserve
     assert.match(await page.locator("#resultSection").textContent(), /Evidence complete/);
     assert.equal((await page.locator("#policyWorkbenchTitle").textContent()).trim(), "High-balance payment limit");
     assert.equal((await page.locator("#policyWorkbenchMeta").textContent()).trim(), "Stable ID HIGH_BALANCE_ADP_MAX · candidate revision 3");
+    await page.locator("#policyInput").fill("Unapplied business intent preserved across reload");
+    await page.reload();
+    await page.locator("#studioView:not(.hidden)").waitFor();
+    assert.equal(await page.locator("#policyInput").inputValue(), "Unapplied business intent preserved across reload");
+    assert.match(await page.locator("#resultSection").textContent(), /Evidence complete/);
+    assert.equal((await page.locator("#policyWorkbenchMeta").textContent()).trim(), "Stable ID HIGH_BALANCE_ADP_MAX · candidate revision 3");
     await page.locator('[data-view="review"]').click();
     await page.getByText("Persisted grounded rationale").waitFor();
     assert.match(await page.locator("#dispositionOutput").textContent(), /Recommendation accepted/);
