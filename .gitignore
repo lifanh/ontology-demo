@@ -1,5 +1,4 @@
 .vercel
-.amp/
 node_modules/
 dist/
 build/
