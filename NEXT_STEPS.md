@@ -1,18 +1,18 @@
-# Policy Reasoning for an Existing Customer Review Service
+# Policy Reasoning for a Standalone Customer Review Spring Boot Service
 
 ## 1. Executive Summary
 
 ### 1.1 Audience and intended outcome
 
-This document is for maintainers of an existing Spring Boot customer review service. It is self-contained: no knowledge of the exploratory prototype that informed it is required.
+This document is the production plan for a **new standalone Spring Boot customer review service** that realizes the designs demonstrated by the illustrative POC in this repository. It is self-contained: no knowledge of the exploratory prototype that informed it is required.
 
-The proposed capability lets policy owners author, validate, compare, approve, publish, and execute customer-review policies with traceable results. It should be integrated **around the service's existing domain model, review workflow, security, persistence, APIs, events, and operational conventions** rather than introduced as a parallel application that duplicates them.
+The service lets policy owners author, validate, compare, approve, publish, and execute customer-review policies with traceable results. Because the service is standalone, it must also own the concerns an established host service would otherwise have provided: the review workflow and its states, the customer-facts integration (CIS APIs in production), persistence, audit records, and operational conventions. Where this guide describes "current behavior" to protect, read it as the behavior of this service once each phase ships; the POC's deterministic semantics and fixtures are the initial behavioral baseline.
 
 The central trust boundary is:
 
 > An LLM may propose a policy. Deterministic systems validate, analyze, and execute it. Authorized people decide whether the policy becomes active.
 
-An LLM must never validate its own output, resolve policy conflicts, approve a policy, publish a release, or make a final customer-review decision. The existing customer review service remains the system of record and workflow authority unless the owning team explicitly decides otherwise.
+An LLM must never validate its own output, resolve policy conflicts, approve a policy, publish a release, or make a final customer-review decision. The review service remains the system of record and workflow authority.
 
 ### 1.2 Reference policy examples
 
@@ -24,7 +24,7 @@ The examples below provide a concrete bounded credit-policy domain for the behav
 - Candidate: for `NET_30` customers, allow 15% past due. This conflicts with the global 10% maximum.
 - Candidate: for unrestricted customers with balance above USD 100,000, allow up to 45 days to pay. This conflicts with the global exclusive 30-day maximum; a customer with 35 days to pay is a concrete conflict witness.
 
-The existing service does not need to use these field names. During integration, map its authoritative customer facts and policy concepts to the canonical policy model described below. Start only with facts already governed and available at review time.
+The production service does not need to use these field names. Map the authoritative customer facts supplied by CIS APIs and the business's policy concepts to the canonical policy model described below. Start only with facts already governed and available at review time.
 
 ### 1.3 Proposed production capabilities
 
@@ -36,13 +36,13 @@ The existing service does not need to use these field names. During integration,
 | Executable decisions | Versioned DMN with a Drools/KIE or compatible Kogito runtime | Evaluates approved policy releases during customer review |
 | Conflict analysis | Z3 satisfiability solver | Compares candidate policies with the active set before publication |
 | Assisted authoring | Governed LLM gateway | Creates drafts only; it is not on the review execution path |
-| Governance | Existing identity/workflow conventions plus policy-specific controls | Provides review, approval, publication, rollback, and auditability |
+| Governance | Policy lifecycle enforcement with recorded (unauthenticated) actors | Provides review, approval, publication, rollback, and auditability; identity verification is out of scope for this app (Section 9) |
 | Release qualification | Versioned regression corpus and baseline/candidate batch harness | Measures complete-release impact with the same evaluator and blocks errors, indeterminate results, or approved threshold breaches |
-| Recommendation synthesis | Separately versioned decision model and advisory calculators | Combines rule findings only after evaluation; the existing review service retains final workflow and mutation authority |
+| Recommendation synthesis | Separately versioned decision model and advisory calculators | Combines rule findings only after evaluation; the review application layer retains final workflow and mutation authority |
 
-This is not a proposal to build a general-purpose reasoner, replace a proven customer-review workflow wholesale, or allow arbitrary natural language to become executable.
+This is not a proposal to build a general-purpose reasoner or allow arbitrary natural language to become executable.
 
-**Recommended default:** add the customer-facts adapter, `PolicyDecisionPort`, release pinning, and embedded DMN runtime at the existing review decision point. Model rule evaluation, recommendation synthesis, and advisory calculations as separate typed decisions within the same pinned release so findings remain independently traceable. Reuse the service's database, security, audit, feature flags, and operational tooling. Keep Jena/SHACL, Z3, candidate batch qualification, and the optional LLM on the authoring path; move that control plane to a companion Spring Boot deployment if its dependencies, ownership, scaling, or security profile do not belong in the customer-review runtime. Adopt the result through disabled, shadow, advisory, and bounded-enforcement modes.
+**Recommended default:** build one standalone Spring Boot application with a hard internal seam between the control plane (authoring, validation, conflict analysis, governance, publication) and the decision runtime (review workflow, customer-facts adapter, `PolicyDecisionPort`, release pinning, embedded DMN runtime). Model rule evaluation, recommendation synthesis, and advisory calculations as separate typed decisions within the same pinned release so findings remain independently traceable. Keep Jena/SHACL, Z3, candidate batch qualification, and the optional LLM on the authoring path; extract the control plane into a companion Spring Boot deployment later only if its dependencies, ownership, scaling, or security profile no longer belong in the customer-review runtime. Adopt each capability through disabled, shadow, advisory, and bounded-enforcement modes.
 
 ### 1.4 Terms used in this guide
 
@@ -57,55 +57,73 @@ This is not a proposal to build a general-purpose reasoner, replace a proven cus
 | **Decision runtime** | The low-latency component that evaluates customer facts using an approved, pinned policy release. |
 | **Policy release** | An immutable, checksummed bundle containing exact policy revisions, generated artifacts, versions, and approval metadata. |
 
-## 2. Adapt the Design to the Existing Service First
+### 1.5 Confirmed platform decisions (maintainer, August 2026)
+
+These decisions are settled and supersede any conflicting default elsewhere in this guide:
+
+| Decision | Confirmed choice |
+| --- | --- |
+| Application shape | New standalone Spring Boot application; not an integration into an existing service |
+| Database | MySQL 8 (InnoDB, `utf8mb4`) |
+| Persistence access | JPA/Hibernate |
+| Schema management | No DDL migration tool (no Flyway/Liquibase); see Section 8.1 |
+| Security | No Spring Security and no other in-app authentication or authorization; see Section 9 |
+| Language/runtime | Java 21 LTS, current Spring Boot 3.x, pinned via dependency locking |
+| DMN runtime | Embedded KIE/Drools behind a `DecisionRuntime` interface (Kogito only if a spike proves it fits better) |
+| Z3 placement | Isolated internal worker process/container behind the `ConflictSolver` port |
+| LLM usage | Provider-neutral `ProposalTranslator` port; strict structured drafts and explanations only |
+
+## 2. Define the Service Baseline First
 
 ### 2.1 Baseline discovery checklist
 
-Before selecting dependencies or changing code, document the current service in a short context map. Answer these questions from code, configuration, operational dashboards, and the owning team:
+The service is new, so discovery targets the business process and data sources it will automate, plus the POC that specifies its intended behavior. Before selecting dependencies or writing code, answer these questions with the business owners, CIS integration owners, and the POC maintainer:
 
-1. **Review entry points:** Which API calls, messages, jobs, or UI actions create and update a customer review?
-2. **Authoritative facts:** Which fields are available at decision time, where do they come from, how fresh are they, and how are missing values handled?
-3. **Current decision logic:** Is policy logic in Java, database queries, configuration, a rules engine, manual procedures, or another service?
-4. **Decision authority:** Does existing automation approve/reject a review, produce findings for a human, or both? Which behavior is regulated or contractually fixed?
-5. **Workflow:** What are the current review states, transition rules, escalation paths, and retry/idempotency behavior?
-6. **Data contracts:** Which public APIs and events must remain backward compatible? Which downstream systems depend on current reason codes?
-7. **Security:** Which identity provider, authorities, tenancy rules, and separation-of-duty controls already exist?
-8. **Persistence and messaging:** Which database, migration tool, audit mechanism, outbox, broker, and retention policies are already standard?
-9. **Runtime constraints:** Which Java and Spring Boot versions, deployment platform, latency/throughput objectives, and availability targets apply?
-10. **Operations:** How are releases, feature flags, observability, rollback, backup/restore, and incident response handled today?
+1. **Review entry points:** Which API calls, jobs, or UI actions should create and update a customer review in the new service?
+2. **Authoritative facts:** Which CIS API fields are available at decision time, who owns them, how fresh are they, and how are missing values handled?
+3. **Current decision logic:** Which policies are applied today (manually or in other systems), and what do the POC's deterministic rules ([src/core/runtime.js](src/core/runtime.js), [src/domains/credit/pack.js](src/domains/credit/pack.js)) specify as the intended semantics?
+4. **Decision authority:** Should automation approve/reject a review, produce findings for a human, or both? Which behavior is regulated or contractually fixed?
+5. **Workflow:** What review states, transition rules, escalation paths, and retry/idempotency behavior must the new service implement?
+6. **Data contracts:** Which consumers will depend on the new service's APIs, events, and reason codes, and what compatibility promise do they get?
+7. **Operating environment:** Where does the service run, who can reach it, and what network boundary compensates for the absence of in-app security (Section 9)?
+8. **Persistence and messaging:** What MySQL instance, backup, retention, and (if any) broker/outbox infrastructure will the service use?
+9. **Runtime constraints:** Which latency/throughput objectives and availability targets apply to the review path?
+10. **Operations:** How will releases, feature flags, observability, rollback, backup/restore, and incident response be handled?
 
 The expected output is a one-page context diagram, a customer-fact dictionary, current policy examples, an API/event inventory, and a list of constraints. Use those artifacts to replace the illustrative names and choices in this guide.
 
-### 2.2 Map existing components rather than duplicating them
+### 2.2 Components the standalone service must own
 
-| Existing service concern | Integration action |
+An established host service would have supplied these concerns; the standalone service must provide them itself:
+
+| Concern | What the standalone service provides |
 | --- | --- |
-| Customer/review domain entities | Add an anti-corruption mapper to a small `PolicyEvaluationContext`; do not expose JPA entities to policy engines. |
-| Review application service | Invoke a `PolicyDecisionPort` at the existing decision point, initially in shadow mode. |
-| Review statuses and transitions | Keep them authoritative. Map policy findings into existing commands or reason codes only after business approval. |
-| Current rules/configuration | Inventory and import them as fixtures before replacing behavior. Reconcile differences explicitly. |
-| Existing database and migrations | Add namespaced, additive policy tables through the existing migration tool. Do not create a second database by default. |
-| Existing audit/event framework | Extend it with policy revision, validation, approval, release, and evaluation events. Avoid a parallel audit mechanism. |
-| Existing identity and roles | Map policy actions to current authorities. Add roles only when current authorities cannot express the needed separation of duties. |
-| Existing outbox/message broker | Reuse it for release publication and cache invalidation. Use direct in-process events if the service has no distributed consumer. |
-| Existing API conventions | Follow current URL, error, pagination, concurrency, and idempotency conventions; the endpoints below are examples only. |
-| Existing deployment and feature flags | Ship policy evaluation disabled, then shadow, then advisory, then enforced. Preserve an immediate rollback path. |
+| Customer/review domain entities | A review aggregate owned by this service, with an anti-corruption mapper to a small `PolicyEvaluationContext`; do not expose JPA entities to policy engines. |
+| Customer facts | A CIS-facing facts adapter that materializes the fact dictionary (Tier-1 Review Context) at review time. |
+| Review application service | The orchestration layer that invokes `PolicyDecisionPort` at its decision point and owns all review-state transitions. |
+| Review statuses and transitions | Explicit review workflow states defined in Phase 0; policy findings map into them only after business approval. |
+| Database schema | Additive JPA-mapped tables in MySQL 8 under this service's ownership (Section 8.1). |
+| Audit records | An append-only policy/review audit store built into the service (Section 8.3). |
+| Actor identity | Recorded actor identifiers on governance actions, supplied by callers and stored unverified; no in-app authentication (Section 9). |
+| Events/outbox | In-process application events by default; add an outbox and broker only when a distributed consumer exists. |
+| API conventions | URL, error, pagination, concurrency, and idempotency conventions defined once in Phase 1 and followed thereafter. |
+| Deployment and feature flags | Server-controlled configuration that ships policy evaluation disabled, then shadow, then advisory, then enforced, with an immediate rollback path. |
 
-If the service already uses a standards-based rule engine, ontology store, approval workflow, or artifact repository, evaluate extending it before introducing the corresponding component proposed here.
+The POC's module boundaries (`src/core`, `src/domains/credit`, `server/`) are the design evidence for these seams; its fixtures and reference scenarios seed the behavioral baseline.
 
-### 2.3 Choose the integration topology deliberately
+### 2.3 Choose the deployment topology deliberately
 
 | Topology | Use when | Trade-off |
 | --- | --- | --- |
-| **Modules inside the existing Spring Boot application** | The service can accept the dependencies and shares ownership, release cadence, scaling, and data boundaries with policy management | Simplest transactions and operations; native solver dependencies still require isolation |
-| **Policy control-plane companion service; DMN runtime embedded in customer review** | Authoring/governance scales or releases independently, while review evaluation needs low latency and high availability | Recommended split for many mature systems; requires reliable release distribution |
+| **One standalone Spring Boot application containing both planes** (confirmed starting point) | One team owns authoring and review; release cadence, scaling, and data boundaries are shared | Simplest transactions and operations; native solver dependencies still require isolation |
+| **Policy control-plane companion service; DMN runtime embedded in the review service** | Authoring/governance scales or releases independently, while review evaluation needs low latency and high availability | Requires reliable release distribution |
 | **Separate control plane and decision service** | Organizational ownership, security boundaries, or independent runtime scaling require separate deployables | Adds network failure modes, version coordination, and operational overhead |
 
-Default to the smallest topology compatible with the existing service. Keep Java interfaces and artifact contracts stable so a module can be extracted later. Z3 should normally be isolated because it uses native code and requires strict resource limits; an in-process binding is acceptable only for a time-boxed compatibility spike.
+Start with the single application and keep Java interfaces and artifact contracts stable so a module can be extracted later. Z3 should normally be isolated because it uses native code and requires strict resource limits; an in-process binding is acceptable only for a time-boxed compatibility spike.
 
 ### 2.4 Define the review-time integration contract
 
-The policy subsystem should receive only the facts needed for policy evaluation and return a stable, explainable result. Adapt these names and fields to the existing service:
+The policy subsystem should receive only the facts needed for policy evaluation and return a stable, explainable result. Adapt these names and fields to the service's confirmed fact dictionary:
 
 ```java
 public record PolicyEvaluationRequest(
@@ -132,13 +150,13 @@ public interface PolicyDecisionPort {
 
 Prefer a typed fact object over a map once the first policy vocabulary is stable. The request must not contain persistence entities, lazy-loaded relationships, credentials, or facts that the policy is not allowed to use.
 
-`PolicyOutcome` should reflect policy evaluation, not silently redefine the review workflow. For example, `REFER`, `POLICY_PASS`, or `POLICY_FAIL` may become an existing review finding, but only the existing application service should perform the corresponding review-state transition. Each saved review outcome must include the policy release and decision identifiers needed for replay.
+`PolicyOutcome` should reflect policy evaluation, not silently redefine the review workflow. For example, `REFER`, `POLICY_PASS`, or `POLICY_FAIL` may become a review finding, but only the review application service should perform the corresponding review-state transition. Each saved review outcome must include the policy release and decision identifiers needed for replay.
 
 Resolve the active policy release once for a review evaluation and pass its ID explicitly. An idempotent retry for the same review version must use the same release and facts. Re-evaluation under a newer release should be an explicit command that creates a new result linked to the prior evaluation; it must not rewrite the original result.
 
-### 2.5 Safe adoption sequence inside the existing workflow
+### 2.5 Safe adoption sequence inside the review workflow
 
-1. **Disabled:** deploy modules and migrations without invoking policy evaluation.
+1. **Disabled:** deploy modules and schema additions without invoking policy evaluation.
 2. **Shadow:** evaluate asynchronously or alongside current logic, persist comparisons, and do not affect responses or workflow.
 3. **Advisory:** show policy findings to authorized reviewers, but keep the current decision authoritative.
 4. **Enforced for a bounded cohort:** allow the policy result to influence approved transitions for selected policy types, tenants, or traffic.
@@ -149,6 +167,8 @@ Feature flags must be server-controlled and audited. Define mismatch thresholds,
 ## 3. Mandatory Protocol for an AI Implementation Agent
 
 This section is intentionally explicit. An implementation agent must treat it as a set of execution constraints, not optional guidance. Complete one approved phase or work unit at a time. Do not turn this roadmap into a single large implementation task.
+
+Because the service is greenfield, read "current behavior" as follows: before Phase 1 exists, the baseline is the approved fact dictionary, the POC's deterministic semantics, and the Phase 0 fixture corpus. From Phase 1 onward, the baseline is the standalone service's own shipped behavior, and every gate below applies to it literally.
 
 ### 3.1 Instruction and evidence precedence
 
@@ -185,7 +205,7 @@ An unknown value is not permission to select a convenient default. Continue read
 
 ### 3.3 Required implementation input sheet
 
-Before production code is changed, the agent must populate this sheet with evidence. Evidence means a repository path and symbol/test/configuration name, an approved architecture decision, or a named maintainer decision. A guess such as "probably handled by Spring Security" is not evidence.
+Before production code is changed, the agent must populate this sheet with evidence. Evidence means a repository path and symbol/test/configuration name, an approved architecture decision, or a named maintainer decision. A guess such as "probably handled elsewhere" is not evidence.
 
 For each row, record one status: `VERIFIED_FROM_REPOSITORY`, `APPROVED_BY_OWNER`, or `UNRESOLVED`. Include the evidence or owner next to the status. A required row must not be blank, and `UNRESOLVED` rows block the work named in the third column.
 
@@ -203,8 +223,8 @@ For each row, record one status: `VERIFIED_FROM_REPOSITORY`, `APPROVED_BY_OWNER`
 | Review state and outcome semantics | Current statuses, reason codes, transition owner, approval authority | Advisory/enforcement |
 | Runtime failure behavior | Approved behavior for timeout, missing release, invalid release, and evaluator failure | Runtime adapter |
 | Public contracts | API schemas, event schemas, consumers, compatibility requirements | Any externally visible change |
-| Persistence conventions | Database, schema ownership, migration tool, IDs, tenancy, audit fields | Migration |
-| Security and tenancy | Authentication path, authorities, tenant isolation, service accounts | Administration API |
+| Persistence conventions | MySQL schema ownership, DDL review procedure (Section 8.1), IDs, audit fields | Schema change |
+| Deployment boundary | Confirmed network/perimeter controls compensating for no in-app security | Administration API |
 | Audit and messaging | Current audit store, outbox/event pattern, retention | Publication workflow |
 | Feature flags | Existing framework, ownership, default, kill-switch procedure | Shadow deployment |
 | Service objectives | Current latency, throughput, availability, timeout, and resource budgets | Runtime selection |
@@ -221,11 +241,11 @@ Perform these steps in order:
 
 1. Inspect repository status and note pre-existing changes. Do not revert, reformat, or include unrelated work.
 2. Read governing guidance and identify the exact build module containing customer review orchestration.
-3. Read the build files and record Java, Spring Boot, dependency-management, test, migration, security, feature-flag, and observability conventions.
+3. Read the build files and record Java, Spring Boot, dependency-management, test, schema-management, feature-flag, and observability conventions.
 4. Trace each review entry point to the application-service method that owns the transaction and state transition.
 5. Trace current decision logic and all of its side effects. Identify whether a retry repeats writes or emits duplicate events.
 6. Trace every proposed customer fact to its authoritative source and existing tests. Exclude facts with unresolved semantics.
-7. Locate current authorization, tenancy, audit, outbox, API error, idempotency, and correlation-ID patterns.
+7. Locate current audit, outbox, API error, idempotency, and correlation-ID patterns, and confirm the deployment boundary that stands in for in-app security.
 8. Locate characterization, integration, contract, and migration tests that protect current behavior.
 9. Fill the implementation input sheet with exact evidence and list all unresolved items.
 10. Propose one integration seam and explain why it is safer than the alternatives found.
@@ -238,7 +258,7 @@ Orchestration/transaction owner: <path + symbol>
 Current decision logic: <path + symbol>
 Current side effects: <writes/events/calls + evidence>
 Authoritative fact sources: <fact -> path + symbol + semantics>
-Existing extension patterns: <security/audit/outbox/flags + evidence>
+Existing extension patterns: <audit/outbox/flags + evidence>
 Current tests: <path + test names + commands>
 Recommended seam: <path + symbol + reason>
 Alternatives rejected: <option + evidence-based reason>
@@ -275,7 +295,7 @@ Do not add Jena, a DMN engine, Z3, an LLM SDK, new policy administration APIs, o
 
 ### 3.7 Required mode behavior
 
-Implement these semantics using existing service conventions. Do not copy names literally if the service already has equivalent modes:
+Implement these semantics using the service's conventions. Do not copy names literally if the service already has equivalent modes:
 
 ```text
 DISABLED
@@ -354,7 +374,7 @@ Phases 0 through 4 and their exit gates are mandatory before policy enforcement.
 | No test protects current behavior | Add characterization tests only; do not change behavior in the same work unit |
 | A migration would rename/drop/rewrite existing data | Stop and request a separately reviewed migration/backfill plan |
 | A new public field, endpoint, event, reason code, role, or topic appears necessary | Show why existing mechanisms are insufficient and request contract approval |
-| Tenant isolation or authorization cannot be proven | Do not expose the administration or decision operation |
+| The confirmed deployment boundary for the unsecured app is undocumented | Do not expose the administration or decision operation beyond local/dev environments |
 | Customer or personal data would reach an LLM, Z3, logs, metrics, or fixtures | Stop and redesign around metadata, structured policy constraints, synthetic witnesses, or redacted fixtures |
 | Existing tests fail before the change | Record the baseline failure and do not claim it was caused or fixed by this work without evidence |
 | Unrelated worktree changes overlap target files | Preserve them, narrow the edit, and ask only if safe separation is impossible |
@@ -368,8 +388,8 @@ Run the narrowest checks that prove the intended behavior, then the relevant mod
 - `SHADOW`: current behavior remains authoritative even when policy evaluation conflicts, times out, or fails; comparison and safe telemetry are recorded;
 - `ADVISORY`: findings are visible only to approved consumers and cannot transition review state;
 - `ENFORCED`: cohort filtering, explicit outcome mapping, release pinning, idempotent retry, fallback, kill switch, and rollback are tested;
-- fact mapping: units, decimals, enums, nulls, stale data, and tenant boundaries are tested;
-- governance: invalid lifecycle transitions, stale revision approval, unauthorized access, and separation of duties are rejected;
+- fact mapping: units, decimals, enums, nulls, and stale data are tested;
+- governance: invalid lifecycle transitions, stale revision approval, missing actor identifiers, and procedural separation-of-duties checks (recorded actors, not authenticated identities) are rejected;
 - releases: checksum/signature failure, compile/load failure, atomic activation, last-valid-release retention, and rollback are tested;
 - engine adapters: reference fixtures, current-policy fixtures, boundaries, unsupported constructs, timeouts, and deterministic replay are tested;
 - persistence/API/events: migrations, optimistic locking, idempotency, compatibility, audit linkage, and sensitive-data handling are tested.
@@ -424,7 +444,7 @@ Stop condition: Do not begin the next gate or phase.
 If required fields are unknown, assign Gate A read-only discovery instead of a coding task. A safe first task is:
 
 ```text
-Perform only NEXT_STEPS.md Gate A for the existing customer review service.
+Perform only NEXT_STEPS.md Gate A for the standalone customer review service.
 Do not edit files, add dependencies, create design artifacts, or implement code.
 Populate the Section 3.3 input sheet from repository evidence.
 Return the exact Gate A output from Section 3.4, including unresolved questions.
@@ -435,7 +455,7 @@ A safe first coding task, after Gate A and Gate B approval, is:
 
 ```text
 Implement only NEXT_STEPS.md Gate C at the approved review decision point.
-Add the existing-service equivalent of PolicyDecisionPort, confirmed fact mapping,
+Add the service's PolicyDecisionPort, confirmed fact mapping,
 a no-op/current-behavior adapter, and a server-side flag defaulted to DISABLED.
 Do not add engine dependencies, policy APIs, schema changes, or enforcement.
 Prove disabled mode preserves current response, persistence, state, and event behavior.
@@ -444,24 +464,24 @@ Use the Section 3.11 handoff and stop; do not start Phase 2.
 
 ## 4. Target Production Architecture
 
-### 4.1 Recommended architecture around the existing service
+### 4.1 Recommended architecture of the standalone service
 
 ```text
- Customer Review API / Events
-            │
-            ▼
-╭──────────────────── Existing Spring Boot service ────────────────────╮
+ Customer Review API / Events          CIS APIs (authoritative facts)
+            │                                     │
+            ▼                                     ▼
+╭─────────────────── Standalone Spring Boot service ───────────────────╮
 │  ╭────────────────────╮       ╭─────────────────────╮               │
-│  │ Existing review    │──────▶│ Customer facts     │               │
-│  │ application service│       │ adapter            │               │
+│  │ Review             │──────▶│ Customer facts     │               │
+│  │ application service│       │ adapter (CIS)      │               │
 │  ╰──────────┬─────────╯       ╰──────────┬──────────╯               │
-│             │ existing workflow          ▼                          │
+│             │ review workflow            ▼                          │
 │             │                 ╭─────────────────────╮  ╭─────────╮  │
 │             │                 │ PolicyDecisionPort  │─▶│DMN      │  │
 │             │                 ╰─────────────────────╯  │runtime  │  │
 │             ▼                                          ╰─────────╯  │
 │  ╭────────────────────╮                                             │
-│  │ Existing review DB │◀── evaluation result + release identifiers  │
+│  │ MySQL 8 review DB  │◀── evaluation result + release identifiers  │
 │  ╰────────────────────╯                                             │
 │                                                                     │
 │  Policy administration: canonical model, Jena/SHACL validation,     │
@@ -473,8 +493,9 @@ Use the Section 3.11 handoff and stop; do not start Phase 2.
                               │ Isolated Z3 solver │
                               ╰────────────────────╯
 
-Optional external systems: identity provider, LLM provider, artifact
-storage, secrets manager, observability platform, and RDF store.
+Optional external systems: LLM provider, artifact storage,
+observability platform, and RDF store. No identity provider is
+integrated; see Section 9.
 ```
 
 Policy administration may move to a companion control-plane service without changing the review-time `PolicyDecisionPort`. The transaction-processing path must not call an LLM or Z3. It should evaluate a locally available or highly available approved DMN release and continue operating if authoring, conflict analysis, or the model provider is unavailable.
@@ -483,13 +504,13 @@ Policy administration may move to a companion control-plane service without chan
 
 1. **Control plane** — authors drafts, validates them, compares them with active policies, batch-qualifies complete candidates against a pinned baseline, records approvals, and creates immutable releases.
 2. **Decision runtime** — loads only approved releases, evaluates rules, and then executes separately versioned recommendation and advisory-calculation decisions against the resulting findings and normalized facts.
-3. **Existing review service** — owns customer facts, orchestration, persisted review state, public contracts, and the final use of policy findings.
+3. **Review application layer** — owns customer facts, orchestration, persisted review state, public contracts, and the final use of policy findings.
 
 Do not share mutable engine state between authoring and runtime. Publication should create an immutable release that runtime instances verify and load atomically.
 
 ### 4.3 Policy authoring and publication flow
 
-1. An authenticated policy author enters a bounded policy through an administrative UI or supported import format.
+1. A policy author enters a bounded policy through an administrative UI or supported import format. The app records a caller-supplied actor identifier; it does not authenticate it (Section 9).
 2. An optional LLM gateway translates the request into structured draft JSON. The prompt version, model identity, and response provenance are recorded subject to data-retention rules.
 3. Spring validates the JSON schema and converts it to the canonical policy model. No executable artifact is accepted directly from the LLM.
 4. Jena and SHACL validate property names, datatypes, enum values, units, and domain constraints using a selected ontology release.
@@ -498,19 +519,19 @@ Do not share mutable engine state between authoring and runtime. Publication sho
 7. Analysis returns `NO_CONFLICT`, `COMPATIBLE_REFINEMENT`, `REDUNDANT`, `CONFLICT`, or `INDETERMINATE`, plus a witness when one exists. Timeouts and unsupported constructs are `INDETERMINATE`; they never silently pass.
 8. The candidate release and active baseline run through the same evaluator over a versioned regression corpus and approved historical cases. Persist per-case differences, aggregate impact, corpus version, thresholds, errors, and indeterminate results; any incomplete run or breached gate blocks progression.
 9. A reviewer sees the source request, canonical policy, ontology report, DMN artifacts, tests, conflict explanation, witness, batch impact, and warnings.
-10. An authorized approver approves or rejects the exact immutable revision and its current evidence. High-risk policies may require a second approver under existing governance rules.
-11. Publication creates an immutable, checksummed release using the service's existing transaction/outbox conventions. Runtime instances atomically load it or retain the previous release.
+10. A designated approver (a recorded actor; procedurally, not cryptographically, authorized) approves or rejects the exact immutable revision and its current evidence. High-risk policies may require a second recorded approver.
+11. Publication creates an immutable, checksummed release using the service's transaction/outbox conventions. Runtime instances atomically load it or retain the previous release.
 12. Rollback republishes a previous approved release; it never edits policy or audit history.
 
 ### 4.4 Customer review evaluation flow
 
-1. The existing application service reaches its current policy/decision point.
+1. The review application service reaches its policy/decision point.
 2. Its adapter builds a `PolicyEvaluationRequest` from authoritative facts available for that review.
 3. The DMN runtime evaluates the rule layer of a specific active release. No LLM, Jena validation, Z3 call, or candidate batch occurs on this path.
 4. A separately versioned recommendation decision combines all findings and normalized facts into a primary recommendation, supporting recommendations, and any advisory calculation. This layer does not mutate customer or review state.
 5. The adapter maps the deterministic result into stable policy findings, reason codes, recommendations, and advisory values.
-6. The existing application service decides how those outputs affect the review workflow and is the only owner of customer-state mutation.
-7. The service persists the release ID, decision ID, outcome, recommendations, and reasons with the review or its existing audit record.
+6. The review application service decides how those outputs affect the review workflow and is the only owner of customer-state mutation.
+7. The service persists the release ID, decision ID, outcome, recommendations, and reasons with the review or its audit record.
 
 ### 4.5 Keep policy lifecycle separate from review lifecycle
 
@@ -573,18 +594,20 @@ The owning team must explicitly define these semantics before migrating a policy
 
 Every engine adapter must consume the canonical model. Do not separately translate natural language into RDF, DMN, and SMT, because those translations can disagree while each remains syntactically valid.
 
-For every fact exposed by the existing service, record its canonical name, source field, datatype, unit, null behavior, allowed values, freshness, sensitivity classification, and owner. That fact dictionary is the contract between the customer-facts adapter, ontology, DMN compiler, and solver. A source-field rename should require only an adapter change; a semantic change requires a new ontology and policy release.
+For every fact supplied by CIS, record its canonical name, source field, datatype, unit, null behavior, allowed values, freshness, sensitivity classification, and owner. That fact dictionary is the contract between the customer-facts adapter, ontology, DMN compiler, and solver. A source-field rename should require only an adapter change; a semantic change requires a new ontology and policy release.
 
 ## 6. Spring Boot Module Design
 
-A suggested structure under the service's existing base package is:
+A suggested structure under the service's base package (for example `com.<org>.creditreview`) is:
 
 ```text
-<existing-base-package>.policy
+<base-package>
+├── review                 review aggregate, workflow states, and Dispositions
+├── review.facts           CIS-facing customer-facts adapter (Tier-1 context)
 ├── policy.domain          canonical policy model and lifecycle rules
 ├── policy.application     use cases and transaction boundaries
 ├── policy.api             REST DTOs, validation, and error mapping
-├── policy.persistence     repositories and additive migrations
+├── policy.persistence     repositories and additive JPA mappings
 ├── ontology               Jena model loading, lookup, and SHACL validation
 ├── decision               DMN generation, compilation, tests, and execution
 ├── conflict               solver-neutral constraints and result model
@@ -592,13 +615,12 @@ A suggested structure under the service's existing base package is:
 ├── proposal               structured, LLM, and optional DSL input adapters
 ├── governance             policy review, approval, publication, and rollback
 ├── integration.review     customer-fact and policy-finding adapters
-├── security               mappings to existing authorities
-└── audit                  integration with existing audit/outbox conventions
+└── audit                  append-only audit records and outbox integration
 ```
 
-These may be packages in the existing build or separate internal modules. Do not restructure the whole service merely to match this example. Add a build-module boundary only when it enforces useful dependency or deployment constraints.
+These may be packages in one build or separate internal modules. Add a build-module boundary only when it enforces useful dependency or deployment constraints. There is no `security` package: the app implements no authentication or authorization (Section 9).
 
-Enforce dependencies inward: engine-specific adapters may depend on domain and application ports, but the domain must not depend on Jena, Drools, Kogito, Z3, an LLM SDK, Spring MVC, JPA entities, or the existing review entity. The existing review application layer should depend on `PolicyDecisionPort`, not an engine API.
+Enforce dependencies inward: engine-specific adapters may depend on domain and application ports, but the domain must not depend on Jena, Drools, Kogito, Z3, an LLM SDK, Spring MVC, JPA entities, or the review entity. The review application layer should depend on `PolicyDecisionPort`, not an engine API.
 
 Useful application ports include:
 
@@ -640,7 +662,7 @@ ontology/
 └── 1.0.0/release.json
 ```
 
-The initial RDF model should represent only the customer facts and policy concepts required by the first migration cohort, including datatype, allowed values, units, labels, sensitivity, and applicability. The reference examples use customer number, name, AR balance, past-due amount, average days to pay, credit limit, payment terms, restricted status, and discontinued status; retain only fields that have an authoritative equivalent in the existing service.
+The initial RDF model should represent only the customer facts and policy concepts required by the first migration cohort, including datatype, allowed values, units, labels, sensitivity, and applicability. The reference examples use customer number, name, AR balance, past-due amount, average days to pay, credit limit, payment terms, restricted status, and discontinued status; retain only fields that have an authoritative CIS equivalent in the fact dictionary.
 
 SHACL should enforce structural and domain rules. The Spring adapter should:
 
@@ -652,7 +674,7 @@ SHACL should enforce structural and domain rules. The Spring adapter should:
 6. map the report to stable application error codes with RDF details attached for auditors;
 7. fail closed if the requested ontology release is missing or invalid.
 
-For the first release, use the service's existing artifact mechanism where possible: store signed ontology artifacts in the source repository or approved object/artifact storage and load them into memory. Add an external RDF store such as Fuseki only when ontology query, collaborative editing, or dataset size requires it. Embedded Jena TDB2 should not be placed behind horizontally scaled Spring instances as a shared mutable store.
+For the first release, store signed ontology artifacts in the source repository or approved object/artifact storage and load them into memory. Add an external RDF store such as Fuseki only when ontology query, collaborative editing, or dataset size requires it. Embedded Jena TDB2 should not be placed behind horizontally scaled Spring instances as a shared mutable store.
 
 SHACL validates ontology conformance during authoring and publication; it does not replace request validation, workflow validation, DMN compilation, or policy conflict analysis. Do not add RDF conversion and SHACL validation to every customer review unless a separately measured requirement justifies it.
 
@@ -662,15 +684,15 @@ The bounded canonical policy should compile deterministically into DMN XML. Gene
 
 Recommended first topology:
 
-- place a compatible KIE/Drools DMN runtime behind `PolicyDecisionPort`, embedded in the existing service when dependency and operational constraints allow;
+- place a compatible KIE/Drools DMN runtime behind `PolicyDecisionPort`, embedded in the service when dependency and operational constraints allow;
 - compile and test candidate DMN during validation;
 - store the exact compiled/source artifact and checksums with the release;
 - load only approved release artifacts into the runtime;
-- map existing customer facts to DMN inputs without exposing engine-native types to the review domain;
+- map confirmed customer facts to DMN inputs without exposing engine-native types to the review domain;
 - keep runtime inputs and outputs behind an engine-neutral `DecisionRuntime` interface;
 - keep the previous valid release active if a new release cannot be verified, compiled, or loaded.
 
-Use a Kogito-generated decision service instead if independent scaling, release cadence, or organizational ownership justifies another deployable. Before selecting dependencies, run a compatibility spike against the **existing service's** Java version, Spring Boot version, dependency-management rules, native-image requirements if any, container base image, and vulnerability policy. Record the chosen KIE/Kogito distribution in an architecture decision record. The application design must not depend on generated framework APIs outside the DMN adapter.
+Use a Kogito-generated decision service instead if independent scaling, release cadence, or organizational ownership justifies another deployable. Before selecting dependencies, run a compatibility spike against the **confirmed platform** (Section 1.5): Java 21, the chosen Spring Boot 3.x version, dependency-management rules, native-image requirements if any, container base image, and vulnerability policy. Record the chosen KIE/Kogito distribution in an architecture decision record. The application design must not depend on generated framework APIs outside the DMN adapter.
 
 If the service already has automated decision logic, place it behind the same comparison harness and run current and DMN evaluators side by side. Do not remove current logic until representative historical cases reconcile and the business owner accepts every intentional difference.
 
@@ -737,13 +759,20 @@ Add a real model only after deterministic validation, analysis, and approval pat
 - expose provider-independent application interfaces;
 - create `DRAFT` or `TRANSLATED` revisions only.
 
-If policies are imported from the exploratory DSL, keep its parser as a migration adapter only. If the existing service has another policy format, build an importer for that format instead. Neither format should become the persistence or execution model unless it independently satisfies the production requirements.
+If policies are imported from the exploratory DSL, keep its parser as a migration adapter only. If the business has another established policy format, build an importer for that format instead. Neither format should become the persistence or execution model unless it independently satisfies the production requirements.
 
 ## 8. Persistence, APIs, and Audit
 
 ### 8.1 Additive persistence
 
-Use the existing service's supported relational database and migration tool. PostgreSQL is suitable but not required. Keep changes additive and follow existing naming, identifier, tenancy, timestamp, encryption, retention, and soft-delete conventions. Use relational records for workflow and traceability, with JSON only for immutable typed payloads where appropriate.
+The confirmed database is **MySQL 8** accessed through **JPA/Hibernate**, with **no DDL migration tool** (no Flyway or Liquibase). Manage the schema as follows:
+
+- Derive the schema from JPA entity mappings as the single source of truth. Use InnoDB, `utf8mb4`, UTC `DATETIME(6)` timestamps, `DECIMAL` for money and ratios (never `FLOAT`/`DOUBLE`), and MySQL `JSON` columns only for immutable typed payloads such as canonical policy content and release manifests.
+- In local development and tests, `spring.jpa.hibernate.ddl-auto=update` (or `create-drop` for tests against Testcontainers MySQL) is acceptable.
+- In shared and production environments, run with `ddl-auto=validate`. Produce DDL with Hibernate's schema-export tooling and hand it to the organization's established DDL control procedure, which owns review, application, and change history outside this codebase. Keep every change additive (new tables, new nullable columns, new indexes); a rename, drop, or rewrite goes through that same external procedure with a separately reviewed plan per Section 3.9.
+- Enforce optimistic locking with `@Version` on mutable draft entities, and database uniqueness constraints for invariants such as one active release per policy domain.
+
+Define naming, identifier, timestamp, retention, and soft-delete conventions once in Phase 1 and follow them thereafter. Use relational records for workflow and traceability.
 
 The minimum logical model is:
 
@@ -755,18 +784,18 @@ The minimum logical model is:
 - `policy_release` — immutable manifest, status, signature, and active interval;
 - `release_policy` — exact revisions in a release;
 - `artifact` — location, media type, checksum, and provenance for RDF, DMN, reports, and manifests;
-- `policy_audit_event` — use only if the existing audit framework cannot carry the required immutable business events;
-- `policy_outbox_event` — use only if the existing outbox cannot carry release events and idempotency state.
+- `policy_audit_event` — the service's append-only store for immutable policy business events;
+- `policy_outbox_event` — add only when a distributed consumer requires release events and idempotency state.
 
 Use optimistic locking for draft commands and a database uniqueness/locking strategy that prevents two releases from becoming active for the same policy domain at once.
 
-Do not store a second copy of the customer or review aggregate in the policy schema. Runtime evaluation records should reference the service's existing review/customer identifiers according to current data-classification rules.
+Do not store a second copy of the customer or review aggregate in the policy schema. Runtime evaluation records should reference the service's review/customer identifiers according to the approved data-classification rules.
 
 ### 8.2 Illustrative APIs and application commands
 
-If policy management is part of the existing service, prefer internal application calls for review-time evaluation and expose only the administration resources required by its UI or clients. If it is a companion service, define a versioned release-distribution contract and expose a decision endpoint only when the runtime is also remote.
+Because policy management and the review runtime start in one application, prefer internal application calls for review-time evaluation and expose only the administration resources required by the UI or clients. If the control plane later becomes a companion service, define a versioned release-distribution contract and expose a decision endpoint only when the runtime is also remote.
 
-Adapt the following illustrative API to the service's established resource names, versioning, error format, idempotency, concurrency, and tenancy conventions:
+Adapt the following illustrative API to the resource-naming, versioning, error-format, idempotency, and concurrency conventions defined in Phase 1:
 
 ```text
 GET  /api/v1/ontologies/{version}
@@ -806,35 +835,34 @@ Audit records should answer:
 - which release produced a runtime decision;
 - whether an operation was retried, timed out, or failed.
 
-Application logs are not the audit system. Extend the service's existing business audit trail where it meets these guarantees; otherwise add an append-only policy audit store. Protect records from update or deletion according to existing retention and legal-hold policy.
+Application logs are not the audit system. The standalone service must provide its own append-only policy audit store meeting these guarantees. Protect records from update or deletion according to the approved retention and legal-hold policy. Note the limit imposed by the no-security decision: audit records identify actors only by the unverified identifiers callers supplied (Section 9).
 
 ## 9. Security and Operational Controls
 
-### 9.1 Authorization
+### 9.1 Security posture: no in-app security (confirmed decision)
 
-Use the service's current Spring Security and identity-provider integration. The following are capabilities that must be authorized, not a requirement to create these exact role names:
+By maintainer decision (Section 1.5), this application contains **no Spring Security and no other authentication or authorization implementation**. Consequences that must be stated, not hidden:
 
-- `POLICY_AUTHOR` — creates drafts and requests translation;
-- `POLICY_REVIEWER` — validates, analyzes, comments, and submits;
-- `POLICY_APPROVER` — approves an exact revision;
-- `POLICY_PUBLISHER` — publishes or rolls back an approved release;
-- `POLICY_AUDITOR` — read-only access to history and evidence;
-- `DECISION_CLIENT` — invokes only the runtime decision API.
-
-Map these capabilities to existing authorities and tenancy rules. Enforce separation of duties for high-risk policies: an author cannot be the sole approver, and publication may require a different actor. Service accounts should have narrower permissions than human operators. If the runtime is embedded, ordinary customer-review callers should not receive policy-administration authorities.
+- Every endpoint, including policy administration, approval, publication, rollback, and the review APIs, is callable by anyone who can reach the service. Access control is entirely the responsibility of the deployment environment (private network, VPN, reverse proxy, or API gateway owned outside this app).
+- The role names from the design (`POLICY_AUTHOR`, `POLICY_REVIEWER`, `POLICY_APPROVER`, `POLICY_PUBLISHER`, `POLICY_AUDITOR`, `DECISION_CLIENT`) survive only as **procedural capabilities**: governance endpoints require a caller-supplied actor identifier, and the service records it on approvals, publications, and audit events without verifying it.
+- Separation of duties (author is not sole approver; publication by a different actor) is enforced only against those recorded identifiers. It deters mistakes, not malice.
+- The Phase 0 threat model must document the confirmed deployment boundary, and the service must not be exposed beyond it while real customer data is present. Adding real authentication later is a deliberate, separately approved change — the ports and recorded-actor fields are designed so it can be added without reshaping the domain model.
 
 ### 9.2 Required controls
 
-- TLS in transit and managed encryption at rest;
-- secrets manager rather than configuration files or database rows for credentials;
+With in-app security out of scope, these controls still apply to the application itself:
+
 - signed release manifests and verified checksums at load time;
-- software composition analysis and pinned container/native dependencies;
 - input-size, request-rate, solver, and LLM cost limits;
 - no prohibited customer or personal data in model prompts;
-- allow-listed outbound connectivity from the application and solver;
-- backup and restore exercises for the service's database and policy artifacts;
+- LLM provider credentials supplied through server-side environment variables or the platform's secret mechanism — never in code, configuration files under version control, or database rows;
+- pinned dependencies (Maven/Gradle lockfiles) and software composition analysis;
+- allow-listed outbound connectivity from the application and solver worker where the platform supports it;
+- backup and restore exercises for the MySQL database and policy artifacts;
 - audit retention, legal hold, and redaction rules;
 - fail-closed authoring/publication behavior for missing ontology, invalid candidate release, indeterminate analysis, and signature failure, plus the explicitly approved customer-review runtime fallback.
+
+TLS termination and encryption at rest are delegated to the hosting environment and database platform, consistent with the no-in-app-security decision.
 
 ### 9.3 Observability and service objectives
 
@@ -852,15 +880,15 @@ Define separate service objectives for control-plane operations and low-latency 
 
 ## 10. Delivery Roadmap
 
-Durations below indicate sequencing for one small cross-functional team, not a delivery commitment. Re-estimate after the existing-service assessment and technology spikes. Each phase should be independently deployable and reversible.
+Durations below indicate sequencing for one small cross-functional team, not a delivery commitment. Re-estimate after Phase 0 discovery and the technology spikes. Each phase should be independently deployable and reversible.
 
 For AI-agent work, the gates in Section 3 are mandatory. At every phase exit gate, the agent must stop, provide the Section 3.11 handoff, and wait for explicit approval. Completing one phase does not authorize starting the next phase.
 
-### Phase 0 — Discover the service and freeze semantics (1–2 weeks)
+### Phase 0 — Discover the domain and freeze semantics (1–2 weeks)
 
 **Deliver**
 
-- Complete the baseline discovery checklist in Section 2 and agent Gates A and B in Section 3 with the customer review service maintainers.
+- Complete the baseline discovery checklist in Section 2 with the business owners, CIS integration owners, and the POC maintainer.
 - Inventory current automated and manual policies, their owners, inputs, outcomes, effective dates, and precedence.
 - Capture representative historical review cases and current expected outcomes without copying prohibited production data into test fixtures.
 - Add the three reference scenarios as engine-neutral fixtures:
@@ -869,29 +897,29 @@ For AI-agent work, the gates in Section 3 are mandatory. At every phase exit gat
   - unrestricted high-balance customer with 45 ADP days → `CONFLICT` with the exclusive 30-day policy, including a witness.
 - Add negative fixtures for unknown properties, invalid enum values, unit mismatch, inclusive/exclusive boundaries, nulls, and unsatisfiable scopes.
 - Define the customer-fact dictionary, canonical IR v1, lifecycle states, error codes, classification semantics, override behavior, and exact-decimal/unit rules.
-- Record architecture decisions for integration topology, current-runtime fallback, Java/Spring compatibility, build layout, engine selection criteria, and artifact storage.
-- Complete a threat model and data-classification review.
+- Record architecture decisions for deployment topology, runtime fallback, Java/Spring dependency compatibility, build layout, engine selection criteria, and artifact storage, confirming or amending the Section 1.5 decisions.
+- Complete a threat model and data-classification review, including the deployment boundary that compensates for having no in-app security (Section 9.1).
 
 **Exit gate**
 
 Service, business, risk, and engineering owners approve the context map, fact dictionary, policy semantics, and intended decision authority. Current behavior and intentional future changes are distinguishable in the fixture corpus. No production behavior changes in this phase.
 
-### Phase 1 — Add policy boundaries without changing review behavior (3–5 weeks)
+### Phase 1 — Build the walking skeleton with policy boundaries (3–5 weeks)
 
 **Deliver**
 
-- Add policy domain/application packages or modules within the existing repository without reorganizing unrelated code.
-- Add `PolicyDecisionPort`, the customer-facts adapter, and an adapter for the current decision behavior or a no-op implementation.
-- Complete agent Gate C before adding any engine dependency or policy authority.
+- Create the standalone Spring Boot application (Java 21, Spring Boot 3.x, MySQL 8, JPA) with the module layout from Section 6, CI, container build, health checks, and telemetry.
+- Implement the review aggregate, workflow states, review APIs, and the CIS-facing customer-facts adapter.
+- Add `PolicyDecisionPort` with a deterministic Java evaluator that ports the POC's rule semantics as the initial current-behavior implementation.
+- Complete agent Gate C conventions before adding any engine dependency or policy authority.
 - Implement the canonical IR, deterministic schema/domain validation, and a manual structured-authoring path.
-- Add namespaced database migrations, mappings to existing authorities, audit integration, and outbox integration only where needed.
+- Create the JPA-mapped schema per Section 8.1, the append-only audit store, and recorded-actor handling per Section 9.1.
 - Implement policy lifecycle enforcement, immutable revisions, idempotency, optimistic locking, and API/application tests.
 - Add server-controlled `disabled` and `shadow` modes, comparison records, metrics, and an immediate kill switch.
-- Reuse the existing CI, container, health, telemetry, and dependency-scanning conventions.
 
 **Exit gate**
 
-The feature can be deployed disabled with no public API, event, database-query, latency, or review-outcome regression. In shadow mode, policy results cannot alter workflow. No client can approve or publish an unvalidated revision, and every policy mutation is authorized and audited.
+The service runs end to end: a review can be created, evaluated by the deterministic evaluator against the fixture corpus, and persisted with release/decision identifiers. Policy evaluation can be deployed disabled with no API, latency, or review-outcome regression, and in shadow mode policy results cannot alter workflow. No client can approve or publish an unvalidated revision, and every policy mutation carries a recorded actor and audit event.
 
 ### Phase 2 — Formalize ontology validation with Jena and SHACL (3–4 weeks)
 
@@ -949,7 +977,7 @@ Reference scenarios and service-specific boundary cases are explained correctly.
 - Build an adversarial corpus for prompt injection, invented properties, invalid enum values, malformed numbers, units, and unsupported operators.
 - Show authors a semantic diff between their request, the canonical draft, and any later edits.
 - Retain a fully manual structured-authoring path when the LLM is unavailable.
-- Complete privacy, legal, security, procurement, and model-provider reviews required by the existing service's governance.
+- Complete the privacy, legal, security, procurement, and model-provider reviews the organization's governance requires.
 
 **Exit gate**
 
@@ -959,15 +987,15 @@ No model response bypasses schema, ontology, DMN, conflict, or approval gates. D
 
 **Deliver**
 
-- Run historical policies and representative customer facts in shadow mode; reconcile semantic differences with the existing process.
-- Complete performance, concurrency, failover, backup/restore, disaster recovery, penetration, and access-review tests.
+- Run historical policies and representative customer facts in shadow mode; reconcile semantic differences with the current business process.
+- Complete performance, concurrency, failover, backup/restore, and disaster-recovery tests, plus a review of the deployment boundary that stands in for in-app security (Section 9.1).
 - Define service objectives, alerts, runbooks, on-call ownership, support procedures, and change-management controls.
-- Progress through advisory mode, then pilot enforcement for a limited policy domain and bounded cohort using the existing feature-flag mechanism.
+- Progress through advisory mode, then pilot enforcement for a limited policy domain and bounded cohort using the service's feature-flag mechanism.
 - Train authors, reviewers, publishers, auditors, and support staff.
 
 **Exit gate**
 
-Customer review service owners, risk, and business owners sign off on shadow/advisory results and controls. Production readiness review passes, rollback is rehearsed, and the first enforced cohort has explicit success, mismatch, and stop criteria.
+Service, risk, and business owners sign off on shadow/advisory results and controls. Production readiness review passes, rollback is rehearsed, and the first enforced cohort has explicit success, mismatch, and stop criteria.
 
 ## 11. Cross-Engine and Existing-Behavior Conformance
 
@@ -990,40 +1018,44 @@ The reference scenarios explain the design but are not sufficient acceptance cov
 
 The system is ready for a controlled production pilot only when all of the following are true:
 
-- The existing review decision point, authoritative facts, public contracts, and workflow ownership are documented.
+- The review decision point, authoritative facts, public contracts, and workflow ownership are documented.
 - Shadow and advisory comparisons meet agreed mismatch, latency, and error thresholds; every intentional behavior difference has business approval.
 - The feature can be disabled without a deployment, and fallback behavior has been tested for release-load and runtime-evaluation failures.
-- Existing API/event consumers see no unapproved contract or reason-code changes.
+- API/event consumers see no unapproved contract or reason-code changes.
 - LLM output can create drafts but cannot approve, publish, or execute anything.
 - All required validation and analysis results are tied to exact immutable inputs and engine versions.
-- Separation of duties and least-privilege roles are enforced server-side.
+- Procedural separation of duties on recorded actors is enforced server-side, and the risk owners have explicitly accepted that actor identities are unverified because the app has no in-app security (Section 9.1).
+- The deployment boundary compensating for no in-app security is documented, reviewed, and confirmed operational.
 - Approved releases are signed/checksummed, reproducible, and atomically activated.
 - Runtime evaluations are pinned to a release and remain available during authoring, LLM, or solver outages.
 - Conflict witnesses and human overrides are explainable and auditable.
 - `UNKNOWN`, timeout, and unsupported semantics fail closed before publication.
 - Approved baseline, boundary, negative, property-based, concurrency, rollback, and disaster-recovery tests pass.
 - Logs, metrics, traces, and alerts avoid sensitive policy/customer data while retaining useful identifiers.
-- Backup restore, rollback, key rotation, access review, and incident runbooks have been exercised.
+- Backup restore, rollback, and incident runbooks have been exercised.
 
-## 13. Decisions Required Before Implementation
+## 13. Decision Record and Remaining Decisions
 
-Resolve these through short architecture decision records during Phase 0:
+The maintainer has already settled the platform decisions in Section 1.5 (standalone application, MySQL 8, JPA/Hibernate, no DDL migration tool, no in-app security, Java 21, Spring Boot 3.x). Resolve the remaining rows through short architecture decision records during Phase 0:
 
-| Decision | Recommended default | Trigger to choose differently |
+| Decision | Status / recommended default | Trigger to choose differently |
 | --- | --- | --- |
-| Application shape | Policy modules in the existing Spring Boot service | Use a companion control plane or decision service for verified ownership, security, dependency, release, or scaling constraints |
-| Review workflow authority | Existing review application service | Change only through a separately approved workflow migration |
-| Customer fact source | Existing authoritative service fields through an adapter | Add a source only when its ownership, freshness, availability, and data classification are approved |
+| Application shape | **Decided:** one standalone Spring Boot application containing control plane and decision runtime | Extract a companion control plane or decision service for verified ownership, security, dependency, release, or scaling constraints |
+| Database and access | **Decided:** MySQL 8 with JPA/Hibernate | None without a new maintainer decision |
+| Schema management | **Decided:** no DDL migration tool; JPA-derived additive DDL applied through the organization's external DDL control procedure (Section 8.1) | Adopt a migration tool only through a new maintainer decision |
+| In-app security | **Decided:** none; recorded unverified actors plus a deployment boundary (Section 9) | Add authentication/authorization only through a separately approved change |
+| Review workflow authority | The service's review application layer | Change only through a separately approved workflow migration |
+| Customer fact source | CIS APIs through the customer-facts adapter | Add a source only when its ownership, freshness, availability, and data classification are approved |
 | Authoritative policy form | Canonical typed IR | None; individual engine formats must remain generated artifacts |
-| Existing/prototype policy formats | Input/migration adapters | Remove an adapter after its policies and users have migrated |
-| Policy persistence | Additive tables in the existing database | Separate storage for a companion service or explicit data-boundary requirement |
+| Prototype policy formats | Input/migration adapters | Remove an adapter after its policies and users have migrated |
+| Policy persistence | Additive tables in the service's MySQL database | Separate storage for a companion service or explicit data-boundary requirement |
 | Ontology storage | Versioned signed artifacts loaded in memory | Add Fuseki/external RDF store for collaborative editing, large datasets, or richer queries |
 | DMN runtime | Embedded KIE/Drools behind an interface | Use Kogito service for independent scaling/release ownership or superior verified compatibility |
 | Z3 placement | Isolated internal worker/service | Use in-process only if native packaging and resource isolation meet operational requirements |
 | LLM output | Strict structured draft JSON | Never accept executable DMN, RDF, or SMT directly from a model |
 | Release model | Immutable bundle with atomic active pointer | None; do not mutate active artifacts in place |
-| Activation | Human approval plus publisher action | Add two-person approval for high-risk scopes |
-| Runtime failure behavior | Preserve the last valid release and use the service's approved fallback | Never infer fail-open/fail-closed behavior without the current business and risk owners |
+| Activation | Human approval plus publisher action (recorded actors) | Add two-person approval for high-risk scopes |
+| Runtime failure behavior | Preserve the last valid release and use the approved fallback | Never infer fail-open/fail-closed behavior without the current business and risk owners |
 
 ## 14. Explicit Non-Goals for the First Release
 
@@ -1034,28 +1066,31 @@ Resolve these through short architecture decision records during Phase 0:
 - Calling Z3 during each customer decision.
 - Editing active DMN or ontology artifacts in place.
 - Starting with independently deployed microservices for every engine.
-- Replacing existing review states, public contracts, identity integration, audit infrastructure, or operational tooling without a separate need.
+- In-app authentication, authorization, or identity-provider integration (maintainer decision; see Section 9).
+- Multi-tenancy.
 - Replicating the customer or review aggregate in policy storage.
-- Renaming existing customer fields to match the reference examples.
-- Selecting library versions before verifying compatibility with the maintained Spring Boot application.
+- Renaming authoritative CIS customer fields to match the reference examples.
+- Selecting library versions before verifying compatibility with the confirmed Java 21 / Spring Boot 3.x platform.
 - Supporting multiple currencies or unit conversion until those semantics are explicitly designed.
 
 ## 15. Immediate Next Sprint
 
-The first sprint should produce an integration brief and executable baseline, not commit to all three engines at once:
+The first sprint should produce a design brief and executable baseline, not commit to all three engines at once:
 
-1. Walk through the current customer review flow with its maintainer and identify the exact decision point, state owner, fallback, and public side effects.
-2. Produce the context map, customer-fact dictionary, current-policy inventory, and API/event compatibility list from Section 2.
+1. Walk through the intended customer review flow with the business owners and the POC, and define the decision point, state owner, fallback, and public side effects the new service will implement.
+2. Produce the context map, customer-fact dictionary (from CIS), current-policy inventory, and API/event contract list from Section 2.
 3. Convert representative current policies and sanitized historical cases, plus the three reference scenarios, into versioned fixtures.
 4. Define `PolicyDecisionPort`, the canonical IR v1, structured JSON schema, lifecycle transitions, error codes, conflict classifications, and `INDETERMINATE` behavior.
-5. Add a no-op or current-behavior adapter behind a disabled feature flag to prove the integration seam without changing review outcomes.
-6. Build time-boxed compatibility spikes for Jena/SHACL, the candidate DMN runtime, and Z3 using the same ADP policy and one service-specific policy.
-7. Decide integration topology and dependency versions from measured compatibility, latency, packaging, and operations results.
-8. Draft the threat model, role-to-authority mapping, data classification, release manifest, rollout thresholds, and rollback procedure.
+5. Scaffold the standalone Spring Boot application (Java 21, Spring Boot 3.x, MySQL 8, JPA) with the review skeleton and a deterministic current-behavior adapter behind a disabled feature flag.
+6. Build time-boxed compatibility spikes for Jena/SHACL, the candidate DMN runtime, and Z3 against that platform using the same ADP policy and one business-specific policy.
+7. Confirm dependency versions from measured compatibility, latency, packaging, and operations results.
+8. Draft the threat model (including the deployment boundary for the unsecured app), data classification, release manifest, rollout thresholds, and rollback procedure.
 9. Review the brief with service owners, policy owners, risk/compliance, security, data governance, and operations.
 
-The outcome should be a signed-off integration brief, adapter contract, and fixture suite. Full implementation should begin only after the team can show where the capability fits, which current behavior it preserves, how it is disabled or rolled back, and that all three engine adapters can represent the same bounded policy without semantic differences.
+The outcome should be a signed-off design brief, adapter contract, and fixture suite. Full engine implementation should begin only after the team can show where each capability fits, which behavior it preserves, how it is disabled or rolled back, and that all three engine adapters can represent the same bounded policy without semantic differences.
 
 ## 16. Exploration Provenance
 
 The current illustrative POC includes a portable Hono gateway, shared-password access gate, real GitHub Copilot SDK drafting and explanation calls, bounded fictional evidence tools, deterministic validation/evaluation/impact controls, and browser-tab session state. It does **not** integrate CIS APIs, production customer data, Apache Jena, SHACL, DMN/Kogito/Drools, Z3, durable persistence/audit, user identity or roles, production policy publication, or customer-state mutation. Treat its modules and fictional fixtures as design evidence and executable examples, not production code or an integration contract.
+
+In August 2026 the maintainer reframed this guide from an existing-service integration plan to the standalone-application plan recorded in Section 1.5: a new Spring Boot service on MySQL 8 with JPA, no DDL migration tool, and no in-app security.
