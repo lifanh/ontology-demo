@@ -341,13 +341,13 @@ a{color:var(--brand);text-decoration:none;cursor:pointer}
 .kv-l span{margin-left:4px;color:var(--ai);font-size:8px;white-space:nowrap}
 .kv-v{font-size:14.5px;font-weight:700;margin-top:3px}
 .kv-i.fact-link{min-width:0;border:0;text-align:left;color:var(--ink)}
-.jump{cursor:pointer;transition:background .12s,box-shadow .12s}
+.jump{cursor:pointer;transition:background .12s,border-color .12s}
 .kv-i.jump:hover{background:#eef2fd}
 .s-item.jump:hover{border-color:var(--brand)}
 tr.jump:hover td{background:#eef2fd}
 .jump-note{font-size:11px;color:var(--faint);margin-top:8px}
-.section.flash{animation:flashbg 1.2s ease}
-@keyframes flashbg{0%{box-shadow:0 0 0 1px var(--brand),var(--shadow)}100%{box-shadow:var(--shadow)}}
+.section.flash{animation:flashborder 1.2s ease}
+@keyframes flashborder{0%{border-color:var(--brand)}100%{border-color:var(--line)}}
 
 /* sticky sub-nav */
 .subnav{position:sticky;top:57px;z-index:15;display:flex;gap:6px;flex-wrap:wrap;
