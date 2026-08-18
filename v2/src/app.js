@@ -309,7 +309,7 @@ function exposureBlock(record) {
     ["Customer since", record.meta.since, "sec-hist"]
   ];
   const anchor = calc.demand
-    ? `${money(calc.demand.monthlyRunRate)}/mo × ${calc.demand.termDays}d terms × 1.10 buffer ≈ <b>${money(calc.demand.demandBasis)}</b>/cycle`
+    ? `${money(calc.demand.monthlyRunRate)}/mo × ${calc.demand.termDays}d / 30 = <b>${money(calc.demand.termExposure)}</b> term exposure; × 1.10 buffer = <b>${money(calc.demand.demandBasis)}</b> demand basis`
     : `<b>Blocked</b> — the deterministic calculator requires current financial statements`;
   return `<div class="kv" style="grid-template-columns:repeat(4,1fr)">${items.map(x => `<div class="kv-i jump" onclick="jump('${x[2]}')"><div class="kv-l">${x[0]}</div><div class="kv-v">${x[1]}</div></div>`).join("")}</div>
     <div class="implied">Limit-sizing anchor: ${anchor} <span>(deterministic calculator demand basis)</span></div>`;
@@ -476,7 +476,9 @@ function relTblRegion(record) {
 
 function fsSection(record) {
   const facts = record.result.facts;
-  const meta = [["Statement status", facts.financial_statement_status], ["Fiscal year", "FY 2025 (fictional)"], ["Reporting currency", "USD"], ["Source", "Customer provided"], ["Fact source", "Shared deterministic engine"]];
+  const statementFile = record.meta.files.find(file => file[1] === "Financial Stmt");
+  const fiscalYear = statementFile?.[0].match(/FY\d{4}/)?.[0].replace("FY", "FY ");
+  const meta = [["Statement status", facts.financial_statement_status], ["Fiscal year", fiscalYear ? `${fiscalYear} (fictional)` : "Not available"], ["Reporting currency", "USD"], ["Source", "Customer provided"], ["Fact source", "Shared deterministic engine"]];
   const rows = [
     ["Annual revenue", money(facts.annual_revenue)],
     ["EBITDA", `${money(facts.ebitda)} · margin ${pct(facts.ebitda_margin)}`],
@@ -521,7 +523,7 @@ function decisionZone(record) {
       <div class="field"><label>Proposed credit limit</label><input id="proposedCreditLimit" value="${prop.rec[0][1]}" disabled/><div class="hint ai-fill">deterministic calculator · not recorded as an edit</div></div>
       <div class="field"><label>Proposed terms</label><input id="proposedTerms" value="${termsLabel(record.result.facts.payment_terms)}" disabled/></div>
       <div class="field"><label>Proposed next review</label><input id="proposedNextReview" value="${prop.rec[2][1]}" disabled/><div class="hint ai-fill">display context only · not recorded as an edit</div></div>
-      <div class="field wide"><label>${auto ? "System commentary" : "Override reason (recorded only when replacing the proposed result)"}</label><textarea id="commentary" ${auto ? "disabled" : ""}>${auto ? "Auto-cleared by deterministic rules — no commentary required." : `AI proposal: ${escapeHtml(prop.text)}`}</textarea></div>
+      <div class="field wide"><label>${auto ? "System commentary" : "Override reason (recorded only when replacing the proposed result)"}</label><textarea id="commentary" ${auto ? "disabled" : 'maxlength="500" placeholder="Required for an adjusted result (10–500 characters)"'}>${auto ? "Auto-cleared by deterministic rules — no commentary required." : ""}</textarea></div>
       ${adjustOpenFor === record.id ? `<div class="field wide"><label>Replacement review result</label><select id="adjAction">${adjustOptions.map(action => `<option value="${action}">${escapeHtml(actionLabels[action])}</option>`).join("")}</select><div class="hint">Allowed action vocabulary · deterministic proposal stays on record</div></div>` : ""}
     </div>
     <div class="scope-note">🎯 <b>Decision scope:</b> ${escapeHtml(record.meta.scope)}</div>

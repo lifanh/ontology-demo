@@ -278,6 +278,7 @@ a{color:var(--brand);text-decoration:none;cursor:pointer}
 .ff label{display:block;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
 .ff input,.ff select{width:100%;border:1px solid var(--line-strong);border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;color:var(--ink);background:var(--surface)}
 .ff input:focus,.ff select:focus{outline:none;border-color:var(--brand)}
+.ff input:disabled,.ff select:disabled{color:var(--faint);background:var(--surface-2);cursor:not-allowed;opacity:.75}
 .ff.fbtns{display:flex;gap:8px;align-items:end;grid-column:4;justify-content:flex-end}
 .fapply{background:var(--brand);color:#fff;border:0;font-weight:700;font-size:13px;padding:9px 18px;border-radius:8px}
 .fapply:hover{background:var(--brand-ink)}

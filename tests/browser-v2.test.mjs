@@ -76,6 +76,11 @@ test("v2 worklist and detail are driven by the shared deterministic engine", asy
     }
     assert.ok(!listText.includes("Vantage"), "prototype personas must be gone");
 
+    // Filters without backing data are visibly unavailable rather than silently ignored.
+    assert.equal(await page.locator("#filterbar input:disabled, #filterbar select:disabled").count(), 7);
+    assert.equal(await page.locator("#fCust").isDisabled(), false);
+    assert.equal(await page.locator("#fStatus").isDisabled(), false);
+
     // Tab counts from engine outcomes: 3 pending decisions, 1 auto-cleared, 0 completed.
     assert.equal(await page.textContent('[data-tab="mine"] .n'), "3");
     assert.equal(await page.textContent('[data-tab="auto"] .n'), "1");
@@ -90,6 +95,7 @@ test("v2 worklist and detail are driven by the shared deterministic engine", asy
     assert.ok(rules.includes("credit-1.4.0/CRITICAL_RESTRICTION@1"), "rules table should cite the evaluator's evaluationRef");
     assert.ok(rules.includes("CRITICAL_RESTRICTION_TRIGGER"), "rules table should cite the reason code");
     assert.ok((await page.textContent("#sec-ai")).includes("no model call"), "proposal must be labeled as scripted");
+    assert.match(await page.textContent(".implied"), /\$90,000\/mo × 45d \/ 30 = \$135,000 term exposure; × 1\.10 buffer = \$148,500 demand basis/);
 
     // Snapshot ontology facts expose their definition, provenance, and exact trace destinations.
     await page.click('[data-fact="past_due_ratio"]');
@@ -101,6 +107,13 @@ test("v2 worklist and detail are driven by the shared deterministic engine", asy
     assert.match(factReference, /Deterministically derived in this browser/);
     assert.match(factReference, /credit-1\.4\.0\/CRITICAL_RESTRICTION@1/);
     await page.click("#factDialog .dialog-close");
+
+    // Financial-summary period follows the fictional statement attachment for each account.
+    await page.click("#crumb a");
+    await page.click('#list .row:has-text("Meridian") .open-btn');
+    const financialSummary = await page.textContent("#sec-fs");
+    assert.match(financialSummary, /Fiscal year\s*FY 2024 \(fictional\)/);
+    assert.doesNotMatch(financialSummary, /Fiscal year\s*FY 2025/);
   } finally {
     await browser.close();
     try { process.kill(-vite.pid, "SIGTERM"); } catch {}
@@ -160,6 +173,11 @@ test("v2 decisions persist per release, stay isolated from v1, and auto-clear is
     await page.click('[data-act="reopen"]');
     await page.waitForSelector('[data-act="confirm"]');
     assert.match(await page.textContent("#sec-hist"), /Review reopened.*Restrict customer/s);
+
+    // Override shortcuts require rationale written for the replacement result.
+    assert.equal(await page.inputValue("#commentary"), "");
+    await page.click('[data-act="override"][data-action="NEED_CREDIT_MANAGER_REVIEW"]');
+    assert.ok((await page.textContent("#decisionMsg")).includes("10–500 characters"));
 
     // Adjust & confirm records an override with a validated reason.
     await page.click('[data-act="adjust-open"]');
