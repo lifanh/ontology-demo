@@ -76,11 +76,14 @@ gateway as the current demo, and including the policy-change workbench. The curr
 
 ## Phases (each ends demoable)
 
-Status: Phases 0 and 1 are complete. Phase 1 kept the shared narrative customers (2001–2004)
+Status: Phases 0–2 are complete. Phase 1 kept the shared narrative customers (2001–2004)
 instead of adding a v2-only dataset — the existing four already read as a queue, so no dataset
 change was needed and `src/domains/credit/pack.js` stayed untouched. Prototype-only Tier-2
 context (territories, reviewers, history, attachments, NACM/D&B-style data) lives in
-`v2/src/context.js`, clearly labeled fictional. Tests: `tests/browser-v2.test.mjs`.
+`v2/src/context.js`, clearly labeled fictional. Phase 2 assesses the fixed Policy Impact Cohort
+for governed evidence, then separately evaluates the same candidate against Narrative Customers
+2001–2004 to drive worklist-preview badges without projecting cohort results onto queue accounts.
+Tests: `tests/browser-v2.test.mjs`.
 
 **Phase 0 — scaffold and static parity (small)** — done
 Extract the prototype into `v2/index.html` + `v2/styles.css` + minimal JS, replace real-company
@@ -91,14 +94,14 @@ prototype look-and-feel, claims-safe, deployed next to v1.
 Worklist (rows, KPIs, tabs, filters that have backing data) and detail page (banner meta,
 snapshot grid with fact/trace links, rules detail from traces, limit-sizing anchor, factor bars)
 driven by `createEvaluator` + the credit pack over Narrative Customers; decision zone wired to
-the Disposition store with the same session-storage guarantees v1 tests establish. Add new
-fictional Narrative Customers so the worklist and KPI strip read like a queue (maintainer veto:
-this touches `src/domains/credit/pack.js`, which v1 also uses — alternative is a v2-only
-`v2/src/customers.js` additive dataset, which keeps rule 3 strict; **default: v2-only dataset**).
+the Disposition store with the same session-storage guarantees v1 tests establish. The existing
+four Narrative Customers supply the queue; no shared credit-pack data was changed.
 
-**Phase 2 — policy change (medium)**
+**Phase 2 — policy change (medium)** — done
 `v2` policy workbench styled in the prototype's visual language, reusing authoring/governance;
-active policy version chip in the topbar; candidate impact badges on the worklist.
+active policy version chip in the topbar; candidate impact badges on the worklist. Policy Change
+state and reconstructed deterministic evidence remain isolated under the v2 browser-tab storage
+prefix. Evidence complete is terminal: the POC does not approve, publish, or activate candidates.
 
 **Phase 3 — AI integration (small/medium)**
 Explanation panel wired to the existing explain endpoints with "Re-run explanation"; driver
@@ -118,8 +121,8 @@ rules if the story needs them; otherwise they stay labeled illustrative context.
   key surfaces (pill labels, decision buttons, disclaimer present).
 - **Engine/glue duplication between v1 and v2** → accepted while v1 is frozen; if v1 is ever
   retired, v2 becomes the only consumer.
-- **KPI numbers look small with few customers** → v2-only fictional dataset sized for the
-  worklist (Phase 1), never presented as a portfolio (CONTEXT.md: Narrative Customer, Policy
+- **KPI numbers look small with few customers** → the worklist is explicitly the four-record
+  Narrative Customer set, never presented as a portfolio (CONTEXT.md: Narrative Customer, Policy
   Impact Cohort boundaries).
 
 ## Verification
