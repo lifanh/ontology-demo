@@ -18,6 +18,32 @@ const v2Storage = {
   removeItem: key => sessionStorage.removeItem(`v2:${key}`)
 };
 const store = createDispositionStore(v2Storage);
+const SESSION_HISTORY_STORAGE_KEY = "customer-review:history:v1";
+
+function allSessionEvents() {
+  try {
+    const value = JSON.parse(v2Storage.getItem(SESSION_HISTORY_STORAGE_KEY) || "[]");
+    return Array.isArray(value) ? value : [];
+  } catch {
+    return [];
+  }
+}
+
+function sessionEvents(record) {
+  return allSessionEvents().filter(event =>
+    event.customerNumber === record.customer.customer_number && event.releaseId === record.result.release.id
+  );
+}
+
+function appendSessionEvent(record, event) {
+  v2Storage.setItem(SESSION_HISTORY_STORAGE_KEY, JSON.stringify([...allSessionEvents(), {
+    ...event,
+    customerNumber: record.customer.customer_number,
+    releaseId: record.result.release.id,
+    at: new Date().toISOString()
+  }]));
+}
+
 function removeDisposition(context) {
   /* The store intentionally has no single-record delete; "reopen" removes the saved
      record using the store's documented key format (customerNumber::releaseId). */
@@ -207,27 +233,66 @@ function jump(sec) {
   setTimeout(() => el.classList.remove("flash"), 1200);
 }
 
+function showFact(factId) {
+  const record = recordById(openId);
+  const definition = registry.definition(factId);
+  const dialog = document.getElementById("factDialog");
+  if (!record || !definition || !dialog) return;
+  const dependencies = definition.dependencies || [];
+  const direct = Object.hasOwn(registry.properties, factId);
+  const provenance = direct
+    ? "Fictional Narrative Customer input in this POC. A CIS API would supply the authoritative value in production."
+    : `Deterministically derived in this browser from ${dependencies.map(id => registry.definition(id).displayName).join(" and ")}. The source inputs would come from CIS APIs in production.`;
+  const links = record.result.traces.flatMap(trace => trace.observations
+    .filter(observation => observation.factId === factId || observation.supportingFactIds.includes(factId))
+    .map(observation => ({ trace, observation })));
+  const traceRows = links.map(({ trace, observation }) => `<tr>
+    <td><code>${escapeHtml(trace.evaluationRef)}</code></td>
+    <td>${escapeHtml(trace.policy.title)}</td>
+    <td>${escapeHtml(observation.factId === factId ? observation.role.toLowerCase() : `supports ${observation.factLabel}`)}</td>
+    <td><span class="rule ${trace.outcome === "PASS" ? "ok" : trace.outcome === "FINDING" ? "fail" : "view"}">${escapeHtml(trace.outcome.replace("_", " "))}</span></td>
+  </tr>`).join("");
+  document.getElementById("factDialogTitle").textContent = definition.displayName;
+  document.getElementById("factDialogBody").innerHTML = `
+    <dl class="fact-definition">
+      <div><dt>Fact reference</dt><dd><code>fact:${record.id}/${escapeHtml(factId)}</code></dd></div>
+      <div><dt>Ontology ID</dt><dd><code>customer.${escapeHtml(factId)}</code></dd></div>
+      <div><dt>Shared meaning</dt><dd>${escapeHtml(definition.displayName)} · ${escapeHtml(definition.group)}</dd></div>
+      <div><dt>Type</dt><dd>${escapeHtml(definition.type)}</dd></div>
+      <div><dt>Unit</dt><dd>${escapeHtml(definition.unit || "unitless")}</dd></div>
+      <div><dt>Format</dt><dd>${escapeHtml(definition.format || "TEXT")}</dd></div>
+    </dl>
+    <p class="fact-provenance"><b>Value provenance:</b> ${escapeHtml(provenance)}</p>
+    <h4>Active policy use and exact evaluation traces</h4>
+    ${traceRows
+      ? `<div class="fact-traces"><table><tr><th>Evaluation reference</th><th>Policy</th><th>Use</th><th>Outcome</th></tr>${traceRows}</table></div>`
+      : `<p class="fact-empty">No active policy-rule trace references this fact in this evaluation. It remains available to the deterministic calculator or display context.</p>`}`;
+  dialog.showModal();
+}
+
 function coreSnapshot(record) {
   const facts = record.result.facts, calc = record.result.calculation;
   const rows = [
-    ["Current credit limit", money(facts.credit_limit), "sec-rules"],
+    ["Current credit limit", money(facts.credit_limit), "sec-rules", "credit_limit"],
     ["Recommended limit", calc.recommended == null ? "Blocked" : money(calc.recommended), "sec-rules"],
-    ["AR balance", money(facts.ar_balance), "sec-aging"],
-    ["Past due", money(facts.past_due_amount), "sec-aging"],
-    ["Past due %", pct(facts.past_due_ratio), "sec-aging"],
-    ["Utilization", pct(facts.credit_utilization), "sec-adp"],
-    ["Terms", termsLabel(facts.payment_terms), "sec-adp"],
-    ["ADP", `${facts.adp_days}d`, "sec-adp"],
-    ["Statement status", facts.financial_statement_status, "sec-fs"],
-    ["Monthly run rate", money(facts.monthly_net_sales_run_rate), "sec-fs"],
-    ["Sales trend (180/360)", num2(facts.net_sales_trend_ratio), "sec-fs"],
+    ["AR balance", money(facts.ar_balance), "sec-aging", "ar_balance"],
+    ["Past due", money(facts.past_due_amount), "sec-aging", "past_due_amount"],
+    ["Past due %", pct(facts.past_due_ratio), "sec-aging", "past_due_ratio"],
+    ["Utilization", pct(facts.credit_utilization), "sec-adp", "credit_utilization"],
+    ["Terms", termsLabel(facts.payment_terms), "sec-adp", "payment_terms"],
+    ["ADP", `${facts.adp_days}d`, "sec-adp", "adp_days"],
+    ["Statement status", facts.financial_statement_status, "sec-fs", "financial_statement_status"],
+    ["Monthly run rate", money(facts.monthly_net_sales_run_rate), "sec-fs", "monthly_net_sales_run_rate"],
+    ["Sales trend (180/360)", num2(facts.net_sales_trend_ratio), "sec-fs", "net_sales_trend_ratio"],
     ["Risk band", record.risk.band, "sec-risk"],
     ["Findings", `${record.result.findings.length} of ${record.result.traces.length} rules`, "sec-rules"],
     ["Policy release", record.result.release.id, "sec-rules"],
     ["Next review date", record.meta.nrd, "sec-hist"]
   ];
-  return `<div class="kv">${rows.map(x => `<div class="kv-i jump" onclick="jump('${x[2]}')"><div class="kv-l">${x[0]}</div><div class="kv-v">${x[1]}</div></div>`).join("")}</div>
-    <div class="jump-note">↕ Tap any figure to jump to its detail below.</div>`;
+  return `<div class="kv">${rows.map(x => x[3]
+    ? `<button type="button" class="kv-i jump fact-link" data-fact="${x[3]}" onclick="showFact('${x[3]}')"><div class="kv-l">${x[0]} <span>ontology fact</span></div><div class="kv-v">${x[1]}</div></button>`
+    : `<div class="kv-i jump" onclick="jump('${x[2]}')"><div class="kv-l">${x[0]}</div><div class="kv-v">${x[1]}</div></div>`).join("")}</div>
+    <div class="jump-note">Ontology facts open their shared definition, provenance, and exact evaluation traces. Other figures jump to supporting detail.</div>`;
 }
 
 function exposureBlock(record) {
@@ -279,9 +344,28 @@ function filesTbl(record) {
   return `<table class="atbl"><tr><th>File name</th><th>Category</th><th>Uploaded by</th><th>Date</th><th></th></tr>${body}</table>`;
 }
 
+function sessionEventTime(value) {
+  if (!value) return "This session";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "This session";
+  return new Intl.DateTimeFormat("en-US", { month: "2-digit", day: "2-digit", year: "numeric", hour: "numeric", minute: "2-digit" }).format(date);
+}
+
 function historySection(record) {
-  const rows = record.meta.history.map(x => `<tr><td class="l">${x[0]}</td><td>${x[1]}</td><td>${x[2]}</td><td style="text-align:center"><span class="hchg ${x[3] === "hold" ? "hold" : "up"}">${x[3]}</span></td><td class="l">${escapeHtml(x[4])}</td><td class="l note">${escapeHtml(x[5])}</td></tr>`).join("");
-  return `<table class="hist-tbl"><tr><th class="l">Date</th><th>Old limit</th><th>New limit</th><th>Δ</th><th class="l">By</th><th class="l">Comments / rationale</th></tr>${rows}</table>`;
+  const events = sessionEvents(record);
+  const saved = savedDisposition(record);
+  if (saved && events.at(-1)?.kind !== "DECISION_RECORDED") {
+    events.push({ kind: "DECISION_RECORDED", status: saved.status, action: saved.action, reason: saved.reason, at: null });
+  }
+  const liveRows = events.reverse().map(event => {
+    const action = actionLabels[event.action] || event.action;
+    const note = event.kind === "REVIEW_REOPENED"
+      ? `Review reopened — previous ${event.status === "ACCEPTED" ? "confirmation" : "adjusted result"}: ${action}.${event.reason ? ` Reason: ${event.reason}` : ""}`
+      : `Decision recorded — ${event.status === "ACCEPTED" ? "confirmed proposed result" : "recorded adjusted result"}: ${action}.${event.reason ? ` Reason: ${event.reason}` : ""} Policy ${record.result.release.id}; current-tab state only.`;
+    return `<tr class="session-history"><td class="l">${escapeHtml(sessionEventTime(event.at))}</td><td>${money(record.result.facts.credit_limit)}</td><td>—</td><td style="text-align:center"><span class="hchg session">${event.kind === "REVIEW_REOPENED" ? "reopen" : "decision"}</span></td><td class="l">This browser tab</td><td class="l note">${escapeHtml(note)}</td></tr>`;
+  }).join("");
+  const illustrativeRows = record.meta.history.map(x => `<tr><td class="l">${x[0]}</td><td>${x[1]}</td><td>${x[2]}</td><td style="text-align:center"><span class="hchg ${x[3] === "hold" ? "hold" : "up"}">${x[3]}</span></td><td class="l">${escapeHtml(x[4])}</td><td class="l note">${escapeHtml(x[5])} (fictional prior context)</td></tr>`).join("");
+  return `<table class="hist-tbl"><tr><th class="l">Date</th><th>Old limit</th><th>New limit</th><th>Δ</th><th class="l">By</th><th class="l">Comments / rationale</th></tr>${liveRows}${illustrativeRows}</table>`;
 }
 
 function riskSection(record) {
@@ -425,7 +509,6 @@ function decisionZone(record) {
       <div class="task-note" style="margin-top:9px">↩ Illustrative POC: decisions update this browser tab only. In production, confirmation would flow to CIS.</div>
     </div>`;
   }
-  const terms = registry.definition("payment_terms").values;
   const shortcuts = [
     ["REQUEST_UPDATED_FINANCIAL_STATEMENTS", "Request Financial Statements", "ghost"],
     ["NEED_CREDIT_MANAGER_REVIEW", "Forward to credit manager", "ghost"],
@@ -433,12 +516,12 @@ function decisionZone(record) {
   ].filter(([action]) => action !== primary);
   const adjustOptions = dispositionActions.filter(action => action !== primary);
   return `<div class="actzone">
-    <div class="az-h">✨ AI pre-filled — ${auto ? "auto-cleared, view only" : "edit before you confirm"}</div>
+    <div class="az-h">✨ ${auto ? "Auto-cleared result — view only" : "Proposed limit, terms, and date — view only"}</div>
     <div class="dfields">
-      <div class="field"><label>New credit limit</label><input value="${prop.rec[0][1]}" ${auto ? "disabled" : ""}/><div class="hint ai-fill">from deterministic calculator</div></div>
-      <div class="field"><label>Terms</label><select ${auto ? "disabled" : ""}>${terms.map(t => `<option ${t === record.result.facts.payment_terms ? "selected" : ""}>${termsLabel(t)}</option>`).join("")}</select></div>
-      <div class="field"><label>Next review date</label><input value="${prop.rec[2][1]}" ${auto ? "disabled" : ""}/><div class="hint ai-fill">AI suggested</div></div>
-      <div class="field wide"><label>Analyst commentary &amp; rationale ${auto ? "" : "(used as the override reason)"}</label><textarea id="commentary" ${auto ? "disabled" : ""}>${auto ? "Auto-cleared by deterministic rules — no commentary required." : `AI proposal: ${escapeHtml(prop.text)}`}</textarea></div>
+      <div class="field"><label>Proposed credit limit</label><input id="proposedCreditLimit" value="${prop.rec[0][1]}" disabled/><div class="hint ai-fill">deterministic calculator · not recorded as an edit</div></div>
+      <div class="field"><label>Proposed terms</label><input id="proposedTerms" value="${termsLabel(record.result.facts.payment_terms)}" disabled/></div>
+      <div class="field"><label>Proposed next review</label><input id="proposedNextReview" value="${prop.rec[2][1]}" disabled/><div class="hint ai-fill">display context only · not recorded as an edit</div></div>
+      <div class="field wide"><label>${auto ? "System commentary" : "Override reason (recorded only when replacing the proposed result)"}</label><textarea id="commentary" ${auto ? "disabled" : ""}>${auto ? "Auto-cleared by deterministic rules — no commentary required." : `AI proposal: ${escapeHtml(prop.text)}`}</textarea></div>
       ${adjustOpenFor === record.id ? `<div class="field wide"><label>Replacement review result</label><select id="adjAction">${adjustOptions.map(action => `<option value="${action}">${escapeHtml(actionLabels[action])}</option>`).join("")}</select><div class="hint">Allowed action vocabulary · deterministic proposal stays on record</div></div>` : ""}
     </div>
     <div class="scope-note">🎯 <b>Decision scope:</b> ${escapeHtml(record.meta.scope)}</div>
@@ -452,7 +535,7 @@ function decisionZone(record) {
            ${shortcuts.map(([action, label, cls]) => `<button class="btn ${cls}" data-act="override" data-action="${action}">${label}</button>`).join("\n")}`}
     </div>
     <div id="decisionMsg" style="display:none;margin-top:9px;font-size:12px;font-weight:600;color:var(--high)"></div>
-    <div class="task-note" style="margin-top:9px">↩ Illustrative POC: only the decision outcome (confirm / adjust + reason) is recorded, in this browser tab only. In production, confirming would update CIS (limit · terms · next review · notes).</div>
+    <div class="task-note" style="margin-top:9px">↩ Illustrative POC: only the action outcome and any override reason are recorded in this browser tab. The proposal values above are view-only. In production, an authorized confirmation would flow through the CIS workflow.</div>
   </div>`;
 }
 
@@ -523,7 +606,7 @@ function detailHtml(record) {
     </div>
   </div>
 
-  <div class="section" id="sec-hist"><div class="s-h">🕘 Review History &amp; Notes <span style="margin-left:auto;font-size:11px;font-weight:600;color:var(--faint)">fictional context</span></div><div class="s-b">${historySection(record)}</div></div>
+  <div class="section" id="sec-hist"><div class="s-h">🕘 Review History &amp; Notes <span style="margin-left:auto;font-size:11px;font-weight:600;color:var(--faint)">current-tab events + fictional prior context</span></div><div class="s-b">${historySection(record)}</div></div>
 
   <div class="section" id="sec-risk">
     <div class="s-h">⚖️ Risk Profile <span class="tag" style="color:${bandColor(risk.band)}">${risk.num ?? "—"}</span></div>
@@ -551,6 +634,13 @@ function detailHtml(record) {
   </div>
 
   <div class="section" id="sec-fs"><div class="s-h">📄 Financial Statement <span style="margin-left:auto;font-size:11px;font-weight:600;color:var(--faint)">view only</span></div><div class="s-b">${fsSection(record)}</div></div>
+
+  <dialog class="fact-dialog" id="factDialog" aria-labelledby="factDialogTitle">
+    <button class="dialog-close" aria-label="Close fact definition" onclick="this.closest('dialog').close()">×</button>
+    <div class="env">CUSTOMER REVIEW ONTOLOGY</div>
+    <h3 id="factDialogTitle"></h3>
+    <div id="factDialogBody"></div>
+  </dialog>
 
   <div style="margin-top:6px"><a onclick="showQueue()">← Back to worklist</a></div>
   `;
@@ -588,7 +678,8 @@ function showDecisionMessage(message) {
 }
 function saveDecision(record, input) {
   try {
-    store.save({ ...dispositionContext(record), ...input });
+    const saved = store.save({ ...dispositionContext(record), ...input });
+    appendSessionEvent(record, { kind: "DECISION_RECORDED", status: saved.status, action: saved.action, reason: saved.reason });
     adjustOpenFor = null;
     renderDetail();
     renderQueue();
@@ -614,7 +705,13 @@ document.addEventListener("click", event => {
       const reason = document.getElementById("commentary")?.value?.trim() || "";
       saveDecision(record, { status: "OVERRIDDEN", action: actEl.dataset.action, reason });
     }
-    if (act === "reopen") { removeDisposition(dispositionContext(record)); renderDetail(); renderQueue(); }
+    if (act === "reopen") {
+      const saved = savedDisposition(record);
+      if (saved) appendSessionEvent(record, { kind: "REVIEW_REOPENED", status: saved.status, action: saved.action, reason: saved.reason });
+      removeDisposition(dispositionContext(record));
+      renderDetail();
+      renderQueue();
+    }
     if (act === "rerun") { renderDetail(); window.scrollTo(0, 0); }
     return;
   }
@@ -689,5 +786,5 @@ document.querySelector("#filterbar .fclear").addEventListener("click", () => {
   renderQueue();
 });
 
-Object.assign(window, { openDetail, showQueue, setView, jump });
+Object.assign(window, { openDetail, showQueue, setView, jump, showFact });
 renderQueue();

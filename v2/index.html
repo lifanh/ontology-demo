@@ -8,7 +8,18 @@
      All data is fictional. AI proposes the review result of every account; credit analysts decide. -->
 <link rel="stylesheet" href="./styles.css"/>
 </head>
-<body>
+<body class="auth-pending">
+
+<section class="access-gate hidden" id="accessGate" aria-labelledby="accessTitle">
+  <form id="loginForm">
+    <div class="env">ACCESS-GATED ILLUSTRATIVE POC</div>
+    <h1 id="accessTitle">Customer Review</h1>
+    <p>This POC uses fictional customer data. The shared AI-enabled Node gateway can make real model calls elsewhere in the POC; this v2 Phase 1 view makes no model calls. Do not enter production customer data or confidential policy.</p>
+    <label>Shared demo password<input id="loginPassword" name="password" type="password" required autocomplete="current-password"/></label>
+    <button class="btn primary" type="submit">Enter demo</button>
+    <p id="loginError" role="alert"></p>
+  </form>
+</section>
 
 <div class="topbar">
   <h1 id="brand">Customer Review <span class="env">ILLUSTRATIVE POC</span></h1>
@@ -17,6 +28,8 @@
   </div>
   <div class="spacer"></div>
   <div class="search">🔍<input id="topSearch" placeholder="Search customer # or name…"/></div>
+  <span class="mode-status" id="modeStatus">Checking access…</span>
+  <button class="tbtn hidden" id="logoutButton">Log out</button>
   <button class="tbtn">Configure rules</button>
 </div>
 
@@ -97,6 +110,6 @@
 
 <div class="foot">Illustrative POC · Worklist-first Customer Review. AI proposes the review result of every account; credit analysts decide. Deterministic rules and calculations remain authoritative. Decisions here update this browser tab only — in production, confirmation would flow to CIS. All data is fictional.</div>
 
-<script type="module" src="./src/app.js"></script>
+<script type="module" src="./src/access.js"></script>
 </body>
 </html>
