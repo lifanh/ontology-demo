@@ -102,8 +102,8 @@
 .hero-row footer { padding: 10px 16px; border-top: 1px solid var(--line); background: #edf4f0; color: #53675e; font-size: 9px; }
 
 .friction-grid { display: grid; grid-template-columns: repeat(6,1fr); gap: 10px; margin-top: 26px; }
-.friction-grid article { grid-column: span 2; min-height: 146px; padding: 17px 19px; border: 1px solid var(--line); border-top: 4px solid #93a49d; border-radius: 9px; background: white; }
-.friction-grid article:nth-child(4),.friction-grid article:nth-child(5) { grid-column: span 3; min-height: 122px; }
+.friction-grid article { grid-column: span 2; min-height: 106px; padding: 17px 19px; border: 1px solid var(--line); border-top: 4px solid #93a49d; border-radius: 9px; background: white; }
+.friction-grid article:nth-child(4),.friction-grid article:nth-child(5) { grid-column: span 3; min-height: 92px; }
 .friction-grid article.constraint { border-top-color: var(--amber); background: #fffaf0; }
 .friction-grid b,.friction-grid span { display: block; }
 .friction-grid b { font-size: 13px; }
@@ -152,7 +152,7 @@
 .fact-open td.na { color: var(--muted); font-weight: 700; }
 
 .decide-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 11px; margin-top: 30px; }
-.decide-grid article { min-height: 168px; padding: 20px; border: 1px solid var(--line); border-top: 4px solid var(--green); border-radius: 9px; background: white; }
+.decide-grid article { min-height: 142px; padding: 20px; border: 1px solid var(--line); border-top: 4px solid var(--green); border-radius: 9px; background: white; }
 .decide-grid .replace { border-top-color: var(--amber); }
 .decide-grid .reopen { border-top-color: #93a49d; }
 .decide-grid span,.decide-grid b,.decide-grid small { display: block; }
@@ -166,7 +166,7 @@
 
 .workbench-flow { margin-top: 24px; }
 .wb-steps { display: grid; grid-template-columns: repeat(3,1fr); gap: 11px; }
-.wb-steps article { min-height: 152px; padding: 19px; border: 1px solid var(--line); border-radius: 9px; background: white; }
+.wb-steps article { min-height: 126px; padding: 19px; border: 1px solid var(--line); border-radius: 9px; background: white; }
 .wb-steps span { display: grid; width: 21px; height: 21px; place-items: center; border-radius: 50%; background: var(--navy); color: var(--lime); font-size: 10px; font-weight: 800; }
 .wb-steps b { display: block; margin: 14px 0 9px; font-size: 13px; }
 .wb-steps small { display: block; color: var(--muted); font-size: 10px; line-height: 1.6; }
@@ -182,7 +182,7 @@
 
 /* ---------- Problem, proposal, and ontology ---------- */
 .gap-split { display: grid; grid-template-columns: 1fr 96px 1fr; align-items: stretch; gap: 10px; margin-top: 22px; }
-.gap-split section { display: flex; flex-direction: column; min-height: 272px; padding: 20px 22px; border: 1px solid var(--line); border-radius: 9px; background: white; }
+.gap-split section { display: flex; flex-direction: column; min-height: 244px; padding: 20px 22px; border: 1px solid var(--line); border-radius: 9px; background: white; }
 .gap-split .below { border-top: 4px solid var(--amber); }
 .gap-split .above { border-top: 4px solid var(--red); }
 .gap-split header b,.gap-split header span { display: block; }
@@ -200,13 +200,13 @@
 .gap-line small { color: var(--muted); font-size: 9px; font-weight: 700; text-align: center; }
 
 .pillars { display: grid; grid-template-columns: repeat(5,1fr); gap: 9px; margin-top: 26px; }
-.pillars article { min-height: 250px; padding: 17px; border: 1px solid var(--line); border-top: 4px solid var(--green); border-radius: 9px; background: white; }
+.pillars article { min-height: 190px; padding: 17px; border: 1px solid var(--line); border-top: 4px solid var(--green); border-radius: 9px; background: white; }
 .pillars span { display: grid; width: 21px; height: 21px; place-items: center; border-radius: 50%; background: var(--navy); color: var(--lime); font: 800 9px var(--sans); }
 .pillars b { display: block; margin: 15px 0 9px; font-size: 13px; line-height: 1.25; }
 .pillars small { display: block; color: var(--muted); font-size: 10px; line-height: 1.55; }
 
 .lanes { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-top: 26px; }
-.lanes section { min-height: 252px; padding: 19px; border: 1px solid var(--line); border-radius: 9px; background: white; }
+.lanes section { min-height: 196px; padding: 19px; border: 1px solid var(--line); border-radius: 9px; background: white; }
 .lanes .auto { border-top: 4px solid var(--green); }
 .lanes .assist { border-top: 4px solid var(--navy); }
 .lanes .manual { border-top: 4px solid var(--red); }
