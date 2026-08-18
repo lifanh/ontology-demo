@@ -75,11 +75,20 @@ test("v2 worklist and detail are driven by the shared deterministic engine", asy
       assert.ok(listText.includes(name), `worklist should include ${name}`);
     }
     assert.ok(!listText.includes("Vantage"), "prototype personas must be gone");
+    assert.equal(await page.getByRole("button", { name: "Configure rules" }).isDisabled(), true);
 
     // Filters without backing data are visibly unavailable rather than silently ignored.
     assert.equal(await page.locator("#filterbar input:disabled, #filterbar select:disabled").count(), 7);
     assert.equal(await page.locator("#fCust").isDisabled(), false);
     assert.equal(await page.locator("#fStatus").isDisabled(), false);
+
+    // Global reference controls cannot imply unsupported filtering or currency conversion.
+    await page.click("#vw-global");
+    assert.equal(await page.locator("#globalWrap .gv-reference input").count(), 0);
+    assert.match(await page.locator("#globalWrap .gv-reference").textContent(), /Narrative accounts · 2001–2004/);
+    assert.equal(await page.locator("#globalWrap .ccy button").count(), 0);
+    assert.equal(await page.locator("#globalWrap .ccy-value").textContent(), "USD only");
+    await page.click("#vw-region");
 
     // Tab counts from engine outcomes: 3 pending decisions, 1 auto-cleared, 0 completed.
     assert.equal(await page.textContent('[data-tab="mine"] .n'), "3");
@@ -91,6 +100,7 @@ test("v2 worklist and detail are driven by the shared deterministic engine", asy
     const banner = await page.textContent("#detailBody .dbanner");
     assert.ok(banner.includes("$75,000"), "banner should show the deterministic recommended limit");
     assert.ok(banner.includes("Restrict customer"), "banner should show the proposed action");
+    assert.equal(await page.getByRole("button", { name: "Export unavailable" }).isDisabled(), true);
     const rules = await page.textContent("#sec-rules");
     assert.ok(rules.includes("credit-1.4.0/CRITICAL_RESTRICTION@1"), "rules table should cite the evaluator's evaluationRef");
     assert.ok(rules.includes("CRITICAL_RESTRICTION_TRIGGER"), "rules table should cite the reason code");
@@ -184,8 +194,13 @@ test("v2 decisions persist per release, stay isolated from v1, and auto-clear is
     await page.click('[data-act="override"][data-action="NEED_CREDIT_MANAGER_REVIEW"]');
     assert.ok((await page.textContent("#decisionMsg")).includes("10–500 characters"));
 
-    // Adjust & confirm records an override with a validated reason.
+    // Opening adjustment controls preserves rationale already entered by the analyst.
+    const draftReason = "Escalating to the credit manager while the account plan is reviewed.";
+    await page.fill("#commentary", draftReason);
     await page.click('[data-act="adjust-open"]');
+    assert.equal(await page.inputValue("#commentary"), draftReason);
+
+    // Adjust & confirm records an override with a validated reason.
     await page.selectOption("#adjAction", "NEED_CREDIT_MANAGER_REVIEW");
     await page.fill("#commentary", "short");
     await page.click('[data-act="adjust-confirm"]');

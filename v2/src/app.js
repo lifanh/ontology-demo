@@ -556,7 +556,7 @@ function detailHtml(record) {
       <span class="status-tag">${statusOf(record)}</span>
       <span class="rel-tag" style="margin-left:4px">Single account</span>
       <div class="spacer"></div>
-      <button class="hbtn">⤓ Export Review</button>
+      <button class="hbtn" title="Export is not available in this POC" disabled>⤓ Export unavailable</button>
     </div>
     <div class="dmeta5">
       <div class="m"><div class="l">Review trigger</div><div class="v" style="font-size:13.5px">${escapeHtml(trigger)}</div>${meta.ask ? `<div class="s ask">💬 ${escapeHtml(meta.ask)}</div>` : ""}</div>
@@ -696,7 +696,12 @@ document.addEventListener("click", event => {
     if (!record) return;
     const act = actEl.dataset.act;
     if (act === "confirm") saveDecision(record, { status: "ACCEPTED" });
-    if (act === "adjust-open") { adjustOpenFor = record.id; renderDetail(); }
+    if (act === "adjust-open") {
+      const reason = document.getElementById("commentary")?.value || "";
+      adjustOpenFor = record.id;
+      renderDetail();
+      document.getElementById("commentary").value = reason;
+    }
     if (act === "adjust-cancel") { adjustOpenFor = null; renderDetail(); }
     if (act === "adjust-confirm") {
       const action = document.getElementById("adjAction")?.value;

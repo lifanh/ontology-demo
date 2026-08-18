@@ -30,7 +30,7 @@
   <div class="search">🔍<input id="topSearch" placeholder="Search customer # or name…"/></div>
   <span class="mode-status" id="modeStatus">Checking access…</span>
   <button class="tbtn hidden" id="logoutButton">Log out</button>
-  <button class="tbtn">Configure rules</button>
+  <button class="tbtn" title="Rule configuration is deferred beyond this POC phase" disabled>Configure rules</button>
 </div>
 
 <!-- ============ QUEUE SCREEN ============ -->
@@ -93,10 +93,10 @@
         <div class="gv-title">Global customer view <span class="ro">read-only</span></div>
         <div class="gv-sub">All narrative accounts. Reference only — no review actions here.</div>
       </div>
-      <div class="gv-search">🔍<input value="Narrative accounts · 2001–2004" /></div>
+      <div class="gv-reference"><span>Narrative accounts · 2001–2004</span></div>
       <div class="ccy">
         <span class="lbl2">Currency</span>
-        <div class="seg-toggle"><button aria-current="true">USD</button><button aria-current="false">CAD</button></div>
+        <span class="ccy-value">USD only</span>
       </div>
     </div>
     <div id="globalBody"></div>
