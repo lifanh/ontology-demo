@@ -9,6 +9,11 @@
 - `NEXT_STEPS.md` is the detailed production integration reference. Slides should summarize it, not duplicate it wholesale.
 - `scripts/build-site.mjs` owns the allowlisted deployment assembly. Do not serve the repository root from Cloudflare.
 
+## Visual design
+
+- Keep v2 hierarchy restrained: use spacing, typography, surface tone, and existing status indicators before adding decoration.
+- Never highlight only one border edge to signal focus, selection, or status. Apply the highlight consistently to all four edges; one-edge accent rails are forbidden. Keep state borders to 1px, avoid stacked or inset border effects, and preserve accessible focus outlines.
+
 ## Claims and terminology
 
 - Describe the current application as an illustrative POC using fictional data and browser-tab state. AI-enabled Node mode makes real model calls through the GitHub Copilot SDK and Hono gateway; deterministic-only mode makes no model calls.
