@@ -227,21 +227,6 @@
 .onto-stats strong { color: var(--lime); font-size: 20px; letter-spacing: -.04em; }
 .onto-stats small { margin-top: 3px; color: #bbd1c8; font-size: 9px; }
 
-.readiness { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-top: 22px; }
-.readiness article { padding: 17px 19px; border: 1px solid var(--line); border-left: 4px solid #93a49d; border-radius: 8px; background: white; }
-.readiness .found { border-left-color: var(--green); }
-.readiness .partial { border-left-color: var(--amber); }
-.readiness .missing { border-left-color: var(--red); }
-.readiness .external { border-left-color: var(--navy); }
-.readiness strong,.readiness b,.readiness small { display: block; }
-.readiness strong { font-size: 34px; line-height: 1; letter-spacing: -1.5px; }
-.readiness b { margin: 7px 0 6px; font-size: 12px; }
-.readiness small { color: var(--muted); font-size: 10px; line-height: 1.5; }
-.readiness-detail { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 11px; }
-.readiness-detail div { padding: 13px 16px; border-radius: 7px; background: #eff4f1; }
-.readiness-detail b,.readiness-detail span { display: block; }
-.readiness-detail b { color: var(--green-dark); font-size: 10px; font-weight: 800; text-transform: uppercase; }
-.readiness-detail span { margin-top: 6px; color: var(--ink-2); font-size: 10px; line-height: 1.55; }
 
 .screen-split { display: grid; grid-template-columns: 1.22fr 1fr; gap: 11px; margin-top: 10px; }
 .region-strip { margin: 10px 0 0!important; padding: 10px 13px; border-radius: 6px; background: var(--navy); color: #cfe0d8; font-size: 10px; }
@@ -254,9 +239,20 @@
 .demo-inline { display: inline-flex; align-items: center; gap: 12px; margin-top: 24px; border: 0; padding: 11px 16px; border-radius: 6px; background: var(--navy); color: white!important; font-size: 11px; font-weight: 700; text-decoration: none!important; }
 .demo-inline b { color: var(--lime); font-size: 14px; }
 
+.onto-source { width: 100%; margin-top: 16px; border-collapse: separate; border-spacing: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 9px; background: white; }
+.onto-source th,.onto-source td { padding: 9px 14px; text-align: left; vertical-align: top; }
+.onto-source thead th { background: var(--navy); color: white; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
+.onto-source tbody tr td { border-top: 1px solid var(--line); }
+.onto-source tbody td:first-child { width: 168px; }
+.onto-source code { color: var(--green-dark); font-size: 10px; font-weight: 500; }
+.onto-source td:nth-child(2) { color: var(--ink-2); font: 500 9px var(--mono); line-height: 1.45; }
+.onto-source td:nth-child(3) { width: 286px; color: var(--muted); font-size: 10px; line-height: 1.5; }
+.onto-source td:nth-child(3) b { color: var(--green-dark); }
+.next-steps-note { margin: 16px 0 0!important; color: var(--muted); text-align: center; font-size: 10px; }
+
 /* Keep supporting evidence readable in a room and in exported PDFs. */
 .reality-table,.responsibility-table { font-size: 10px; }
-.can-cannot section>span,.can-cannot div small,.domain-reuse .shared small,.domain-reuse .shared div,.domain-reuse article span,.demo-steps small,.demo-note,.feedback-loop article small,.reality-table thead th,.responsibility-table thead th,.tier-split section>span,.tier-split section small,.one-way b,.one-way small,.trace-card header code,.trace-card header b,.trace-policy small,.trace-observations span,.trace-observations small,.trace-card footer,.operation-grid code,.operation-grid small,.impact-compare section small,.impact-compare section span,.impact-compare>div small,.completeness,.discovery-questions span,.next-steps-link { font-size: 9px; }
+.can-cannot section>span,.can-cannot div small,.domain-reuse .shared small,.domain-reuse .shared div,.domain-reuse article span,.demo-steps small,.demo-note,.feedback-loop article small,.reality-table thead th,.responsibility-table thead th,.tier-split section>span,.tier-split section small,.one-way b,.one-way small,.trace-card header code,.trace-card header b,.trace-policy small,.trace-observations span,.trace-observations small,.trace-card footer,.operation-grid code,.operation-grid small,.impact-compare section small,.impact-compare section span,.impact-compare>div small,.completeness,.discovery-questions span { font-size: 9px; }
 .schema-band,.forbidden-band,.failure-grid span { font-size: 10px; }
 .live-demo .demo-note,.live-demo .demo-steps small { color: #bfd0c9; }
 

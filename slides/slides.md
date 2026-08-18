@@ -178,28 +178,28 @@ The demo implements a deliberately small working subset of this: 18 input facts,
 
 ---
 
-<p class="kicker">The foundation · Source readiness</p>
+<p class="kicker">The foundation · From concept to source</p>
 
-# The ontology is already mapped to real systems
+# Every attribute has one definition and a named source
 
-<div class="readiness">
-  <article class="found"><strong>22</strong><b>Found</b><small>A definite object, field, or API is available today</small></article>
-  <article class="partial"><strong>16</strong><b>Partial</b><small>The concept exists; grain, field contract, or business definition still needs verification</small></article>
-  <article class="missing"><strong>15</strong><b>Not found</b><small>No confirmable object or API in the sources reviewed — not to be filled in by guesswork</small></article>
-  <article class="external"><strong>4</strong><b>External</b><small>Requires an external provider or feed</small></article>
-</div>
+<table class="onto-source">
+  <thead><tr><th>Entity</th><th>Example attributes</th><th>Where the value comes from</th></tr></thead>
+  <tbody>
+    <tr><td><code>CustomerAccount</code></td><td>customer_id · customer_name · territory · terms · region</td><td>CIS customer master, published to the customer dimension</td></tr>
+    <tr><td><code>ARBalance</code></td><td>ar_balance · past_due_amount · past_due_percentage</td><td>Customer credit snapshot, read through the credit API</td></tr>
+    <tr><td><code>ExposureProfile</code></td><td>total_exposure · utilization_of_limit</td><td><b>Derived</b> — AR balance plus pending, over the credit limit</td></tr>
+    <tr><td><code>FinancialRelationship</code></td><td>financial_master_id · sharing · restricted</td><td>Customer cross-reference, read through the relationship API</td></tr>
+    <tr><td><code>ExternalCreditProfile</code></td><td>nacm_risk_score · nacm_dbt · aging_distribution</td><td>External trade-credit feed</td></tr>
+    <tr><td><code>ReviewDocument</code></td><td>file_name · uploaded_at · document_status</td><td>Financial-statement attachment service</td></tr>
+  </tbody>
+</table>
 
-<div class="readiness-detail">
-  <div><b>Confirmed today</b><span>Customer identity, credit limit, AR, pending, past due, terms, review date, restriction status, financial relationships, security, and statement-file metadata — with replayable SQL and named read-only APIs.</span></div>
-  <div><b>Named gaps</b><span>Where the ADP-W / DBT calculation lives, monthly AR aging buckets, structured financial statements, and canonical storage for the review case, decision, and history.</span></div>
-</div>
-
-<p class="warning"><b>Mapping draft:</b> 57 properties traced against Vertica and CIS objects and APIs. Every "Found" still needs runtime verification of structure, permissions, freshness, and business definition before integration.</p>
+<p class="takeaway"><b>This is what turns a policy sentence into something a system can evaluate.</b> “No more than 10% past due” is enforceable only once past-due percentage has one definition, one unit, and one authoritative source — which is also what lets the same rule mean the same thing in the US and Canada.</p>
 
 <!--
-This is the credibility slide. It is the difference between wanting an ontology and having an assessed one: 57 properties traced to real objects, with an explicit status per property and read-only SQL that can be replayed.
-The honest half is the point. Fifteen properties have no confirmable source and four need a vendor — naming them is what makes the twenty-two believable.
-The recommended next step is in the document: confirm customer, region, and as-of date, then verify structure and freshness on the credit and identity tables before anything is built on them.
+Walk two rows, not six. ARBalance is the one everybody recognizes: past-due percentage is defined once as past due over AR balance, typed as a percentage, and traced to the credit snapshot rather than to whichever report someone opened.
+ExposureProfile is the second one to read aloud, because it is derived: total exposure is AR plus pending, and utilization is that over the credit limit. Defining it once in the ontology is what stops three teams computing it three ways.
+A full property-by-property source assessment exists behind this — including the parts that still need verification and the few that need an external provider. Offer to walk through it separately rather than putting it on screen.
 -->
 
 ---
@@ -386,7 +386,7 @@ The outcome band is the answer to "so what". Note that regional reuse is realist
   </section>
 </div>
 
-<p class="boundary"><b>What we would need next:</b> confirm the review workflow and its actions with the people who run it, verify the CIS and Vertica contracts read-only against the source-readiness map, and name the owners of thresholds, exceptions, and rollback. Detailed questions are in the appendix and in <code>NEXT_STEPS.md</code>.</p>
+<p class="boundary"><b>What we would need next:</b> confirm the review workflow and its actions with the people who run it, verify the source systems read-only against the mapped attributes, and name the owners of thresholds, exceptions, and rollback. The detailed questions are in the appendix.</p>
 
 <!--
 This slide belongs here rather than up front: the room has now seen the value, so this answers "can we trust it" instead of pre-empting a question nobody asked yet.
@@ -563,13 +563,13 @@ Jena/SHACL, DMN, and Z3 are candidate production components; none runs in the cu
 <div class="discovery-questions">
   <article><b>Workflow</b><span>What triggers a review, what do analysts inspect, and what does each action mean operationally?</span></article>
   <article><b>Segmentation</b><span>How should large, medium, and small customers be defined, and what happens to the stopped legacy rules below $50,000?</span></article>
-  <article><b>Facts and APIs</b><span>Which CIS and Vertica sources in the readiness map are authoritative, fresh, and available read-only?</span></article>
+  <article><b>Facts and APIs</b><span>Which CIS and warehouse sources are authoritative, fresh, and available read-only?</span></article>
   <article><b>Policy ownership</b><span>Who owns thresholds, exceptions, approval, and rollback — and at what scope?</span></article>
   <article><b>Controls</b><span>Which identity, audit, approval, and retention controls already exist to reuse?</span></article>
   <article><b>Evidence</b><span>Which sanitized cases would justify going beyond a POC?</span></article>
 </div>
 
-<a class="next-steps-link" href="https://github.com/lifanh/ontology-demo/blob/main/NEXT_STEPS.md" target="_blank" rel="noopener noreferrer">Detailed production integration questions live in NEXT_STEPS.md ↗</a>
+<p class="next-steps-note">A fuller set of production integration questions — data contracts, controls, and phased gates — is written up and available on request.</p>
 
 <!--
 Name what this POC cannot tell us. It demonstrates a working pattern over fictional data and a mapped ontology; it does not know how this team actually runs a review.
