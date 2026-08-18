@@ -199,7 +199,8 @@ a{color:var(--brand);text-decoration:none;cursor:pointer}
 .ai-rec .rc .v .up{color:var(--pass)} .ai-rec .rc .v .hold{font-size:11px;color:var(--soft)}
 .rerun{border:1px solid var(--ai-line);background:var(--ai-bg);color:var(--ai);font-weight:700;font-size:12.5px;
   padding:8px 13px;border-radius:8px;display:inline-flex;align-items:center;gap:7px}
-.rerun:hover{background:#e3def7}
+.rerun:hover:not(:disabled){background:#e3def7}
+.rerun:disabled{color:var(--faint);background:var(--surface-2);border-color:var(--line);cursor:not-allowed}
 
 /* action zone inside AI panel */
 .actzone{border-top:1px dashed var(--line);margin-top:6px;padding-top:14px}

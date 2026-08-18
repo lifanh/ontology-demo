@@ -136,6 +136,11 @@ test("v2 decisions persist per release, stay isolated from v1, and auto-clear is
     await page.waitForSelector(".actzone");
     assert.ok(await page.isVisible('button:has-text("View only (auto-cleared)")'));
     assert.equal(await page.locator('[data-act="confirm"]').count(), 0);
+    const autoProposal = await page.textContent("#sec-ai");
+    assert.match(autoProposal, /All applicable policy rules pass/);
+    assert.doesNotMatch(autoProposal, /All 6 active policy rules pass/);
+    assert.equal(await page.locator(".rerun").isDisabled(), true);
+    assert.equal(await page.locator('[data-act="rerun"]').count(), 0);
     await page.click("#crumb a");
 
     // Confirm the AI proposal on Ironclad.

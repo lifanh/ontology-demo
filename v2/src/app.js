@@ -113,7 +113,7 @@ function proposal(record) {
   const tone = proposalTone[primary];
   const hold = `holding the limit at ${money(facts.credit_limit)}`;
   const text = {
-    AUTO_REVIEW_PASS: () => `All ${result.traces.length} active policy rules pass and the deterministic calculator recommends no limit change. Proposed result: auto review pass — keep the limit at ${money(facts.credit_limit)} on ${termsLabel(facts.payment_terms)}. View only; no analyst action required.`,
+    AUTO_REVIEW_PASS: () => `All applicable policy rules pass and the deterministic calculator recommends no limit change. Proposed result: auto review pass — keep the limit at ${money(facts.credit_limit)} on ${termsLabel(facts.payment_terms)}. View only; no analyst action required.`,
     REQUEST_UPDATED_FINANCIAL_STATEMENTS: () => `Financial statements on file are ${facts.financial_statement_status} and policy requires current statements above $50,000; the limit calculator is blocked until they arrive. AI proposes requesting updated financial statements and ${hold}. Analyst decision required.`,
     NEED_CREDIT_MANAGER_REVIEW: () => `${result.findings.length} material policy findings — past due is ${pct(facts.past_due_ratio)} of AR against the 10% global and 8% NET 30 limits. AI proposes routing to a credit manager with ${hold}. Analyst decision required.`,
     NEED_MANUAL_REVIEW: () => `A material policy finding requires review. AI proposes manual review with ${hold}. Analyst decision required.`,
@@ -127,7 +127,7 @@ function proposal(record) {
   });
   if (calc.material) drivers.push([calc.delta < 0 ? "neg" : "neu", `Calculator: ${calc.direction.toLowerCase()} to ${money(calc.recommended)} (${pct(calc.deltaPercent)})`]);
   if (calc.status === "BLOCKED_FINANCIALS_REQUIRED") drivers.push(["neu", "Calculator blocked — current financial statements required"]);
-  if (!drivers.length) drivers.push(["pos", "All active policy rules pass"], ["pos", `Calculator: no limit change recommended (${money(calc.recommended)})`]);
+  if (!drivers.length) drivers.push(["pos", "All applicable policy rules pass"], ["pos", `Calculator: no limit change recommended (${money(calc.recommended)})`]);
 
   const paymentWarn = facts.past_due_ratio > 0.10 || ["watch", "severe"].includes(calc.paymentGrade);
   const secs = [
@@ -140,7 +140,7 @@ function proposal(record) {
     ["Policy rules", result.findings.some(trace => trace.finding.material) ? "warn" : result.findings.length ? "neu" : "ok",
       result.findings.length
         ? `${result.findings.length} of ${result.traces.length} rules produced findings: ${result.findings.map(trace => trace.finding.reasonCode).join(", ")}.`
-        : `All ${result.traces.length} active rules pass under policy release ${result.release.id}.`],
+        : `All applicable rules pass under policy release ${result.release.id}.`],
     ["Limit calculation", calc.recommended == null ? "neu" : calc.delta < 0 ? "warn" : "ok",
       calc.recommended == null
         ? `Status ${calc.status.replaceAll("_", " ")} — no recommendation available.`
@@ -547,7 +547,7 @@ function detailHtml(record) {
   const facts = result.facts, calc = result.calculation;
   const auto = isAuto(record);
   const prop = proposal(record);
-  const trigger = result.findings.length ? result.findings.map(trace => trace.policy.title).join(" · ") : "Cycle review — all rules pass";
+  const trigger = result.findings.length ? result.findings.map(trace => trace.policy.title).join(" · ") : "Cycle review — all applicable rules pass";
   const recTone = prop.tone === "pass" ? "pass" : prop.tone === "soft" ? "soft" : "high";
   return `
   <div class="dbanner slim">
@@ -593,7 +593,7 @@ function detailHtml(record) {
       <div class="panel ai-panel" id="sec-ai">
         <div class="p-h">🧠 <span class="t">AI Proposed Review Result</span><div class="spacer"></div>
           <span style="font-size:11px;color:var(--faint);margin-right:8px">scripted from deterministic results · no model call</span>
-          <button class="rerun" data-act="rerun">↻ Re-run AI proposal</button></div>
+          <button class="rerun" title="Unavailable in this scripted no-model-call view" disabled>↻ AI rerun unavailable</button></div>
         <div class="p-b">
           <div class="ai-concl ${prop.tone === "pass" ? "pass" : prop.tone === "soft" ? "soft" : ""}"><b>Proposal:</b> ${escapeHtml(prop.text)}</div>
           <div class="drivers">${prop.drivers.map(d => `<span class="drv ${d[0]}">${d[0] === "pos" ? "▲" : d[0] === "neg" ? "▼" : "●"} ${escapeHtml(d[1])}</span>`).join("")}</div>
@@ -714,7 +714,6 @@ document.addEventListener("click", event => {
       renderDetail();
       renderQueue();
     }
-    if (act === "rerun") { renderDetail(); window.scrollTo(0, 0); }
     return;
   }
   const tab = event.target.closest("[data-tab]");
