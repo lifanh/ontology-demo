@@ -1,0 +1,789 @@
+ontology:
+  name: Customer Credit Review
+  version: "1.0"
+  source: "customer_review_prototype (2).html"
+  scope: "Customer credit review detail page"
+  description: >
+    Ontology for customer credit-limit review, risk assessment, AI recommendation,
+    financial relationship roll-up, AR aging, external credit data, documents,
+    review history, and analyst decision workflow.
+
+  namespaces:
+    customer_review: "cr"
+    customer: "cust"
+    organization: "org"
+    credit: "credit"
+    risk: "risk"
+    finance: "fin"
+    external_credit: "ext"
+    workflow: "wf"
+    document: "doc"
+
+  entities:
+    CustomerReview:
+      description: "A review case for a customer credit account."
+      identifiers:
+        - review_id
+      attributes:
+        review_id:
+          type: string
+          required: true
+          example: "CR-2026-0783"
+        customer_id:
+          type: string
+          required: true
+          example: "804783"
+        status:
+          type: enum
+          values: [In Review, AI-assisted, Full-auto, Completed, Escalated, Declined]
+        review_mode:
+          type: enum
+          values: [manual, ai_assisted, full_auto]
+        review_trigger:
+          type: string
+        submitted_at:
+          type: datetime
+        current_reviewer:
+          type: string
+          nullable: true
+        next_review_date:
+          type: date
+        current_region:
+          type: string
+          example: US
+        currency:
+          type: enum
+          values: [USD, CAD]
+        analyst_manager:
+          type: string
+          nullable: true
+        director:
+          type: string
+          nullable: true
+        business_ask:
+          type: string
+          nullable: true
+        decision_scope:
+          type: string
+        source_system:
+          type: string
+          example: CIS
+
+    CustomerAccount:
+      description: "Legal or operational customer account under review."
+      identifiers:
+        - customer_id
+      attributes:
+        customer_id:
+          type: string
+          required: true
+        customer_name:
+          type: string
+          required: true
+        legal_name:
+          type: string
+          nullable: true
+        territory:
+          type: string
+          example: "IT-Solutions · NY"
+        business_segment:
+          type: string
+          example: "IT Solutions"
+        account_type:
+          type: enum
+          values: [single, master, subsidiary, independent]
+        terms:
+          type: enum
+          values: [NET 30, NET 45, CS]
+        company_number:
+          type: string
+        region:
+          type: string
+        currency:
+          type: enum
+          values: [USD, CAD]
+        purchase_since:
+          type: year
+        pe_owned:
+          type: boolean
+        ciq_rating:
+          type: string
+
+    FinancialRelationship:
+      description: "Financial-master and subsidiary relationship used for roll-up."
+      identifiers:
+        - relationship_id
+      attributes:
+        relationship_id:
+          type: string
+        financial_master_id:
+          type: string
+        parent_customer_id:
+          type: string
+        subsidiary_customer_id:
+          type: string
+        relationship_type:
+          type: enum
+          values: [master, subsidiary, independent, RSA]
+        sharing:
+          type: enum
+          values: [Y, N, unknown]
+        restricted:
+          type: boolean
+        discontinued:
+          type: boolean
+        own_credit_limit:
+          type: money
+        rolled_up_credit_limit:
+          type: money
+        ar_balance:
+          type: money
+        pending_amount:
+          type: money
+        past_due_amount:
+          type: money
+        max_past_due_days:
+          type: integer
+        region:
+          type: string
+        currency:
+          type: enum
+          values: [USD, CAD]
+
+    CreditDecision:
+      description: "Current and proposed credit decision values."
+      identifiers:
+        - decision_id
+      attributes:
+        decision_id:
+          type: string
+        current_credit_limit:
+          type: money
+        proposed_credit_limit:
+          type: money
+        recommended_credit_limit:
+          type: money
+        max_suggested_limit:
+          type: money
+        recommended_terms:
+          type: enum
+          values: [NET 30, NET 45, CS]
+        recommendation:
+          type: enum
+          values:
+            - Hold / Manual
+            - Increase / Confirm
+            - Auto-cleared
+        recommendation_tone:
+          type: enum
+          values: [high, moderate, pass]
+        limit_change:
+          type: money
+        limit_change_percent:
+          type: percentage
+        limit_hold:
+          type: boolean
+        next_review_date:
+          type: date
+        analyst_commentary:
+          type: text
+        override_risk_score:
+          type: string
+
+    ExposureProfile:
+      description: "Customer exposure and purchase metrics used for limit sizing."
+      attributes:
+        total_exposure:
+          type: money
+          definition: "AR balance plus pending amount"
+        utilization_of_limit:
+          type: percentage
+        peak_balance_90d:
+          type: money
+        peak_balance_date:
+          type: date
+        peak_percent_of_limit:
+          type: percentage
+        trailing_twelve_month_purchases:
+          type: money
+        monthly_average_purchases:
+          type: money
+        purchases_yoy:
+          type: percentage
+        purchase_since:
+          type: year
+        implied_cycle_exposure:
+          type: money
+        implied_cycle_formula:
+          type: string
+
+    ARBalance:
+      description: "Accounts receivable balance and delinquency summary."
+      attributes:
+        ar_balance:
+          type: money
+        past_due_amount:
+          type: money
+        past_due_percentage:
+          type: percentage
+        terms:
+          type: string
+        aging_as_of:
+          type: date
+
+    ARAgingSnapshot:
+      description: "AR aging amounts by delinquency bucket for a month."
+      identifiers:
+        - customer_id
+        - month
+      attributes:
+        month:
+          type: month
+        ar_balance:
+          type: money
+        current:
+          type: money
+        days_1_30:
+          type: money
+        days_31_60:
+          type: money
+        days_61_90:
+          type: money
+        days_91_180:
+          type: money
+        days_181_360:
+          type: money
+        days_360_plus:
+          type: money
+        past_due_percentage:
+          type: percentage
+        region:
+          type: string
+        company_number:
+          type: string
+        currency:
+          type: enum
+          values: [USD, CAD]
+
+    ADPDBTProfile:
+      description: "Weighted payment behavior metrics and invoice exception counts."
+      attributes:
+        adp_w:
+          type: number
+          unit: days
+          definition: "Weighted average days to pay"
+        dbt_w:
+          type: number
+          unit: days
+          nullable: true
+        weighted_terms:
+          type: number
+          unit: days
+        ytd_adp:
+          type: number
+          unit: days
+        prior_year_adp:
+          type: number
+          unit: days
+        open_invoices_over_39_days:
+          type: money
+        max_balance_90d:
+          type: money
+        max_balance_percent_of_limit:
+          type: percentage
+        nsf_count_90d:
+          type: integer
+        chargeback_count_90d:
+          type: integer
+        invoice_type_50_status:
+          type: enum
+          values: [cleared, none]
+
+    RiskAssessment:
+      description: "Internal weighted risk score and factor-level scoring."
+      attributes:
+        risk_band:
+          type: enum
+          values: [Very Low Risk, Low Risk, Moderate Risk, High Risk]
+        risk_number:
+          type: number
+          range: [0, 4]
+        internal_risk_score:
+          type: number
+          range: [0, 10]
+        weighted_score:
+          type: number
+          range: [0, 4]
+        trend:
+          type: enum
+          values: [Stable, Improving, Declining, Worse QoQ]
+        factor_scores:
+          type: object
+          properties:
+            net_leverage:
+              type: integer
+              range: [1, 4]
+            altman_z_score:
+              type: integer
+              range: [1, 4]
+            frisk_score:
+              type: integer
+              range: [1, 4]
+            collateral_percentage:
+              type: integer
+              range: [1, 4]
+            revenue_growth:
+              type: integer
+              range: [1, 4]
+            current_ratio:
+              type: integer
+              range: [1, 4]
+            adp_w:
+              type: integer
+              range: [1, 4]
+            security:
+              type: integer
+              range: [1, 4]
+
+    FinancialProfile:
+      description: "Financial ratios and three-year financial trends."
+      attributes:
+        net_leverage:
+          type: number
+          unit: x
+        net_debt_to_ebitda:
+          type: array
+          item_type: number
+        altman_z_score:
+          type: array
+          item_type: number
+        ebitda_margin:
+          type: array
+          item_type: percentage
+        gross_margin:
+          type: array
+          item_type: percentage
+        current_ratio:
+          type: array
+          item_type: number
+        revenue:
+          type: array
+          item_type: money
+        revenue_growth:
+          type: percentage
+        interest_coverage:
+          type: number
+          unit: x
+        frisk_score:
+          type: integer
+        security_type:
+          type: enum
+          values: [None, UCC-1, PMSI]
+        collateral_percentage:
+          type: percentage
+        credit_limit_percentage_of_collateral:
+          type: percentage
+
+    ReviewRuleResult:
+      description: "Evaluation result for a configured credit review rule."
+      identifiers:
+        - rule_id
+      attributes:
+        rule_id:
+          type: enum
+          values: [R1, R2, R3, R4, R5, R6]
+        rule_name:
+          type: string
+        condition:
+          type: string
+        status:
+          type: enum
+          values: [PASS, FAIL, VIEW]
+        detail:
+          type: string
+        evaluated_at:
+          type: datetime
+
+    AIReview:
+      description: "AI-generated review conclusion, drivers, topic assessments, and recommendation."
+      attributes:
+        ai_review_id:
+          type: string
+        confidence:
+          type: number
+          range: [0, 1]
+          nullable: true
+        confidence_state:
+          type: enum
+          values: [normal, gated, unavailable]
+        conclusion:
+          type: text
+        conclusion_tone:
+          type: enum
+          values: [high, moderate, pass]
+        summary:
+          type: text
+        rerun_count:
+          type: integer
+        last_run_at:
+          type: datetime
+        drivers:
+          type: array
+          item_type: object
+          properties:
+            direction:
+              type: enum
+              values: [positive, negative, neutral]
+            statement:
+              type: text
+        topic_assessments:
+          type: array
+          item_type: object
+          properties:
+            topic:
+              type: enum
+              values:
+                - Payment behavior
+                - Financials
+                - External signals
+                - Relationship & exposure
+            assessment:
+              type: enum
+              values: [positive, warning, neutral]
+            narrative:
+              type: text
+
+    ExternalCreditProfile:
+      description: "Third-party credit data from NACM and D&B."
+      attributes:
+        overall_flag:
+          type: enum
+          values: [Green Flag, Yellow Flag]
+        overall_assessment:
+          type: text
+        nacm_risk_score:
+          type: number
+          range: [0, 100]
+        nacm_dbt:
+          type: number
+          unit: days
+        nacm_tradeline_count:
+          type: integer
+        nacm_aging_distribution:
+          type: object
+          properties:
+            current:
+              type: percentage
+            days_1_30:
+              type: percentage
+            days_31_60:
+              type: percentage
+            days_61_90:
+              type: percentage
+            days_90_plus:
+              type: percentage
+        dnb_rating:
+          type: string
+        dnb_paydex:
+          type: number
+        dnb_delinquency_score:
+          type: number
+        dnb_failure_score:
+          type: number
+        dnb_high_credit:
+          type: money
+        dnb_max_credit_recommendation:
+          type: money
+        derogatory_remarks:
+          type: text
+        establishment_info:
+          type: text
+        payment_trend:
+          type: text
+        external_summary:
+          type: text
+
+    ExternalTradeLine:
+      description: "A reporting member's trade-credit experience."
+      attributes:
+        reporting_member:
+          type: string
+        high_credit:
+          type: money
+        balance:
+          type: money
+        terms:
+          type: enum
+          values: [NET 30, NET 45, CS]
+        payment_manner:
+          type: enum
+          values: [Prompt, Slow 10, Slow 15, Slow 30]
+
+    FinancialStatement:
+      description: "Uploaded or imported financial statement package."
+      identifiers:
+        - statement_id
+      attributes:
+        statement_id:
+          type: string
+        fiscal_year:
+          type: year
+        period:
+          type: string
+          example: P4
+        period_end:
+          type: date
+        reporting_currency:
+          type: enum
+          values: [USD, CAD]
+        source:
+          type: enum
+          values: [Customer, System]
+        source_date:
+          type: date
+        days_in_period:
+          type: integer
+        auditor:
+          type: string
+        statement_status:
+          type: enum
+          values: [audited, unaudited]
+        auditor_opinion:
+          type: enum
+          values: [Unqualified, Qualified, Adverse, Disclaimer]
+        statement_type:
+          type: enum
+          values: [Balance Sheet, Income Statement, Cash Flow Statement, Financial Ratios]
+        line_items:
+          type: array
+          item_type: object
+          properties:
+            line_item_name:
+              type: string
+            amount:
+              type: money
+            is_total:
+              type: boolean
+
+    ReviewDocument:
+      description: "Attachment supporting the customer review."
+      identifiers:
+        - document_id
+      attributes:
+        document_id:
+          type: string
+        file_name:
+          type: string
+        category:
+          type: enum
+          values: [Balance Sheet, Income Statement, Payment Terms, Cash Flow, Supporting]
+        uploaded_by:
+          type: string
+        uploaded_at:
+          type: datetime
+        storage_key:
+          type: string
+        document_status:
+          type: enum
+          values: [uploaded, validated, rejected, deleted]
+
+    ReviewHistoryEntry:
+      description: "Historical limit decision and rationale."
+      attributes:
+        review_date:
+          type: date
+        old_credit_limit:
+          type: money
+        new_credit_limit:
+          type: money
+        change:
+          type: string
+          example: "+21%"
+        decision:
+          type: enum
+          values: [increase, hold]
+        decided_by:
+          type: string
+        comments:
+          type: text
+
+    AnalystAction:
+      description: "Action available to an analyst on the detail page."
+      attributes:
+        action_type:
+          type: enum
+          values:
+            - confirm_and_update_cis
+            - adjust_and_update_cis
+            - request_financial_statements
+            - forward_to_reviewer
+            - decline
+            - export_review
+            - rerun_ai_review
+            - upload_file
+        action_status:
+          type: enum
+          values: [available, submitted, completed, disabled, view_only]
+        performed_by:
+          type: string
+        performed_at:
+          type: datetime
+        target_system:
+          type: string
+          example: CIS
+        creates_email:
+          type: boolean
+        creates_review_task:
+          type: boolean
+
+  relationships:
+    - subject: CustomerReview
+      predicate: reviews
+      object: CustomerAccount
+      cardinality: many_to_one
+    - subject: CustomerAccount
+      predicate: participates_in
+      object: FinancialRelationship
+      cardinality: one_to_many
+    - subject: FinancialRelationship
+      predicate: rolls_up_to
+      object: CustomerAccount
+      cardinality: many_to_one
+    - subject: CustomerReview
+      predicate: produces
+      object: CreditDecision
+      cardinality: one_to_one
+    - subject: CustomerAccount
+      predicate: has_exposure
+      object: ExposureProfile
+      cardinality: one_to_one
+    - subject: CustomerAccount
+      predicate: has_ar_balance
+      object: ARBalance
+      cardinality: one_to_one
+    - subject: CustomerAccount
+      predicate: has_aging_snapshot
+      object: ARAgingSnapshot
+      cardinality: one_to_many
+    - subject: CustomerAccount
+      predicate: has_payment_profile
+      object: ADPDBTProfile
+      cardinality: one_to_one
+    - subject: CustomerReview
+      predicate: evaluates
+      object: RiskAssessment
+      cardinality: one_to_one
+    - subject: CustomerReview
+      predicate: evaluates_rule
+      object: ReviewRuleResult
+      cardinality: one_to_many
+    - subject: CustomerReview
+      predicate: receives
+      object: AIReview
+      cardinality: one_to_many
+    - subject: CustomerAccount
+      predicate: has_financial_profile
+      object: FinancialProfile
+      cardinality: one_to_one
+    - subject: CustomerAccount
+      predicate: has_external_credit_profile
+      object: ExternalCreditProfile
+      cardinality: one_to_one
+    - subject: ExternalCreditProfile
+      predicate: contains_trade_line
+      object: ExternalTradeLine
+      cardinality: one_to_many
+    - subject: CustomerAccount
+      predicate: provides
+      object: FinancialStatement
+      cardinality: one_to_many
+    - subject: CustomerReview
+      predicate: attaches
+      object: ReviewDocument
+      cardinality: one_to_many
+    - subject: CustomerReview
+      predicate: has_history
+      object: ReviewHistoryEntry
+      cardinality: one_to_many
+    - subject: CustomerReview
+      predicate: permits
+      object: AnalystAction
+      cardinality: one_to_many
+
+  rules:
+    R1_ADP_W:
+      name: "ADP-W threshold"
+      condition: "ADP-W > 38 days"
+      scope: "90-day weighted, financial group"
+      failure_effect: "Route to manual review"
+    R2_low_ADP_plus_PD:
+      name: "Low ADP with delinquent invoices"
+      condition: "ADP-W < 39 days AND open invoices >= 39 days AND past-due percentage >= 10%"
+      failure_effect: "Route to manual review"
+    R3_max_balance_vs_limit:
+      name: "Maximum balance versus credit limit"
+      condition: "Maximum balance in 90 days >= 150% of credit limit"
+      result_type: VIEW
+      failure_effect: "Visibility signal; not a hard stop"
+    R4_restricted:
+      name: "Restricted account"
+      condition: "Account flagged restricted for any sharing=Y subsidiary"
+      failure_effect: "Rule evaluation signal"
+    R5_NSF_chargeback:
+      name: "NSF or chargeback events"
+      condition: "Invoice types 66, 98, or 99 in the last 90 days"
+      failure_effect: "Route to manual review"
+    R6_auto_review_count:
+      name: "Automatic review count"
+      condition: "Automatic review count reaches configured limit"
+      default_limit: 3
+      failure_effect: "Force manual review"
+
+  derived_metrics:
+    total_exposure:
+      formula: "ar_balance + pending_amount"
+    utilization_of_limit:
+      formula: "total_exposure / current_credit_limit"
+    past_due_percentage:
+      formula: "past_due_amount / ar_balance"
+    implied_cycle_exposure:
+      formula: "monthly_average_purchases * terms_days / 30"
+    limit_change_percent:
+      formula: "(proposed_credit_limit - current_credit_limit) / current_credit_limit"
+    risk_band:
+      formula: "classification of weighted risk score"
+    decision_scope:
+      formula: "financial master plus sharing=Y subsidiaries; sharing=N or RSA accounts are standalone"
+
+  ui_sections:
+    - id: sec-ai
+      name: AI Review
+      primary_entities: [AIReview, CreditDecision, AnalystAction]
+    - id: sec-hist
+      name: Review History
+      primary_entities: [ReviewHistoryEntry]
+    - id: sec-risk
+      name: Risk Score
+      primary_entities: [RiskAssessment, FinancialProfile]
+    - id: sec-ext
+      name: External Data
+      primary_entities: [ExternalCreditProfile, ExternalTradeLine]
+    - id: sec-rules
+      name: Review Rules
+      primary_entities: [ReviewRuleResult]
+    - id: sec-adp
+      name: ADP / DBT
+      primary_entities: [ADPDBTProfile]
+    - id: sec-rel
+      name: Financial Relationship Roll-up
+      primary_entities: [FinancialRelationship, CustomerAccount]
+    - id: sec-aging
+      name: AR Aging
+      primary_entities: [ARAgingSnapshot, ARBalance]
+    - id: sec-fs
+      name: Financial Statement
+      primary_entities: [FinancialStatement]
+    - id: sec-files
+      name: Attachments
+      primary_entities: [ReviewDocument]
+
