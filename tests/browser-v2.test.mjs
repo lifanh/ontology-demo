@@ -36,11 +36,33 @@ test("v2 session gate unlocks the shell before loading protected app modules", a
   try {
     const page = await browser.newPage();
     let authenticated = false;
+    let draftRequests = 0;
     await page.route("**/api/session", route => route.fulfill({ json: { mode: "ai", aiEnabled: true, authenticated, modelDisplayName: "GitHub Copilot (test)" } }));
     await page.route("**/api/login", async route => {
       assert.deepEqual(route.request().postDataJSON(), { password: "approved-demo-password" });
       authenticated = true;
       return route.fulfill({ json: { authenticated: true, expiresInSeconds: 28800 } });
+    });
+    await page.route("**/api/ai/draft_rule", async route => {
+      assert.deepEqual(route.request().postDataJSON(), {
+        schemaVersion: "1",
+        policyText: "Customers with NET 30 payment terms cannot have more than 5% of their AR balance past due.",
+        activeReleaseId: "credit-1.4.0"
+      });
+      draftRequests += 1;
+      if (draftRequests === 3) {
+        return route.fulfill({ status: 401, json: { error: { code: "AUTH_REQUIRED", message: "Authentication required", retryable: false, correlationId: "browser-test" } } });
+      }
+      return route.fulfill({ json: {
+        schemaVersion: "1",
+        operation: "draft_rule",
+        result: {
+          outcome: "CANDIDATE",
+          family: "NET30_PAST_DUE_MAX",
+          summary: "Bounded NET 30 candidate drafted.",
+          dsl: "RULE NET30_PAST_DUE_MAX\nSCOPE customer.payment_terms == \"NET_30\"\nSET_MAX_RATIO customer.past_due_amount\n    TO customer.ar_balance = 0.05\nEND"
+        }
+      } });
     });
 
     await page.goto(`http://127.0.0.1:${port}/v2/`);
@@ -50,6 +72,27 @@ test("v2 session gate unlocks the shell before loading protected app modules", a
     await page.click('#loginForm button[type="submit"]');
     await page.waitForSelector("#list .row");
     assert.equal(await page.locator("#accessGate").getAttribute("class"), "access-gate hidden");
+
+    // AI-enabled mode exposes drafting, but the result remains an unvalidated candidate.
+    await page.getByRole("button", { name: "Configure rules" }).click();
+    assert.equal(await page.evaluate(() => document.activeElement?.id), "policyWorkbenchTitle");
+    assert.equal(await page.getByRole("button", { name: "Draft with AI" }).isDisabled(), false);
+    await page.getByRole("button", { name: "Draft with AI" }).click();
+    await page.getByText("AI-drafted candidate", { exact: true }).waitFor();
+    assert.match(await page.locator(".policy-banner").textContent(), /candidate revision 6 · AI-drafted candidate/);
+    assert.match(await page.locator(".policy-draft-feedback").textContent(), /Deterministic validation has not run/);
+    assert.equal(await page.evaluate(() => document.activeElement?.id), "policyDraftStatus");
+
+    // Replacing source allocates a new monotonic revision for the same stable rule family.
+    await page.getByRole("button", { name: "Draft with AI" }).click();
+    await page.getByText(/candidate revision 7 · AI-drafted candidate/).waitFor();
+
+    // An expired AI session moves focus to the login gate; the settling draft
+    // promise must not steal it back for a now-hidden workbench status.
+    await page.getByRole("button", { name: "Draft with AI" }).click();
+    await page.waitForSelector("body.auth-locked");
+    await page.waitForFunction(() => document.querySelector("#policyDraftStatus")?.textContent.includes("Authentication required"));
+    assert.equal(await page.evaluate(() => document.activeElement?.id), "loginPassword");
   } finally {
     await browser.close();
     try { process.kill(-vite.pid, "SIGTERM"); } catch {}
@@ -75,7 +118,8 @@ test("v2 worklist and detail are driven by the shared deterministic engine", asy
       assert.ok(listText.includes(name), `worklist should include ${name}`);
     }
     assert.ok(!listText.includes("Vantage"), "prototype personas must be gone");
-    assert.equal(await page.getByRole("button", { name: "Configure rules" }).isDisabled(), true);
+    assert.equal(await page.getByRole("button", { name: "Configure rules" }).isDisabled(), false);
+    assert.equal(await page.locator("#activePolicyVersion").textContent(), "credit-1.4.0");
 
     // Filters without backing data are visibly unavailable rather than silently ignored.
     assert.equal(await page.locator("#filterbar input:disabled, #filterbar select:disabled").count(), 7);
@@ -124,6 +168,118 @@ test("v2 worklist and detail are driven by the shared deterministic engine", asy
     const financialSummary = await page.textContent("#sec-fs");
     assert.match(financialSummary, /Fiscal year\s*FY 2024 \(fictional\)/);
     assert.doesNotMatch(financialSummary, /Fiscal year\s*FY 2025/);
+  } finally {
+    await browser.close();
+    try { process.kill(-vite.pid, "SIGTERM"); } catch {}
+  }
+});
+
+test("v2 policy change validates, compares, assesses impact, and badges only changed worklist accounts", async () => {
+  const port = await freePort();
+  const vite = await startVite(port);
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    const pageErrors = [];
+    page.on("pageerror", error => pageErrors.push(error.message));
+    await page.route("**/api/session", route => route.fulfill({ status: 404, body: "Not found" }));
+    await page.goto(`http://127.0.0.1:${port}/v2/index.html`);
+    await page.waitForSelector("#list .row");
+
+    await page.getByRole("button", { name: "Configure rules" }).click();
+    await page.waitForSelector("#policyWorkbench.show");
+    assert.equal(await page.evaluate(() => document.activeElement?.id), "policyWorkbenchTitle");
+    assert.equal(await page.getByRole("button", { name: "Draft with AI" }).isDisabled(), true);
+    assert.match(await page.locator("#policyStructuredDiff").textContent(), /Active revision 4 → candidate revision 5.*8% of accounts receivable.*5% of accounts receivable.*Lower threshold · tightening/s);
+    assert.match(await page.locator(".policy-baseline-grid").textContent(), /Active policy version.*credit-1\.4\.0.*Preview only · never activated here.*AI drafts; controls assess/s);
+
+    // The shared authoring/governance sequence gates each deterministic step.
+    await page.locator(".policy-candidate [data-policy-action=\"validate\"]").click();
+    assert.match(await page.locator(".policy-evidence-card").nth(0).textContent(), /ValidationPassed.*Bounded DSL/s);
+    assert.equal(await page.locator('[data-policy-action="impact"]:enabled').count(), 0);
+    assert.equal(await page.evaluate(() => document.activeElement?.dataset.policyAction), "analyze");
+    await page.locator('[data-policy-action="analyze"]:enabled').click();
+    assert.match(await page.locator(".policy-evidence-card").nth(1).textContent(), /CompatibilityPassed.*COMPATIBLE REFINEMENT.*Active 8% → candidate 5%/s);
+    assert.equal(await page.evaluate(() => document.activeElement?.dataset.policyAction), "impact");
+    await page.locator('[data-policy-action="impact"]:enabled').click();
+    await page.waitForSelector("#policyImpactResults");
+    assert.equal(await page.evaluate(() => document.activeElement?.id), "policyImpactResults");
+
+    const impact = await page.locator("#policyImpactResults").textContent();
+    assert.match(impact, /3 additional records require review/);
+    assert.match(impact, /Cohort records12.*Newly required reviews3.*Changed primary actions3/s);
+    assert.match(impact, /preview release credit-1\.4\.0-candidate-NET30_PAST_DUE_MAX-r5/);
+    assert.match(impact, /No findings or review paths change for accounts 2001–2004/);
+    assert.match(impact, /Governed review, approval, publication, and activation happen outside this POC/);
+    assert.equal(await page.getByRole("button", { name: /approve|publish|activate/i }).count(), 0);
+
+    // A tighter, human-edited bounded candidate changes Meridian's finding without
+    // projecting the fixed 3001–3012 impact cohort onto the 2001–2004 worklist.
+    const dsl = await page.locator("#policyDsl").inputValue();
+    await page.locator("#policyDsl").fill(dsl.replace("0.05", "0.01"));
+    await page.locator(".policy-candidate [data-policy-action=\"validate\"]").click();
+    assert.match(await page.locator(".policy-banner").textContent(), /candidate revision 6 · Human-edited candidate/);
+    await page.locator('[data-policy-action="analyze"]:enabled').click();
+    await page.locator('[data-policy-action="impact"]:enabled').click();
+    await page.waitForSelector("#policyImpactResults");
+    assert.match(await page.locator(".policy-worklist-result").textContent(), /1 of 4 accounts have changed findings or review paths/);
+    assert.match(await page.locator("#policyImpactResults").textContent(), /preview release credit-1\.4\.0-candidate-NET30_PAST_DUE_MAX-r6/);
+
+    await page.getByRole("button", { name: "Back to worklist" }).click();
+    assert.equal(await page.evaluate(() => document.activeElement?.id), "configureRulesButton");
+    await page.click('[data-tab="all"]');
+    assert.match(await page.locator("#candidateImpactNotice").textContent(), /Candidate preview only:.*1 narrative worklist account has.*Active policy remains credit-1\.4\.0/s);
+    assert.equal(await page.locator('#list .row:has-text("Meridian") .candidate-impact-badge').textContent(), "Candidate Finding Added");
+    assert.equal(await page.locator("#list .candidate-impact-badge").count(), 1);
+
+    // Candidate evidence and badges are reconstructed deterministically from v2-only tab state.
+    assert.equal(await page.evaluate(() => sessionStorage.getItem("customer-review:policy-workbench:v1")), null);
+    assert.ok(await page.evaluate(() => sessionStorage.getItem("v2:customer-review:policy-workbench:v1")));
+    await page.reload();
+    await page.waitForSelector("#list .row");
+    await page.click('[data-tab="all"]');
+    assert.equal(await page.locator('#list .row:has-text("Meridian") .candidate-impact-badge').textContent(), "Candidate Finding Added");
+    assert.equal(await page.locator("#activePolicyVersion").textContent(), "credit-1.4.0");
+
+    // Replacing the candidate never reuses an identity. Revisions are monotonic per
+    // stable rule family, and preview release IDs include that family.
+    await page.getByRole("button", { name: "Configure rules" }).click();
+    await page.getByRole("button", { name: "Use example candidate" }).click();
+    assert.match(await page.locator(".policy-banner").textContent(), /NET30_PAST_DUE_MAX.*candidate revision 7/s);
+    assert.equal(await page.evaluate(() => document.activeElement?.dataset.policyAction), "validate");
+    await page.locator(".policy-candidate [data-policy-action=\"validate\"]").click();
+    await page.locator('[data-policy-action="analyze"]:enabled').click();
+    await page.locator('[data-policy-action="impact"]:enabled').click();
+    assert.match(await page.locator("#policyImpactResults").textContent(), /preview release credit-1\.4\.0-candidate-NET30_PAST_DUE_MAX-r7/);
+
+    await page.getByRole("button", { name: /Tighten high-balance ADP/ }).click();
+    assert.equal(await page.evaluate(() => document.activeElement?.dataset.policyScenario), "adp20");
+    await page.getByRole("button", { name: "Use example candidate" }).click();
+    assert.match(await page.locator(".policy-banner").textContent(), /HIGH_BALANCE_ADP_MAX.*candidate revision 3/s);
+    await page.locator(".policy-candidate [data-policy-action=\"validate\"]").click();
+    await page.locator('[data-policy-action="analyze"]:enabled').click();
+    await page.locator('[data-policy-action="impact"]:enabled').click();
+    assert.match(await page.locator("#policyImpactResults").textContent(), /preview release credit-1\.4\.0-candidate-HIGH_BALANCE_ADP_MAX-r3/);
+    const savedPolicy = await page.evaluate(() => JSON.parse(sessionStorage.getItem("v2:customer-review:policy-workbench:v1")));
+    assert.equal(savedPolicy.activeReleaseId, "credit-1.4.0");
+    assert.equal(savedPolicy.nextRevisions.NET30_PAST_DUE_MAX, 8);
+    assert.equal(savedPolicy.nextRevisions.HIGH_BALANCE_ADP_MAX, 4);
+
+    // Release-bound state is discarded rather than reinterpreted against a new baseline.
+    await page.evaluate(() => {
+      const key = "v2:customer-review:policy-workbench:v1";
+      const saved = JSON.parse(sessionStorage.getItem(key));
+      saved.activeReleaseId = "credit-older-baseline";
+      sessionStorage.setItem(key, JSON.stringify(saved));
+    });
+    await page.reload();
+    await page.waitForSelector("#list .row");
+    assert.equal(await page.evaluate(() => sessionStorage.getItem("v2:customer-review:policy-workbench:v1")), null);
+    assert.equal(await page.locator("#list .candidate-impact-badge").count(), 0);
+    await page.getByRole("button", { name: "Configure rules" }).click();
+    assert.match(await page.locator(".policy-banner").textContent(), /NET30_PAST_DUE_MAX.*candidate revision 5 · Example candidate/s);
+    assert.match(await page.locator(".policy-evidence").textContent(), /ValidationNot run.*CompatibilityNot run.*Review impactNot run/s);
+    assert.deepEqual(pageErrors, []);
   } finally {
     await browser.close();
     try { process.kill(-vite.pid, "SIGTERM"); } catch {}

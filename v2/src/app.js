@@ -1,13 +1,15 @@
 /* Version 2 demo script. Structure and style follow docs/prototypes/customer_review_prototype.html
-   (SE vision, 2026-08). Phase 1: all review data comes from the shared deterministic engine
+   (SE vision, 2026-08). All review data comes from the shared deterministic engine
    (../../src) — facts, rule traces, calculator output, actions, and dispositions. AI proposes the
    review result of every account; credit analysts decide. Proposal prose here is scripted from
-   deterministic results — this view makes no model calls. Fictional Tier-2 color (territories,
-   reviewers, history, NACM/D&B style data) lives in ./context.js. */
+   deterministic results and makes no model calls; the separate Policy Change workbench can request
+   a bounded AI draft in AI-enabled mode. Fictional Tier-2 color (territories, reviewers, history,
+   NACM/D&B style data) lives in ./context.js. */
 import { createEvaluator } from "../../src/core/runtime.js";
 import { creditPack, narrativeCustomers, registry } from "../../src/domains/credit/pack.js";
 import { createDispositionStore, dispositionActions, DISPOSITION_STORAGE_KEY } from "../../src/domains/credit/dispositions.js";
 import { actionLabels, reviewMeta } from "./context.js";
+import { createPolicyWorkbench } from "./policy.js";
 
 const evaluate = createEvaluator(creditPack);
 
@@ -19,6 +21,9 @@ const v2Storage = {
 };
 const store = createDispositionStore(v2Storage);
 const SESSION_HISTORY_STORAGE_KEY = "customer-review:history:v1";
+let assessedCandidateImpact = null;
+
+document.getElementById("activePolicyVersion").textContent = creditPack.release.id;
 
 function allSessionEvents() {
   try {
@@ -193,6 +198,26 @@ function renderTabs() {
     `<button class="tab" role="tab" aria-selected="${activeTab === key}" data-tab="${key}">${label} <span class="n">${count(key)}</span></button>`).join("");
 }
 
+function candidateImpactFor(record) {
+  const row = assessedCandidateImpact?.rows.find(item => String(item.customerId) === record.id);
+  if (!row || row.error || row.indeterminate) return null;
+  const actionChanged = row.baselineAction !== row.candidateAction;
+  const findingsChanged = row.addedFindings.length || row.resolvedFindings.length;
+  if (!actionChanged && !findingsChanged) return null;
+  const label = row.baselineAction === "AUTO_REVIEW_PASS" && row.candidateAction !== "AUTO_REVIEW_PASS"
+    ? "Candidate Would Require Review"
+    : row.baselineAction !== "AUTO_REVIEW_PASS" && row.candidateAction === "AUTO_REVIEW_PASS"
+      ? "Candidate Would Clear Review"
+      : actionChanged
+        ? "Candidate Review Path Change"
+        : row.addedFindings.length && !row.resolvedFindings.length
+          ? "Candidate Finding Added"
+          : row.resolvedFindings.length && !row.addedFindings.length
+            ? "Candidate Finding Resolved"
+            : "Candidate Findings Changed";
+  return { label, row };
+}
+
 const amtCell = (value, ratio) => {
   const tier = ratio > 0.10 ? "high" : value > 0 ? "soft" : "";
   const sub = ratio > 0.10 ? `<span class="s">&gt; 10% of AR</span>` : value > 0 ? `<span class="s">within 10% policy</span>` : `<span class="s">no past due</span>`;
@@ -203,8 +228,9 @@ function rowHtml(record) {
   const facts = record.result.facts, meta = record.meta;
   const auto = isAuto(record), done = Boolean(savedDisposition(record));
   const tone = proposalTone[record.result.action.primary];
+  const candidateImpact = candidateImpactFor(record);
   return `<div class="row p-${tone === "soft" ? "soft" : tone}">
-  <div class="cust"><div class="name">${escapeHtml(record.customer.name)} <span class="rel-tag">SINGLE</span></div>
+  <div class="cust"><div class="name">${escapeHtml(record.customer.name)} <span class="rel-tag">SINGLE</span>${candidateImpact ? `<span class="candidate-impact-badge" title="Candidate preview only; active policy remains ${escapeHtml(creditPack.release.id)}">${escapeHtml(candidateImpact.label)}</span>` : ""}</div>
     <div class="sub"><span class="mono">#${record.id}</span><span>${escapeHtml(meta.territory)}</span><span>Terms ${termsLabel(facts.payment_terms)}</span></div></div>
   <div><div class="amt">${money(facts.credit_limit)}</div></div>
   <div>${amtCell(facts.past_due_amount, facts.past_due_ratio)}</div>
@@ -218,6 +244,17 @@ function rowHtml(record) {
 function renderQueue() {
   renderKpis();
   renderTabs();
+  const impactNotice = document.getElementById("candidateImpactNotice");
+  if (assessedCandidateImpact) {
+    const changed = records.filter(candidateImpactFor).length;
+    impactNotice.classList.remove("hidden");
+    impactNotice.innerHTML = changed
+      ? `<b>Candidate preview only:</b> ${changed} narrative worklist ${changed === 1 ? "account has" : "accounts have"} a changed finding or review path under candidate revision ${escapeHtml(assessedCandidateImpact.revision)}. Active policy remains ${escapeHtml(assessedCandidateImpact.activeReleaseId)}.`
+      : `<b>Candidate preview assessed:</b> no findings or review paths change for narrative accounts 2001–2004. Active policy remains ${escapeHtml(assessedCandidateImpact.activeReleaseId)}.`;
+  } else {
+    impactNotice.classList.add("hidden");
+    impactNotice.textContent = "";
+  }
   const visible = records.filter(tabFilters[activeTab]).filter(matchesFilters);
   document.getElementById("list").innerHTML = visible.length
     ? visible.map(rowHtml).join("")
@@ -653,9 +690,13 @@ function openDetail(id) {
   openId = String(id);
   adjustOpenFor = null;
   renderDetail();
+  document.getElementById("policyWorkbench").classList.remove("show");
   document.getElementById("queue").classList.add("hide");
   document.getElementById("detail").classList.add("show");
   document.getElementById("crumb").style.display = "flex";
+  document.getElementById("crumbCurrent").textContent = "Review Detail";
+  document.getElementById("configureRulesButton").setAttribute("aria-pressed", "false");
+  document.querySelector(".topbar .search").classList.remove("hidden");
   window.scrollTo(0, 0);
 }
 function renderDetail() {
@@ -664,10 +705,25 @@ function renderDetail() {
 }
 function showQueue() {
   openId = null;
+  document.getElementById("policyWorkbench").classList.remove("show");
   document.getElementById("detail").classList.remove("show");
   document.getElementById("queue").classList.remove("hide");
   document.getElementById("crumb").style.display = "none";
+  document.getElementById("configureRulesButton").setAttribute("aria-pressed", "false");
+  document.querySelector(".topbar .search").classList.remove("hidden");
   renderQueue();
+  window.scrollTo(0, 0);
+}
+
+function showPolicyWorkbench() {
+  openId = null;
+  document.getElementById("queue").classList.add("hide");
+  document.getElementById("detail").classList.remove("show");
+  document.getElementById("policyWorkbench").classList.add("show");
+  document.getElementById("crumb").style.display = "flex";
+  document.getElementById("crumbCurrent").textContent = "Policy Change";
+  document.getElementById("configureRulesButton").setAttribute("aria-pressed", "true");
+  document.querySelector(".topbar .search").classList.add("hidden");
   window.scrollTo(0, 0);
 }
 
@@ -793,4 +849,12 @@ document.querySelector("#filterbar .fclear").addEventListener("click", () => {
 });
 
 Object.assign(window, { openDetail, showQueue, setView, jump, showFact });
+createPolicyWorkbench({
+  onOpen: showPolicyWorkbench,
+  onClose: showQueue,
+  onImpactAssessed: impact => {
+    assessedCandidateImpact = impact;
+    renderQueue();
+  }
+});
 renderQueue();

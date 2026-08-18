@@ -9,7 +9,7 @@ The product has two independent views:
 
 This is not a production credit system. It has no production customer data, durable audit, user identities or roles, production policy publication, or automatic customer-state mutation. Apache Jena, SHACL, DMN/Kogito/Drools, and Z3 do not run in this POC. See [`NEXT_STEPS.md`](NEXT_STEPS.md) for the separate production integration direction.
 
-A second demo, **v2**, is served at `/v2/`. Its structure and style follow the SE vision prototype (`docs/prototypes/customer_review_prototype.html`) under the framing *AI proposes the review result of every account; credit analysts decide*. The v1 demo at `/` stays unchanged. See `docs/prototypes/v2-plan.md` for the phased plan; Phases 0–1 are in place: the v2 worklist and review detail are driven by the shared deterministic engine (`src/core/runtime.js` + the credit pack) over the narrative customers, with decisions recorded per policy release in browser-tab state.
+A second demo, **v2**, is served at `/v2/`. Its structure and style follow the SE vision prototype (`docs/prototypes/customer_review_prototype.html`) under the framing *AI proposes the review result of every account; credit analysts decide*. The v1 demo at `/` stays unchanged. See `docs/prototypes/v2-plan.md` for the phased plan; Phases 0–2 are in place: the v2 worklist and review detail are driven by the shared deterministic engine (`src/core/runtime.js` + the credit pack), decisions are recorded per policy release in browser-tab state, and Configure rules opens a v2 Policy Change workbench with bounded drafting, deterministic validation, compatibility, Review impact, and candidate-preview badges.
 
 ## Runtime modes
 

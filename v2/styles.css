@@ -485,4 +485,85 @@ tr.jump:hover td{background:#eef2fd}
 .rule-tbl td.l{text-align:left}
 .rule-tbl tr:last-child td{border-bottom:0}
 
+/* Phase 2 policy-change workbench */
+.release-chip{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;font-size:10.5px;font-weight:700;color:var(--muted);background:var(--surface-2);border:1px solid var(--line);padding:6px 9px;border-radius:7px}
+.release-chip b{color:var(--brand-ink);font-family:'JetBrains Mono',ui-monospace,monospace}
+.candidate-impact-notice{margin:0 0 13px;padding:10px 13px;border:1px solid var(--ai-line);border-radius:8px;background:var(--ai-bg);color:var(--ai);font-size:12px}
+.candidate-impact-badge{font-size:9px;font-weight:800;line-height:1.2;letter-spacing:.03em;text-transform:uppercase;color:var(--ai);background:var(--ai-bg);border:1px solid var(--ai-line);border-radius:5px;padding:3px 6px}
+.policypage{display:none}
+.policypage.show{display:block}
+.policy-wrap{padding-top:22px}
+.policy-banner{border-top:3px solid var(--brand)}
+.policy-banner .dtop{align-items:flex-start}
+.policy-banner .dtop>div:first-child p{margin:4px 0 0;color:var(--muted);font-size:12px}
+.policy-eyebrow{display:block;margin-bottom:3px;color:var(--brand);font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase}
+.policy-state{display:inline-flex;align-items:center;white-space:nowrap;padding:4px 8px;border-radius:6px;background:var(--surface-2);border:1px solid var(--line);color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.03em;text-transform:uppercase}
+.policy-state.pass{color:var(--pass);background:var(--pass-bg);border-color:var(--pass-line)}
+.policy-state.warn{color:var(--soft);background:var(--soft-bg);border-color:var(--soft-line)}
+.policy-baseline-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.policy-baseline-grid>div{display:flex;flex-direction:column;gap:3px;padding:11px 13px;background:var(--surface-2)}
+.policy-baseline-grid span{color:var(--faint);font-size:9px;font-weight:800;letter-spacing:.05em;text-transform:uppercase}
+.policy-baseline-grid b{font-size:13px}
+.policy-baseline-grid small{color:var(--muted);font-size:10.5px}
+.policy-grid{display:grid;grid-template-columns:minmax(300px,.8fr) minmax(480px,1.2fr);gap:14px;margin-bottom:14px;align-items:start}
+.policy-intents .p-b>p,.policy-mode-note{color:var(--muted);font-size:12px}
+.policy-scenarios{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+.policy-scenarios button{display:flex;flex-direction:column;gap:3px;min-height:65px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);text-align:left}
+.policy-scenarios button:hover{border-color:var(--brand)}
+.policy-scenarios button[aria-pressed="true"]{border-color:var(--brand);box-shadow:0 0 0 1px var(--brand) inset;background:#f4f6ff}
+.policy-scenarios button b{font-size:12px}
+.policy-scenarios button span{color:var(--muted);font-size:10.5px}
+.policy-field{display:grid;gap:5px;margin-top:11px}
+.policy-field>span{color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+.policy-field textarea{width:100%;min-height:100px;resize:vertical;padding:10px 11px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:12.5px/1.5 inherit}
+.policy-field textarea:focus{outline:none;border-color:var(--brand)}
+.policy-editor{margin-top:13px;border-top:1px solid var(--line);padding-top:11px}
+.policy-editor summary{font-size:12px;font-weight:700;cursor:pointer}
+.policy-editor textarea{min-height:165px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11.5px}
+.policy-editor p{margin:6px 0 0;color:var(--faint);font-size:10.5px}
+.policy-diff-identity{display:flex;justify-content:space-between;gap:12px;padding:8px 10px;border-radius:7px;background:var(--ink);color:#fff;font-size:11px}
+.policy-diff-identity span{opacity:.72}
+.policy-diff{display:grid;grid-template-columns:1fr 1fr;margin:10px 0 0;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.policy-diff>div{padding:10px 11px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.policy-diff>div:nth-child(2){border-right:0}
+.policy-diff>div:last-child{grid-column:1/-1;border:0}
+.policy-diff dt{color:var(--faint);font-size:9px;font-weight:800;letter-spacing:.05em;text-transform:uppercase}
+.policy-diff dd{display:flex;flex-direction:column;gap:3px;margin:6px 0 0;color:var(--muted);font-size:11px}
+.policy-diff dd small{margin-top:4px;color:var(--faint);font-size:8.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+.policy-diff dd strong{margin-top:4px;color:var(--ink);font-size:10px}
+.policy-diff del{color:var(--high)}
+.policy-diff ins{color:var(--pass);text-decoration:none;font-weight:700}
+.policy-diff .diff-arrow{color:var(--faint)}
+.policy-error,.policy-draft-feedback{padding:10px 12px;border:1px solid var(--soft-line);border-radius:8px;background:var(--soft-bg);color:var(--soft);font-size:12px}
+.policy-draft-feedback{margin-top:12px}
+.policy-draft-feedback p{margin:3px 0 0}
+.policy-draft-feedback.error{color:var(--high);background:var(--high-bg);border-color:var(--high-line)}
+.policy-evidence .s-h>span{margin-left:auto;color:var(--faint);font-size:10.5px;font-weight:600}
+.policy-evidence-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.policy-evidence-card{padding:12px;border:1px solid var(--line);border-top:3px solid var(--line-strong);border-radius:8px;background:var(--surface-2)}
+.policy-evidence-card.passed{border-top-color:var(--pass)}
+.policy-evidence-card.blocked{border-top-color:var(--high)}
+.policy-evidence-card>div{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.policy-evidence-card>div span{font-weight:800}
+.policy-evidence-card>div b{color:var(--muted);font-size:10px;text-transform:uppercase}
+.policy-evidence-card p{min-height:50px;color:var(--muted);font-size:11px;white-space:pre-line}
+.policy-evidence-card small{display:block;color:var(--faint);font-size:9.5px}
+.policy-evidence-card .btn{padding:8px 10px;font-size:11px}
+.policy-notice{margin:14px 0;padding:10px 13px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--muted);font-size:12px}
+.policy-impact-results h3{margin:0 0 5px;font-size:18px}
+.policy-impact-results .s-b>p{color:var(--muted);font-size:12px}
+.policy-metrics{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin:13px 0}
+.policy-metrics>div{display:flex;flex-direction:column;gap:3px;padding:9px;border:1px solid var(--line);border-radius:7px;background:var(--surface-2)}
+.policy-metrics small{color:var(--faint);font-size:9px;text-transform:uppercase}
+.policy-metrics b{font-size:17px}
+.policy-impact-table{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+.policy-impact-table table{width:100%;border-collapse:collapse;min-width:720px;font-size:11px}
+.policy-impact-table th,.policy-impact-table td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.policy-impact-table th{background:var(--surface-2);color:var(--faint);font-size:9px;text-transform:uppercase}
+.policy-impact-table td small{display:block;color:var(--faint)}
+.policy-worklist-result,.policy-boundary{margin-top:12px;padding:10px 12px;border:1px solid var(--ai-line);border-radius:8px;background:var(--ai-bg);color:var(--ai);font-size:11.5px}
+.policy-boundary{border-color:var(--pass-line);background:var(--pass-bg);color:var(--pass)}
+@media(max-width:1050px){.topbar{flex-wrap:wrap}.policy-grid{grid-template-columns:1fr}.policy-metrics{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:700px){.policy-baseline-grid,.policy-evidence-grid{grid-template-columns:1fr}.policy-scenarios{grid-template-columns:1fr}.policy-metrics{grid-template-columns:repeat(2,1fr)}.policy-diff{grid-template-columns:1fr}.policy-diff>div{border-right:0}.policy-diff>div:last-child{grid-column:auto}}
+
 .foot{max-width:1300px;margin:0 auto;padding:0 26px 40px;font-size:11.5px;color:var(--faint)}

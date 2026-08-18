@@ -14,7 +14,7 @@
   <form id="loginForm">
     <div class="env">ACCESS-GATED ILLUSTRATIVE POC</div>
     <h1 id="accessTitle">Customer Review</h1>
-    <p>This POC uses fictional customer data. The shared AI-enabled Node gateway can make real model calls elsewhere in the POC; this v2 Phase 1 view makes no model calls. Do not enter production customer data or confidential policy.</p>
+    <p>This POC uses fictional customer data. In AI-enabled mode, the Policy Change workbench can make a real model call to draft a bounded candidate; deterministic-only mode makes no model calls. Do not enter production customer data or confidential policy.</p>
     <label>Shared demo password<input id="loginPassword" name="password" type="password" required autocomplete="current-password"/></label>
     <button class="btn primary" type="submit">Enter demo</button>
     <p id="loginError" role="alert"></p>
@@ -24,13 +24,14 @@
 <div class="topbar">
   <h1 id="brand">Customer Review <span class="env">ILLUSTRATIVE POC</span></h1>
   <div class="crumbnav" id="crumb" style="display:none">
-    <a onclick="showQueue()">Customer Review</a><span class="sep">/</span><span class="cur">Review Detail</span>
+    <a onclick="showQueue()">Customer Review</a><span class="sep">/</span><span class="cur" id="crumbCurrent">Review Detail</span>
   </div>
   <div class="spacer"></div>
   <div class="search">🔍<input id="topSearch" placeholder="Search customer # or name…"/></div>
+  <span class="release-chip">Active policy <b id="activePolicyVersion">—</b></span>
   <span class="mode-status" id="modeStatus">Checking access…</span>
   <button class="tbtn hidden" id="logoutButton">Log out</button>
-  <button class="tbtn" title="Rule configuration is deferred beyond this POC phase" disabled>Configure rules</button>
+  <button class="tbtn" id="configureRulesButton" aria-pressed="false">Configure rules</button>
 </div>
 
 <!-- ============ QUEUE SCREEN ============ -->
@@ -80,6 +81,8 @@
       </div>
     </div>
 
+    <div class="candidate-impact-notice hidden" id="candidateImpactNotice" role="status"></div>
+
     <div class="col-head">
       <div>Customer</div><div>Credit limit</div><div>Past due</div><div>Risk score</div><div>Review mode</div><div>Next review</div><div></div>
     </div>
@@ -107,6 +110,9 @@
 <div id="detail" class="detailpage">
   <div class="wrap" id="detailBody"></div>
 </div>
+
+<!-- ============ POLICY CHANGE WORKBENCH ============ -->
+<div id="policyWorkbench" class="policypage" aria-labelledby="policyWorkbenchTitle"></div>
 
 <div class="foot">Illustrative POC · Worklist-first Customer Review. AI proposes the review result of every account; credit analysts decide. Deterministic rules and calculations remain authoritative. Decisions here update this browser tab only — in production, confirmation would flow to CIS. All data is fictional.</div>
 
