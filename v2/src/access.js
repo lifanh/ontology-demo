@@ -20,7 +20,7 @@ window.addEventListener("demo-auth-required", () => showGate("Your session expir
 const unlock = async status => {
   $("#accessGate").classList.add("hidden");
   $("#logoutButton").classList.toggle("hidden", !status.aiEnabled);
-  $("#modeStatus").textContent = status.aiEnabled ? "AI gateway available · this view makes no model calls" : "Deterministic-only mode";
+  $("#modeStatus").textContent = status.aiEnabled ? "AI gateway available · policy drafting enabled" : "Deterministic-only mode";
   document.documentElement.dataset.aiEnabled = String(status.aiEnabled);
   await import("./app.js");
   document.body.classList.remove("auth-pending", "auth-locked");
