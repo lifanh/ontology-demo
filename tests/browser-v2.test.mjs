@@ -151,6 +151,9 @@ test("v2 decisions persist per release, stay isolated from v1, and auto-clear is
     assert.doesNotMatch(autoProposal, /All 6 active policy rules pass/);
     assert.equal(await page.locator(".rerun").isDisabled(), true);
     assert.equal(await page.locator('[data-act="rerun"]').count(), 0);
+    const autoHistory = await page.textContent("#sec-hist");
+    assert.match(autoHistory, /J\. Kim.*Analyst approved routine increase after deterministic review pass/s);
+    assert.doesNotMatch(autoHistory, /System.*Auto review pass/s);
     await page.click("#crumb a");
 
     // Confirm the AI proposal on Ironclad.

@@ -30,7 +30,7 @@ export const reviewMeta = Object.freeze({
       ["AR_Aging_Jul2026.xlsx", "Payment Terms", "System", "07/28/2026 01:00"]
     ],
     history: [
-      ["07/25/2025", "$55,000", "$60,000", "+9%", "System", "Auto review pass — routine increase in line with demand."]
+      ["07/25/2025", "$55,000", "$60,000", "+9%", "J. Kim", "Analyst approved routine increase after deterministic review pass; demand supported the change."]
     ],
     ext: {
       flag: ["ok", "Green Flag"],
