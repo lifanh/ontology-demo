@@ -6,7 +6,7 @@ import path from "node:path";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const output = path.join(root, "dist");
 const demoFiles = ["index.html", "styles.css"];
-const demoDirectories = ["src", "artifacts"];
+const demoDirectories = ["src", "artifacts", "v2"];
 
 await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });

@@ -2,7 +2,8 @@
 
 ## Ownership boundaries
 
-- `index.html`, `styles.css`, `src/`, and `artifacts/` are the independent Customer Review Ontology browser demo served at `/`.
+- `index.html`, `styles.css`, `src/`, and `artifacts/` are the independent Customer Review Ontology browser demo served at `/`. This is the frozen v1 demo: leave its files byte-for-byte unchanged unless a maintainer explicitly asks.
+- `v2/` is the version 2 demo served at `/v2/`. Its structure and style follow `docs/prototypes/customer_review_prototype.html` (SE vision). It may import `src/` engine modules read-only but must not require edits to v1 files. Framing: AI proposes the review result of every account; credit analysts decide.
 - `slides/` is the Customer Review Ontology Slidev presentation served at `/slides/`.
 - Do not make Slidev import, wrap, or boot the demo. The deck may link to `/` in a new tab.
 - `NEXT_STEPS.md` is the detailed production integration reference. Slides should summarize it, not duplicate it wholesale.

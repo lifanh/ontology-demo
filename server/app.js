@@ -64,7 +64,10 @@ export function createApp({ config, now = Date.now, clientIp = () => "unknown", 
   const app = new Hono();
   const auth = config.aiEnabled ? createAuth({ password: config.demoPassword, secret: config.sessionSecret, now }) : null;
   const failures = new Map();
-  const publicAssets = new Set(["/", "/index.html", "/styles.css", "/src/ui/access.js"]);
+  const publicAssets = new Set([
+    "/", "/index.html", "/styles.css", "/src/ui/access.js",
+    "/v2", "/v2/", "/v2/index.html", "/v2/styles.css", "/v2/src/access.js"
+  ]);
 
   app.use("*", async (c, next) => {
     if (!config.aiEnabled || c.req.path.startsWith("/api/") || publicAssets.has(c.req.path) || auth.verify(getCookie(c, SESSION_COOKIE))) return next();

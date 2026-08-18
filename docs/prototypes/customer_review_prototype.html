@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Customer Review</title>
+<style>
+:root{
+  --ink:#15203a; --muted:#69748a; --faint:#9aa3b5;
+  --bg:#eef1f6; --surface:#ffffff; --surface-2:#f7f9fc;
+  --line:#e2e7ef; --line-strong:#cdd5e3;
+  --brand:#3b5bdb; --brand-ink:#27409e;
+  --ai:#5b4bd6; --ai-bg:#ece9fb; --ai-line:#d3ccf3;
+  --pass:#1f9254; --pass-bg:#e7f4ec; --pass-line:#bfe3cd;
+  --soft:#b45309; --soft-bg:#fdf1dd; --soft-line:#f3d6a4;
+  --high:#c0392b; --high-bg:#fbe9e7; --high-line:#f3c4bd;
+  --shadow:0 1px 2px rgba(21,32,58,.05),0 8px 24px rgba(21,32,58,.06);
+  --r:10px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:'Inter',system-ui,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink);
+  -webkit-font-smoothing:antialiased;font-size:14px;line-height:1.45}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+button{font-family:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:4px}
+a{color:var(--brand);text-decoration:none;cursor:pointer}
+
+/* top bar */
+.topbar{display:flex;align-items:center;gap:14px;padding:14px 26px;background:var(--surface);
+  border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+.topbar h1{font-size:16px;font-weight:700;margin:0;letter-spacing:-.01em;display:flex;align-items:center;gap:9px}
+.env{font-size:10px;font-weight:700;letter-spacing:.08em;color:#fff;background:var(--brand);padding:3px 8px;border-radius:6px}
+.topbar .spacer{flex:1}
+.search{display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--line);
+  border-radius:9px;padding:7px 12px;min-width:250px;color:var(--faint);font-size:13px}
+.search input{border:0;background:transparent;outline:none;font-size:13px;color:var(--ink);width:100%}
+.tbtn{border:1px solid var(--line);background:var(--surface);color:var(--ink);font-weight:600;font-size:13px;padding:8px 13px;border-radius:9px}
+.tbtn:hover{border-color:var(--line-strong)}
+.crumbnav{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:7px}
+.crumbnav a{font-weight:600}
+.crumbnav .sep{color:var(--faint)}
+.crumbnav .cur{color:var(--ink);font-weight:700}
+
+/* org scope bar */
+.scope{display:flex;align-items:center;padding:12px 26px;background:var(--surface);border-bottom:1px solid var(--line)}
+.scope .lbl{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin-right:14px}
+.crumb{display:flex;align-items:center;gap:2px}
+.seg{border:0;background:transparent;color:var(--muted);font-weight:600;font-size:13px;padding:6px 11px;border-radius:8px}
+.seg[aria-current="true"]{background:var(--ink);color:#fff}
+.seg:hover:not([aria-current="true"]){background:var(--surface-2);color:var(--ink)}
+.arrow{color:var(--faint);font-size:12px;padding:0 2px}
+.scope .spacer{flex:1}
+.scope .link-note{font-size:11.5px;color:var(--faint)}
+.scope .link-note b{color:var(--muted)}
+
+.wrap{max-width:1300px;margin:0 auto;padding:22px 26px 80px}
+
+/* ---- KPI strip ---- */
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:13px 15px;box-shadow:var(--shadow)}
+.kpi .k-l{font-size:11px;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:6px}
+.kpi .k-v{font-size:23px;font-weight:700;letter-spacing:-.02em;margin-top:5px}
+.kpi .k-s{font-size:11px;color:var(--faint);margin-top:2px}
+.kpi.acc-high{border-top:3px solid var(--high)}.kpi.acc-soft{border-top:3px solid var(--soft)}
+.kpi.acc-ai{border-top:3px solid var(--ai)}.kpi.acc-pass{border-top:3px solid var(--pass)}
+.dot{width:8px;height:8px;border-radius:50%}
+.dot.high{background:var(--high)}.dot.soft{background:var(--soft)}.dot.ai{background:var(--ai)}.dot.pass{background:var(--pass)}
+
+/* ---- toolbar/tabs ---- */
+.toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:4px}
+.tab{border:0;background:transparent;color:var(--muted);font-weight:600;font-size:13px;padding:7px 13px;border-radius:7px}
+.tab[aria-selected="true"]{background:var(--ink);color:#fff}
+.tab .n{font-size:11px;opacity:.75;margin-left:6px}
+.legend{display:flex;gap:15px;margin-left:auto;font-size:12px;color:var(--muted);flex-wrap:wrap;align-items:center}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.lg{width:10px;height:10px;border-radius:3px}
+.lg.pass{background:var(--pass)}.lg.soft{background:var(--soft)}.lg.high{background:var(--high)}.lg.ai{background:var(--ai)}
+
+/* ---- worklist ---- */
+.col-head{display:grid;grid-template-columns:1.8fr 118px 118px 138px 108px 96px 104px;gap:13px;padding:0 18px;
+  font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+.list{display:flex;flex-direction:column;gap:9px}
+.row{display:grid;grid-template-columns:1.8fr 118px 118px 138px 108px 96px 104px;gap:13px;align-items:center;
+  background:var(--surface);border:1px solid var(--line);border-left-width:5px;border-radius:var(--r);
+  padding:13px 18px;box-shadow:var(--shadow);transition:box-shadow .12s,transform .12s}
+.row:hover{box-shadow:0 4px 18px rgba(21,32,58,.10);transform:translateY(-1px)}
+.row.p-high{border-left-color:var(--high)}.row.p-soft{border-left-color:var(--soft)}.row.p-pass{border-left-color:var(--pass)}
+.cust .name{font-weight:700;font-size:14.5px;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
+.cust .sub{font-size:11.5px;color:var(--faint);margin-top:3px;display:flex;gap:9px;flex-wrap:wrap}
+.cust .sub .mono{color:var(--muted)}
+.rel-tag{font-size:9.5px;font-weight:700;letter-spacing:.04em;padding:2px 6px;border-radius:5px;
+  background:var(--surface-2);color:var(--muted);border:1px solid var(--line)}
+.rel-tag.master{color:var(--brand-ink);background:#eef2fd;border-color:#d3ddf8}
+.rel-tag.indep{color:var(--soft);background:var(--soft-bg);border-color:var(--soft-line)}
+.amt{font-weight:700;font-size:14px}
+.amt.high{color:var(--high)}.amt.soft{color:var(--soft)}
+.amt .s{display:block;font-size:10.5px;font-weight:600;color:var(--faint);margin-top:1px}
+.risk-wrap{display:flex;align-items:center;gap:8px}
+.risk-band{font-size:12px;font-weight:700}.risk-num{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--faint)}
+.pill{font-size:12px;font-weight:700;padding:5px 10px;border-radius:7px;text-align:center;white-space:nowrap;display:inline-block}
+.pill.high{color:var(--high);background:var(--high-bg);border:1px solid var(--high-line)}
+.pill.soft{color:var(--soft);background:var(--soft-bg);border:1px solid var(--soft-line)}
+.pill.pass{color:var(--pass);background:var(--pass-bg);border:1px solid var(--pass-line)}
+.pill.ai{color:var(--ai);background:var(--ai-bg);border:1px solid var(--ai-line)}
+.mode-cell{display:flex;flex-direction:column;gap:3px;align-items:flex-start}
+.mode-cell .conf{font-size:10px;color:var(--faint)}
+.open-btn{background:var(--brand);color:#fff;border:0;font-weight:600;font-size:12.5px;padding:8px 0;border-radius:8px;width:100%}
+.open-btn:hover{background:var(--brand-ink)}
+.open-btn.ghost{background:var(--surface);color:var(--brand);border:1px solid var(--line)}
+
+/* ================= DETAIL SCREEN ================= */
+.detailpage{display:none}
+.detailpage.show{display:block}
+.screen.hide{display:none}
+
+/* header banner */
+.dbanner{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);
+  padding:20px 24px;margin-bottom:18px}
+.dtop{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.dtop h2{margin:0;font-size:20px;font-weight:700;letter-spacing:-.01em}
+.dtop .num{color:var(--muted);font-weight:700}
+.status-tag{font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;background:var(--ai-bg);color:var(--ai);border:1px solid var(--ai-line)}
+.dtop .spacer{flex:1}
+.hbtn{border:1px solid var(--line);background:var(--surface);color:var(--ink);font-weight:600;font-size:13px;
+  padding:9px 14px;border-radius:8px;display:inline-flex;align-items:center;gap:7px}
+.hbtn:hover{border-color:var(--line-strong)}
+.hbtn.approve{background:var(--pass);color:#fff;border-color:var(--pass)}
+.hbtn.escalate{background:var(--soft);color:#fff;border-color:var(--soft)}
+.hbtn.decline{background:var(--high);color:#fff;border-color:var(--high)}
+.dmeta{display:grid;grid-template-columns:repeat(6,1fr);gap:20px;border-top:1px solid var(--line);padding-top:16px}
+.dmeta .m{min-width:0}
+.dmeta .m .l{font-size:11px;color:var(--muted);font-weight:600}
+.dmeta .m .v{font-size:16px;font-weight:700;margin-top:4px;letter-spacing:-.01em}
+.dmeta .m .v.rec-high{color:var(--high)}.dmeta .m .v.rec-pass{color:var(--pass)}.dmeta .m .v.rec-soft{color:var(--soft)}
+.dmeta .m .s{font-size:11px;color:var(--faint);margin-top:2px}
+
+/* three summary cards */
+.cards3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px}
+.scard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+.scard{border-top:3px solid var(--line-strong)}
+.scard.ok{border-top-color:var(--pass)}.scard.warn{border-top-color:var(--soft)}.scard.risk-low{border-top-color:var(--pass)}
+.scard.risk-mod{border-top-color:var(--soft)}.scard.risk-high{border-top-color:var(--high)}
+.scard .sc-h{padding:13px 16px;display:flex;align-items:center;gap:9px}
+.scard .sc-h .t{font-weight:700;font-size:14px}
+.scard .sc-h .badge{font-size:11px;font-weight:700;padding:2px 9px;border-radius:5px}
+.badge.ok{color:var(--pass);background:var(--pass-bg)}.badge.warn{color:var(--soft);background:var(--soft-bg)}
+.badge.low{color:var(--pass);background:var(--pass-bg)}.badge.mod{color:var(--soft);background:var(--soft-bg)}.badge.high{color:var(--high);background:var(--high-bg)}
+.scard .sc-h .more{margin-left:auto;font-size:12px;font-weight:600}
+.scard .sc-b{padding:2px 16px 8px}
+.sline{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--line);font-size:13px}
+.sline:last-child{border-bottom:0}
+.sline .sl-l{color:var(--muted)}
+.sline .sl-v{font-weight:700}
+.sline .sl-v.miss{color:var(--high)}
+.sline.dim{background:var(--surface-2);margin:0 -16px;padding-left:16px;padding-right:16px}
+
+/* attachments + AI review split */
+.split{display:grid;grid-template-columns:1fr 1.15fr;gap:14px;margin-bottom:18px;align-items:start}
+@media(max-width:980px){.split{grid-template-columns:1fr}.cards3{grid-template-columns:1fr}.dmeta{grid-template-columns:repeat(2,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+.panel .p-h{padding:13px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:9px}
+.panel .p-h .t{font-weight:700;font-size:14px}
+.panel .p-h .spacer{flex:1}
+.panel .p-b{padding:14px 16px}
+.upl{border:1px solid var(--line);background:var(--surface);color:var(--ink);font-weight:600;font-size:12.5px;
+  padding:7px 12px;border-radius:8px;display:inline-flex;align-items:center;gap:6px}
+.upl:hover{border-color:var(--line-strong)}
+.atbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.atbl th{text-align:left;font-weight:700;color:var(--faint);font-size:10px;letter-spacing:.05em;text-transform:uppercase;padding:8px;border-bottom:1px solid var(--line)}
+.atbl td{padding:9px 8px;border-bottom:1px solid var(--line)}
+.atbl tr:last-child td{border-bottom:0}
+.atbl .fn{color:var(--brand);font-weight:600}
+.atbl .del{color:var(--faint);cursor:pointer}
+.dropzone{margin-top:12px;border:1.5px dashed var(--line-strong);border-radius:9px;padding:16px;text-align:center;
+  font-size:12.5px;color:var(--faint);background:var(--surface-2)}
+.dropzone b{color:var(--brand)}
+
+/* AI review panel — has the actionable controls */
+.panel.ai-panel{border-top:3px solid var(--ai)}
+.ai-body p{margin:0 0 12px;font-size:13px;line-height:1.55}
+.ai-concl{border:1px solid var(--high-line);background:var(--high-bg);border-radius:9px;padding:12px 14px;font-size:13px;line-height:1.5}
+.ai-concl.pass{border-color:var(--pass-line);background:var(--pass-bg)}
+.ai-concl.soft{border-color:var(--soft-line);background:var(--soft-bg)}
+.ai-concl b{font-weight:700}
+.ai-rec{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}
+.ai-rec .rc{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:9px 11px}
+.ai-rec .rc .l{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--faint)}
+.ai-rec .rc .v{font-size:15px;font-weight:700;margin-top:3px}
+.ai-rec .rc .v .up{color:var(--pass)} .ai-rec .rc .v .hold{font-size:11px;color:var(--soft)}
+.rerun{border:1px solid var(--ai-line);background:var(--ai-bg);color:var(--ai);font-weight:700;font-size:12.5px;
+  padding:8px 13px;border-radius:8px;display:inline-flex;align-items:center;gap:7px}
+.rerun:hover{background:#e3def7}
+
+/* action zone inside AI panel */
+.actzone{border-top:1px dashed var(--line);margin-top:6px;padding-top:14px}
+.actzone .az-h{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:11px;display:flex;align-items:center;gap:8px}
+.dfields{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field label{display:block;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+.field input,.field select,.field textarea{width:100%;border:1px solid var(--line-strong);border-radius:8px;padding:9px 11px;font-size:13px;font-family:inherit;color:var(--ink);background:var(--surface)}
+.field input:focus,.field textarea:focus,.field select:focus{outline:none;border-color:var(--brand)}
+.field .hint{font-size:10.5px;margin-top:4px}
+.field .ai-fill{color:var(--ai);font-weight:600}
+.field.wide{grid-column:1 / -1}
+.field textarea{min-height:66px;resize:vertical;line-height:1.5}
+.dactions{display:flex;gap:9px;margin-top:14px;flex-wrap:wrap;align-items:center}
+.btn{border:0;font-weight:700;font-size:13px;padding:11px 18px;border-radius:9px}
+.btn.primary{background:var(--pass);color:#fff}.btn.primary:hover{background:#187a44}
+.btn.adjust{background:var(--brand);color:#fff}.btn.adjust:hover{background:var(--brand-ink)}
+.btn.ghost{background:var(--surface);color:var(--ink);border:1px solid var(--line-strong)}
+.btn.danger{background:var(--surface);color:var(--high);border:1px solid var(--high-line)}
+.task-note{margin-left:auto;font-size:11px;color:var(--faint)}
+
+/* full detail sections (display-only) */
+.section{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;margin-bottom:14px}
+.section .s-h{padding:13px 16px;border-bottom:1px solid var(--line);font-weight:700;font-size:14px;display:flex;align-items:center;gap:9px}
+.section .s-h .tag{margin-left:auto;font-size:15px;font-weight:800}
+.section .s-b{padding:14px 16px}
+.grid2{display:grid;grid-template-columns:1.3fr 1fr;gap:14px;align-items:start}
+@media(max-width:980px){.grid2{grid-template-columns:1fr}}
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th{text-align:right;font-weight:700;color:var(--faint);font-size:10px;letter-spacing:.05em;text-transform:uppercase;padding:7px 8px;border-bottom:1px solid var(--line)}
+.tbl th:first-child{text-align:left}
+.tbl td{text-align:right;padding:7px 8px;border-bottom:1px solid var(--line);font-family:'JetBrains Mono',monospace}
+.tbl td:first-child{text-align:left;font-family:inherit;color:var(--muted)}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td.warn{color:var(--high);font-weight:700}
+.risk-line{display:grid;grid-template-columns:1fr 54px 70px;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+.risk-line:last-child{border-bottom:0}
+.risk-line .rl-n{color:var(--muted)}
+.risk-line .rl-v{font-family:'JetBrains Mono',monospace;font-weight:600;text-align:right}
+.score-bar{height:6px;border-radius:3px;background:var(--line);position:relative;overflow:hidden}
+.score-bar i{position:absolute;left:0;top:0;bottom:0;border-radius:3px}
+.s1{background:var(--pass)}.s2{background:#7cb342}.s3{background:var(--soft)}.s4{background:var(--high)}
+.risk-total{display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:2px solid var(--line)}
+.risk-total .rt-l{font-size:12px;font-weight:700;color:var(--muted)}
+.risk-total .rt-band{font-size:16px;font-weight:800}
+.rules{display:flex;flex-wrap:wrap;gap:7px}
+.rule{font-size:11px;font-weight:600;padding:4px 9px;border-radius:6px;border:1px solid transparent}
+.rule.ok{color:var(--pass);background:var(--pass-bg);border-color:var(--pass-line)}
+.rule.fail{color:var(--high);background:var(--high-bg);border-color:var(--high-line)}
+.rule.view{color:var(--soft);background:var(--soft-bg);border-color:var(--soft-line)}
+.sig{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.sig .s-item{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:9px 11px}
+.sig .s-item .l{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--faint)}
+.sig .s-item .v{font-size:14px;font-weight:700;margin-top:3px;display:flex;align-items:center;gap:7px}
+.sig .s-item .v small{font-size:11px;font-weight:600;color:var(--muted)}
+.rel-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.rel-tbl th{text-align:right;font-weight:700;color:var(--faint);font-size:10px;letter-spacing:.04em;text-transform:uppercase;padding:7px 8px;border-bottom:1px solid var(--line)}
+.rel-tbl th:first-child{text-align:left}
+.rel-tbl td{text-align:right;padding:8px;border-bottom:1px solid var(--line);font-family:'JetBrains Mono',monospace}
+.rel-tbl td:first-child{text-align:left;font-family:inherit}
+.rel-tbl tr.master td{background:#f3f6fe}
+.rel-tbl tr.master td:first-child{font-weight:700}
+.share{font-size:9px;font-weight:700;padding:2px 6px;border-radius:5px}
+.share.y{color:var(--pass);background:var(--pass-bg)}.share.n{color:var(--soft);background:var(--soft-bg)}
+.seg-toggle{display:flex;gap:3px;background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:3px}
+.seg-toggle button{border:0;background:transparent;color:var(--muted);font-weight:600;font-size:12px;padding:6px 12px;border-radius:6px}
+.seg-toggle button[aria-current="true"]{background:var(--ink);color:#fff}
+
+/* filter bar */
+.filterbar{background:var(--surface);border-bottom:1px solid var(--line);padding:14px 26px}
+.fgrid{max-width:1300px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:12px 14px;align-items:end}
+@media(max-width:980px){.fgrid{grid-template-columns:repeat(2,1fr)}}
+.daterange{display:flex;align-items:center;gap:6px}
+.daterange input{min-width:0}
+.daterange span{color:var(--faint);font-size:12px}
+.ff label{display:block;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+.ff input,.ff select{width:100%;border:1px solid var(--line-strong);border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;color:var(--ink);background:var(--surface)}
+.ff input:focus,.ff select:focus{outline:none;border-color:var(--brand)}
+.ff.fbtns{display:flex;gap:8px;align-items:end;grid-column:4;justify-content:flex-end}
+.fapply{background:var(--brand);color:#fff;border:0;font-weight:700;font-size:13px;padding:9px 18px;border-radius:8px}
+.fapply:hover{background:var(--brand-ink)}
+.fclear{background:var(--surface);color:var(--muted);border:1px solid var(--line-strong);font-weight:600;font-size:13px;padding:9px 14px;border-radius:8px}
+
+/* global view */
+.gv-head{display:flex;align-items:center;gap:18px;margin-bottom:18px;flex-wrap:wrap}
+.gv-title{font-size:18px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:10px}
+.gv-title .ro{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--surface-2);border:1px solid var(--line);padding:3px 8px;border-radius:6px}
+.gv-sub{font-size:12.5px;color:var(--muted);margin-top:4px}
+.gv-head .gv-search{margin-left:auto;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line-strong);border-radius:9px;padding:8px 12px;min-width:240px;color:var(--faint);font-size:13px}
+.gv-search input{border:0;background:transparent;outline:none;font-size:13px;color:var(--ink);width:100%;font-weight:600}
+.ccy{display:flex;align-items:center;gap:9px}
+.ccy .lbl2{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+.gv-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;margin-bottom:16px}
+.gv-card .gc-h{padding:12px 16px;border-bottom:1px solid var(--line);font-weight:700;font-size:14px;display:flex;align-items:center;gap:9px}
+.gv-card .gc-h .note{margin-left:auto;font-size:11px;font-weight:600;color:var(--faint)}
+.gv-scroll{overflow-x:auto}
+.gtbl{width:100%;border-collapse:collapse;font-size:12px;min-width:1180px}
+.gtbl th{text-align:right;font-weight:700;color:var(--faint);font-size:9.5px;letter-spacing:.03em;text-transform:uppercase;padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap;background:var(--surface-2)}
+.gtbl th:first-child,.gtbl th.l{text-align:left}
+.gtbl td{text-align:right;padding:9px 10px;border-bottom:1px solid var(--line);font-family:'JetBrains Mono',monospace;white-space:nowrap}
+.gtbl td.l{text-align:left;font-family:inherit}
+.gtbl tr:hover td{background:#fafbfe}
+.gtbl tr.master-row td{background:#f3f6fe}
+.gtbl tr.master-row td.l{font-weight:700}
+.gtbl tr.tot td{font-weight:700;color:var(--ink);border-top:2px solid var(--line-strong);background:var(--surface-2)}
+.gtbl tr.tot:hover td{background:var(--surface-2)}
+.gtbl td.warn{color:var(--high);font-weight:700}
+.gtbl .rgn{font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:5px;background:#eef2fd;color:var(--brand-ink)}
+.gtbl .rgn.ca{background:#fdeeea;color:var(--high)}
+.gtbl .yn{font-size:9px;font-weight:700;padding:2px 6px;border-radius:5px}
+.gtbl .yn.y{color:var(--pass);background:var(--pass-bg)}
+.gtbl .yn.n{color:var(--muted);background:var(--surface-2)}
+.gtbl .flag{font-size:9px;font-weight:700;padding:2px 6px;border-radius:5px;color:var(--high);background:var(--high-bg)}
+
+/* detail banner slim + 5-col meta */
+.dbanner.slim{padding:18px 22px}
+.dmeta5{display:grid;grid-template-columns:repeat(5,1fr);gap:20px;border-top:1px solid var(--line);padding-top:15px}
+@media(max-width:900px){.dmeta5{grid-template-columns:repeat(2,1fr)}}
+.dmeta5 .m .l{font-size:11px;color:var(--muted);font-weight:600}
+.dmeta5 .m .v{font-size:16px;font-weight:700;margin-top:4px;letter-spacing:-.01em}
+.dmeta5 .m .v.rec-high{color:var(--high)}.dmeta5 .m .v.rec-pass{color:var(--pass)}.dmeta5 .m .v.rec-soft{color:var(--soft)}
+.dmeta5 .m .s{font-size:11px;color:var(--faint);margin-top:2px}
+
+/* upper split: left core / right AI */
+.upper{display:grid;grid-template-columns:1fr 1.05fr;gap:14px;align-items:start;margin-bottom:6px}
+@media(max-width:1000px){.upper{grid-template-columns:1fr}}
+.ucol{display:flex;flex-direction:column;gap:14px}
+
+/* key-value snapshot grid */
+.kv{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+@media(max-width:600px){.kv{grid-template-columns:repeat(2,1fr)}}
+.kv-i{background:var(--surface);padding:10px 12px}
+.kv-l{font-size:10px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--faint)}
+.kv-v{font-size:14.5px;font-weight:700;margin-top:3px}
+.jump{cursor:pointer;transition:background .12s,box-shadow .12s}
+.kv-i.jump:hover{background:#eef2fd}
+.s-item.jump:hover{border-color:var(--brand);box-shadow:0 0 0 1px var(--brand) inset}
+tr.jump:hover td{background:#eef2fd}
+.jump-note{font-size:11px;color:var(--faint);margin-top:8px}
+.section.flash{animation:flashbg 1.2s ease}
+@keyframes flashbg{0%{box-shadow:0 0 0 2px var(--brand)}100%{box-shadow:var(--shadow)}}
+
+/* sticky sub-nav */
+.subnav{position:sticky;top:57px;z-index:15;display:flex;gap:6px;flex-wrap:wrap;
+  background:rgba(255,255,255,.92);backdrop-filter:blur(6px);border:1px solid var(--line);
+  border-radius:11px;padding:7px 8px;margin-bottom:16px;box-shadow:var(--shadow)}
+.subnav button{border:1px solid transparent;background:var(--surface-2);color:var(--muted);
+  font-weight:600;font-size:12px;padding:6px 11px;border-radius:8px;white-space:nowrap}
+.subnav button:hover{background:var(--ink);color:#fff}
+.section,.panel{scroll-margin-top:110px}
+
+/* queue NRD */
+.nrd{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700}
+.nrd span{display:block;font-size:10px;color:var(--faint);font-weight:600}
+
+/* exposure */
+.util{font-weight:800}
+.util.pass{color:var(--pass)}.util.soft{color:var(--soft)}.util.high{color:var(--high)}
+.implied{margin-top:10px;font-size:12px;color:var(--muted);background:var(--surface-2);border:1px dashed var(--line-strong);border-radius:8px;padding:9px 12px}
+.implied b{color:var(--ink)}
+.implied span{color:var(--faint);font-size:11px}
+
+/* history table */
+.hist-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.hist-tbl th{text-align:right;font-weight:700;color:var(--faint);font-size:10px;letter-spacing:.05em;text-transform:uppercase;padding:8px 10px;border-bottom:1px solid var(--line)}
+.hist-tbl th.l{text-align:left}
+.hist-tbl td{text-align:right;padding:9px 10px;border-bottom:1px solid var(--line);font-family:'JetBrains Mono',monospace;vertical-align:top}
+.hist-tbl td.l{text-align:left;font-family:inherit}
+.hist-tbl td.note{color:var(--muted);font-size:12px;max-width:420px;white-space:normal}
+.hist-tbl tr:last-child td{border-bottom:0}
+.hchg{font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px}
+.hchg.up{color:var(--pass);background:var(--pass-bg)}
+.hchg.hold{color:var(--soft);background:var(--soft-bg)}
+
+/* banner ask + scope note */
+.dmeta5 .m .s.ask{color:var(--brand-ink);font-weight:600;background:#eef2fd;border-radius:6px;padding:3px 7px;display:inline-block;margin-top:4px}
+.scope-note{margin:12px 0 2px;font-size:12px;color:var(--muted);background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:9px 12px}
+.scope-note b{color:var(--ink)}
+
+/* AI drivers */
+.drivers{display:flex;flex-direction:column;gap:5px;margin-top:11px}
+.drv{font-size:12px;font-weight:600;padding:5px 10px;border-radius:7px;border:1px solid transparent;align-self:flex-start}
+.drv.pos{color:var(--pass);background:var(--pass-bg);border-color:var(--pass-line)}
+.drv.neg{color:var(--high);background:var(--high-bg);border-color:var(--high-line)}
+.drv.neu{color:var(--soft);background:var(--soft-bg);border-color:var(--soft-line)}
+
+/* AI per-topic assessments */
+.ai-secs{display:flex;flex-direction:column;gap:0;margin:13px 0;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.ai-sec{padding:10px 13px;border-bottom:1px solid var(--line);background:var(--surface)}
+.ai-sec:last-child{border-bottom:0}
+.ai-sec-h{font-size:12px;font-weight:800;display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.ai-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.ai-dot.ok{background:var(--pass)}.ai-dot.warn{background:var(--high)}.ai-dot.neu{background:var(--soft)}
+.ai-sec-b{font-size:12.5px;color:var(--muted);line-height:1.55}
+.ai-body{margin-top:11px}
+.ai-body p{color:var(--muted);font-size:12.5px}
+
+/* external data cards */
+.ext-flag{font-size:12.5px;padding:11px 14px;border-radius:9px;margin-bottom:13px;line-height:1.5}
+.ext-flag.ok{color:var(--pass);background:var(--pass-bg);border:1px solid var(--pass-line)}
+.ext-flag.warn{color:var(--soft);background:var(--soft-bg);border:1px solid var(--soft-line)}
+.ext-flag.bad{color:var(--high);background:var(--high-bg);border:1px solid var(--high-line)}
+.ext-flag b{font-weight:800}
+.ext-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:1000px){.ext-grid2{grid-template-columns:1fr}}
+.ext-tbl{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:4px}
+.ext-tbl th{text-align:right;font-weight:700;color:var(--faint);font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;padding:6px 8px;border-bottom:1px solid var(--line)}
+.ext-tbl th.l{text-align:left}
+.ext-tbl td{text-align:right;padding:7px 8px;border-bottom:1px solid var(--line);font-family:'JetBrains Mono',monospace;font-size:11.5px}
+.ext-tbl td.l{text-align:left;font-family:inherit;font-size:12px}
+.ext-tbl tr:last-child td{border-bottom:0}
+.ext-kvlist{display:flex;flex-direction:column;gap:0;margin-top:10px}
+.ext-kvlist div{display:flex;gap:12px;padding:7px 0;border-bottom:1px solid var(--line);font-size:12px}
+.ext-kvlist div:last-child{border-bottom:0}
+.ext-kvlist span{color:var(--muted);min-width:150px;flex-shrink:0}
+.ext-kvlist b{font-weight:600;line-height:1.45}
+.ext-grid{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:12px}
+@media(max-width:1000px){.ext-grid{grid-template-columns:1fr}}
+.ext-card{border:1px solid var(--line);border-radius:9px;padding:13px 14px;background:var(--surface-2)}
+.ext-h{font-weight:800;font-size:13.5px;margin-bottom:10px;display:flex;align-items:center;gap:9px}
+.ext-badge{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:6px}
+.ext-badge.ok{color:var(--pass);background:var(--pass-bg);border:1px solid var(--pass-line)}
+.ext-badge.warn{color:var(--soft);background:var(--soft-bg);border:1px solid var(--soft-line)}
+.ext-badge.bad{color:var(--high);background:var(--high-bg);border:1px solid var(--high-line)}
+.ext-badge.na{color:var(--muted);background:var(--surface);border:1px solid var(--line)}
+.ext-card .s-item{background:var(--surface)}
+.ext-sub{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--faint);margin:10px 0 7px}
+.ext-note{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5}
+
+/* section control cluster */
+.s-ctrl{margin-left:auto;display:flex;gap:10px;align-items:center}
+.seg-toggle.sm button{font-size:11px;padding:5px 10px}
+
+/* FS section */
+.fs-tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:12px}
+.fs-tabs button{border:0;background:transparent;color:var(--muted);font-weight:600;font-size:13px;padding:8px 14px;border-bottom:2px solid transparent;margin-bottom:-1px}
+.fs-tabs button[aria-current="true"]{color:var(--brand);border-bottom-color:var(--brand)}
+.fs-bar{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.fs-sel{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);font-weight:600}
+.fs-sel select{border:1px solid var(--line-strong);border-radius:7px;padding:5px 8px;font-family:inherit;font-size:12px}
+.fs-bar .spacer{flex:1}
+.ro-tag{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);background:var(--surface-2);border:1px solid var(--line);padding:4px 9px;border-radius:6px}
+.fs-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:14px}
+.fs-meta .fm{padding:8px 12px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:10px;font-size:12px}
+.fs-meta .fm span{color:var(--muted)}.fs-meta .fm b{font-weight:700}
+.fs-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.fs-tbl td{padding:8px 12px;border-bottom:1px solid var(--line)}
+.fs-tbl td:first-child{color:var(--ink)}
+.fs-tbl td:last-child{text-align:right;font-family:'JetBrains Mono',monospace}
+.fs-tbl tr.tot td{font-weight:700;background:#fdf6e3}
+
+/* rule detail table */
+.rule-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.rule-tbl th{text-align:left;font-weight:700;color:var(--faint);font-size:10px;letter-spacing:.05em;text-transform:uppercase;padding:8px 10px;border-bottom:1px solid var(--line)}
+.rule-tbl td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+.rule-tbl td.l{text-align:left}
+.rule-tbl tr:last-child td{border-bottom:0}
+
+.foot{max-width:1300px;margin:0 auto;padding:0 26px 40px;font-size:11.5px;color:var(--faint)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1 id="brand">Customer Review <span class="env">UAT</span></h1>
+  <div class="crumbnav" id="crumb" style="display:none">
+    <a onclick="showQueue()">Customer Review</a><span class="sep">/</span><span class="cur">Review Detail</span>
+  </div>
+  <div class="spacer"></div>
+  <div class="search">🔍<input placeholder="Search customer # or name…"/></div>
+  <button class="tbtn">Configure rules</button>
+</div>
+
+<!-- ============ QUEUE SCREEN ============ -->
+<div id="queue" class="screen">
+  <div class="scope">
+    <span class="lbl">View</span>
+    <div class="crumb">
+      <button class="seg" id="vw-region" aria-current="true" onclick="setView('region')">Current Region · US</button>
+      <button class="seg" id="vw-global" aria-current="false" onclick="setView('global')">Global</button>
+    </div>
+    <div class="spacer"></div>
+    <div class="link-note" id="viewNote">Worklist &amp; review for the current region.</div>
+  </div>
+
+  <!-- filter bar -->
+  <div class="filterbar" id="filterbar">
+    <div class="fgrid">
+      <div class="ff"><label>Company #</label><input placeholder="e.g. 100 / 200"/></div>
+      <div class="ff"><label>Review date range</label>
+        <div class="daterange"><input type="date"/><span>→</span><input type="date"/></div></div>
+      <div class="ff"><label>Customer # / name</label><input placeholder="Cust# or name"/></div>
+      <div class="ff"><label>Status</label>
+        <select><option>All</option><option>Needs manual review</option><option>AI-assisted · awaiting confirm</option><option>Full-auto cleared</option><option>Completed</option><option>Escalated</option><option>Declined</option></select></div>
+
+      <div class="ff"><label>Credit Analyst</label>
+        <select><option>All</option><option>N. Owens</option><option>P. Rao</option><option>J. Kim</option></select></div>
+      <div class="ff"><label>Analyst Manager</label>
+        <select><option>All</option><option>D. Fisher</option><option>M. Alvarez</option></select></div>
+      <div class="ff"><label>Director</label>
+        <select><option>All</option><option>S. Chen</option></select></div>
+      <div class="ff"><label>Current Reviewer</label>
+        <select><option>All</option><option>Me</option><option>N. Owens</option><option>P. Rao</option><option>J. Kim</option><option>Unassigned</option></select></div>
+
+      <div class="ff fbtns"><button class="fapply">Search</button><button class="fclear">Clear</button></div>
+    </div>
+  </div>
+
+  <div class="wrap" id="queueWrap">
+    <div class="kpis">
+      <div class="kpi acc-high"><div class="k-l"><span class="dot high"></span>Needs manual review</div><div class="k-v">18</div><div class="k-s">AI couldn't decide / failed</div></div>
+      <div class="kpi acc-soft"><div class="k-l"><span class="dot soft"></span>Past due &gt; $50k</div><div class="k-v">6</div><div class="k-s">Top triage priority</div></div>
+      <div class="kpi acc-ai"><div class="k-l"><span class="dot ai"></span>AI-assisted, awaiting confirm</div><div class="k-v">41</div><div class="k-s">Recommendation ready</div></div>
+      <div class="kpi acc-pass"><div class="k-l"><span class="dot pass"></span>Full-auto cleared</div><div class="k-v">73</div><div class="k-s">Phase 2 · view only</div></div>
+      <div class="kpi"><div class="k-l">Due this cycle</div><div class="k-v">138</div><div class="k-s">US · Jul 2026 batch</div></div>
+    </div>
+
+    <div class="toolbar">
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" aria-selected="true">My worklist <span class="n">59</span></button>
+        <button class="tab" role="tab" aria-selected="false">All due <span class="n">138</span></button>
+        <button class="tab" role="tab" aria-selected="false">Full-auto <span class="n">73</span></button>
+        <button class="tab" role="tab" aria-selected="false">Completed <span class="n">204</span></button>
+      </div>
+      <div class="legend">
+        <span><i class="lg high"></i>Manual</span><span><i class="lg soft"></i>Priority</span>
+        <span><i class="lg ai"></i>AI-assisted</span><span><i class="lg pass"></i>Full-auto</span>
+      </div>
+    </div>
+
+    <div class="col-head">
+      <div>Customer</div><div>Credit limit</div><div>Past due</div><div>Risk score</div><div>Review mode</div><div>Next review</div><div></div>
+    </div>
+    <div class="list" id="list"></div>
+  </div>
+
+  <!-- GLOBAL VIEW (reference only) -->
+  <div class="wrap" id="globalWrap" style="display:none">
+    <div class="gv-head">
+      <div>
+        <div class="gv-title">Global customer view <span class="ro">read-only</span></div>
+        <div class="gv-sub">One customer across all regions. Reference only — no review actions here.</div>
+      </div>
+      <div class="gv-search">🔍<input value="Xerox / 804783" /></div>
+      <div class="ccy">
+        <span class="lbl2">Currency</span>
+        <div class="seg-toggle"><button aria-current="true">USD</button><button aria-current="false">CAD</button></div>
+      </div>
+    </div>
+    <div id="globalBody"></div>
+  </div>
+</div>
+
+<!-- ============ DETAIL SCREEN ============ -->
+<div id="detail" class="detailpage">
+  <div class="wrap" id="detailBody"></div>
+</div>
+
+<div class="foot">Prototype · Worklist-first Customer Review. AI decides every account; the analyst re-runs, adjusts, and confirms on the detail page. Hand-off to biz is a CIS task — no email. Data is illustrative.</div>
+
+<script>
+const RISK_FACTORS=["Net Leverage","Altman Z-Score","FRISK Score","% of Collateral","Rev Growth","Current Ratio","ADP-W","Security"];
+const rows=[
+ {id:"804783",name:"XEROX IT SOLUTIONS",terr:"IT-Solutions · NY",terms:"NET 45",rel:"master",relLabel:"Financial Master · 4 subs",
+  limit:"$8,500,000",reqLimit:"—",pastDue:"$212,400",pastDueTier:"high",riskBand:"High Risk",riskNum:"3.67",mode:"manual",modeLabel:"Manual",conf:"0.42",priority:"high",
+  status:"In Review",submitted:"07/28/2026 09:12 AM",appId:"CR-2026-0783",recTerms:"NET 45",recRec:"Hold / Manual",recRecTone:"high",
+  ident:[["Financial Master","Yes"],["Relationship tree","4 subs linked"],["RSA / independent","1 (excluded)"]],identBadge:["ok","Linked"],
+  credit:[["Current limit","$8,500,000"],["ADP-W (90d)","73.9 days"],["DBT-W","3.79"]],creditBadge:["warn","Watch"],
+  risk:[["Risk band","High Risk"],["Weighted score","3.67 / 4"],["Trend","Worse QoQ"]],riskBadge:["high","High"],
+  files:[["Xerox_FS_FY2025.pdf","Balance Sheet","N. Owens","07/26/2026 14:30"],["Xerox_IncomeStmt_FY2025.pdf","Income Stmt","N. Owens","07/26/2026 14:31"],["AR_Aging_Jul2026.xlsx","Payment Terms","System","07/28/2026 01:00"]],
+  ai:"High-volume, mixed-terms account with heavy Amplify flooring exposure. Payment behaviour has deteriorated: ADP-W rose to 73.9 days and two NSF events landed in the last 90 days. Past due is concentrated in 61–90 and 90+ buckets.",
+  concl:"Multiple risk signals present — ADP-W over threshold and NSF events in 90 days. AI cannot clear this account; route to manual review with a limit hold pending updated financials.",conclTone:"high",
+  rec:[["New limit","$8,500,000","hold"],["Terms","NET 45",""],["Next review","+3 mo",""]],
+  scores:[4,4,4,3,4,3,4,4],
+  rules:[["R1 ADP-W",'fail','73.9d > 38d'],["R2 low-ADP+PD",'ok'],["R3 max-bal vs limit",'view','168%'],["R4 restricted",'ok'],["R5 NSF/CB",'fail','2 in 90d'],["R6 auto-count",'ok','2 of 3']],
+  aging:[["Aug 2025","$1,204,800","$742,100","$180,300","$68,900","$112,400","$100,100","18.0%"],["Jul 2025","$1,180,200","$760,400","$205,600","$92,300","$61,400","$60,500","15.4%"]],
+  signals:[["NACM Risk Score","62 / 100","Elevated"],["NACM Aging","DBT 41","worse"],["D&B Rating","3A2",""],["D&B PAYDEX","62","slow 15d"],["Sales Score","B-",""],["Collection Score","C+","slow"]],
+  relTbl:[["Xerox IT Solutions (Master)","master","—","$8,500,000","$4,120,000","$212,400"],["Xerox Financial Svcs","y","incl.","$1,020,000","$0",""],["Xerox Managed Print","y","incl.","$640,300","$0",""],["Xerox Gov Sales","n","$500,000","$210,400","$8,900",""],["Xerox Canada (RSA)","indep","$1,200,000","$780,000","$14,200",""]]
+ },
+ {id:"440380",name:"ATLANTA NETWORK TECH",terr:"Network · GA",terms:"NET 30",rel:"single",relLabel:"Single account",
+  limit:"$1,750,000",reqLimit:"$2,000,000",pastDue:"$0",pastDueTier:"none",riskBand:"Low Risk",riskNum:"1.92",mode:"ai",modeLabel:"AI-assisted",conf:"0.91",priority:"pass",
+  status:"AI-assisted",submitted:"07/28/2026 08:40 AM",appId:"CR-2026-0380",recTerms:"NET 30",recRec:"Increase / Confirm",recRecTone:"pass",
+  ident:[["Account type","Single account"],["Legal name match","Yes"],["Terms","Standard NET 30"]],identBadge:["ok","Verified"],
+  credit:[["Current limit","$1,750,000"],["ADP-W (90d)","29.4 days"],["DBT-W","-0.6"]],creditBadge:["ok","Good"],
+  risk:[["Risk band","Low Risk"],["Weighted score","1.92 / 4"],["Trend","Stable"]],riskBadge:["low","Low"],
+  files:[["Atlanta_FS_FY2025.pdf","Balance Sheet","System","07/20/2026 10:02"],["AR_Aging_Jul2026.xlsx","Payment Terms","System","07/28/2026 01:00"]],
+  ai:"Clean, on-time payer with mostly standard terms and no past due. ADP-W of 29.4 days is well inside terms; balance peaks at 61% of limit. All rules pass with high confidence.",
+  concl:"No risk signals. AI recommends a routine limit increase to $2,000,000 and a standard 12-month next review — analyst confirmation only.",conclTone:"pass",
+  rec:[["New limit","$2,000,000","up"],["Terms","NET 30",""],["Next review","+12 mo",""]],
+  scores:[1,1,2,2,2,1,2,1],
+  rules:[["R1 ADP-W",'ok','29.4d'],["R2 low-ADP+PD",'ok'],["R3 max-bal vs limit",'ok','61%'],["R4 restricted",'ok'],["R5 NSF/CB",'ok'],["R6 auto-count",'ok','1 of 3']],
+  aging:[["Aug 2025","$1,061,000","$1,061,000","$0","$0","$0","$0","0.0%"],["Jul 2025","$988,400","$988,400","$0","$0","$0","$0","0.0%"]],
+  signals:[["NACM Risk Score","28 / 100","Low"],["NACM Aging","DBT 4",""],["D&B Rating","4A1",""],["D&B PAYDEX","80","prompt"],["Sales Score","A-",""],["Collection Score","A",""]],
+  relTbl:[["Atlanta Network Tech (Single)","single","—","$1,750,000","$1,061,000","$0"]]
+ },
+ {id:"661209",name:"MERIDIAN HARDWARE GROUP",terr:"Distribution · TX",terms:"CS",rel:"master",relLabel:"Financial Master · 2 subs",
+  limit:"$3,200,000",reqLimit:"—",pastDue:"$44,800",pastDueTier:"soft",riskBand:"Moderate Risk",riskNum:"2.81",mode:"manual",modeLabel:"Manual",conf:"gate",priority:"soft",
+  status:"In Review",submitted:"07/27/2026 16:20 PM",appId:"CR-2026-1209",recTerms:"CS",recRec:"Hold / Manual",recRecTone:"soft",
+  ident:[["Financial Master","Yes"],["Relationship tree","2 subs linked"],["Terms group","CS"]],identBadge:["ok","Linked"],
+  credit:[["Current limit","$3,200,000"],["ADP-W (90d)","40.2 days"],["Past-due ratio","14% of AR"]],creditBadge:["warn","Watch"],
+  risk:[["Risk band","Moderate Risk"],["Weighted score","2.81 / 4"],["Auto-review count","3 of 3"]],riskBadge:["mod","Moderate"],
+  files:[["Meridian_FS_FY2024.pdf","Balance Sheet","System","06/15/2026 09:00"],["AR_Aging_Jul2026.xlsx","Payment Terms","System","07/27/2026 01:00"]],
+  ai:"Moderate-risk distributor on CS terms. Past-due ratio breached the 10% AR threshold (Rule 2) and auto-review count has reached the configured limit of 3, so the account is routed to manual regardless of AI confidence.",
+  concl:"Rule 2 failed (past-due 14% > 10%) and auto-review count = 3. Routed to manual. Recommend holding limit and requesting an updated financial statement.",conclTone:"soft",
+  rec:[["New limit","$3,200,000","hold"],["Terms","CS",""],["Next review","+6 mo",""]],
+  scores:[3,2,3,2,3,3,3,3],
+  rules:[["R1 ADP-W",'view','40.2d'],["R2 low-ADP+PD",'fail','PD 14% > 10%'],["R3 max-bal vs limit",'ok','88%'],["R4 restricted",'ok'],["R5 NSF/CB",'ok'],["R6 auto-count",'fail','3 of 3']],
+  aging:[["Aug 2025","$2,816,000","$2,404,200","$367,000","$28,900","$9,100","$6,800","1.6%"],["Jul 2025","$2,640,500","$2,281,000","$300,400","$40,200","$12,100","$6,800","2.1%"]],
+  signals:[["NACM Risk Score","48 / 100","Moderate"],["NACM Aging","DBT 22",""],["D&B Rating","2A3",""],["D&B PAYDEX","71","slow 8d"],["Sales Score","B",""],["Collection Score","B-",""]],
+  relTbl:[["Meridian Hardware (Master)","master","—","$3,200,000","$2,816,000","$44,800"],["Meridian West DC","y","incl.","$980,000","$0",""],["Meridian Pro Install","n","$250,000","$120,400","$0",""]]
+ },
+ {id:"512044",name:"BLUE RIDGE SYSTEMS",terr:"Reseller · NC",terms:"NET 30",rel:"single",relLabel:"Single account",
+  limit:"$620,000",reqLimit:"$680,000",pastDue:"$0",pastDueTier:"none",riskBand:"Very Low Risk",riskNum:"1.31",mode:"auto",modeLabel:"Full-auto",conf:"Phase 2",priority:"pass",
+  status:"Full-auto",submitted:"07/28/2026 01:00 AM",appId:"CR-2026-2044",recTerms:"NET 30",recRec:"Auto-cleared",recRecTone:"pass",
+  ident:[["Account type","Single account"],["Legal name match","Yes"],["Within thresholds","Yes"]],identBadge:["ok","Verified"],
+  credit:[["Current limit","$620,000"],["ADP-W (90d)","22.1 days"],["DBT-W","-2.1"]],creditBadge:["ok","Good"],
+  risk:[["Risk band","Very Low Risk"],["Weighted score","1.31 / 4"],["Trend","Stable"]],riskBadge:["low","Low"],
+  files:[["BlueRidge_FS_FY2025.pdf","Balance Sheet","System","07/12/2026 11:00"]],
+  ai:"Small, low-risk reseller inside all full-auto thresholds: limit under ceiling, standard terms, not restricted, clean history.",
+  concl:"All thresholds satisfied. In Phase 2 this account clears automatically. Shown here for visibility only — no analyst action required.",conclTone:"pass",
+  rec:[["New limit","$680,000","up"],["Terms","NET 30",""],["Next review","+12 mo",""]],
+  scores:[1,1,1,1,2,1,2,1],
+  rules:[["R1 ADP-W",'ok','22.1d'],["R2 low-ADP+PD",'ok'],["R3 max-bal vs limit",'ok','44%'],["R4 restricted",'ok'],["R5 NSF/CB",'ok'],["R6 auto-count",'ok','1 of 3']],
+  aging:[["Aug 2025","$272,800","$272,800","$0","$0","$0","$0","0.0%"]],
+  signals:[["NACM Risk Score","19 / 100","Low"],["NACM Aging","DBT 2",""],["D&B Rating","4A1",""],["D&B PAYDEX","82","prompt"],["Sales Score","A",""],["Collection Score","A",""]],
+  relTbl:[["Blue Ridge Systems (Single)","single","—","$620,000","$272,800","$0"]]
+ }
+];
+
+const bandColor=b=>b.includes("High")?"var(--high)":b.includes("Moderate")?"var(--soft)":(b.includes("Low Risk")&&!b.includes("Very"))?"#4f8a3d":"var(--pass)";
+
+/* ---- financial profile (what analyst most needs — from Master ECC List / Exec Summary) ---- */
+const gProfile={
+ "804783":{riskScore:"7 / 10",trend:"Declining",netLev:"3.4x",pastDuePct:"5.0%",adp:"73.9d",security:"UCC-1",collateral:"12%",clOfCollat:"168%",
+   maxSuggest:"$7,000,000",curLimit:"$8,500,000",proposed:"$8,500,000",hl:"(1,500,000)",nrd:"10/31/2026",rating:"B-",peOwned:"Yes",segment:"IT Solutions",
+   netDebtEbitda:["2.9x","3.1x","3.4x"],altman:["2.1","1.8","1.6"],ebitdaMargin:["4.1%","3.8%","3.5%"],gm:["11.2%","10.8%","10.4%"],currentRatio:["1.3","1.2","1.1"],frisk:"3",intCover:"1.9x",rev:["3,457","3,690","3,812"],revGrowth:"5.1%"},
+ "440380":{riskScore:"3 / 10",trend:"Improving",netLev:"1.1x",pastDuePct:"0.0%",adp:"29.4d",security:"None",collateral:"—",clOfCollat:"61%",
+   maxSuggest:"$2,400,000",curLimit:"$1,750,000",proposed:"$2,000,000",hl:"250,000",nrd:"07/31/2027",rating:"BB",peOwned:"No",segment:"Networking",
+   netDebtEbitda:["1.4x","1.2x","1.1x"],altman:["3.6","3.9","4.1"],ebitdaMargin:["6.8%","7.1%","7.4%"],gm:["14.1%","14.6%","15.0%"],currentRatio:["1.8","1.9","2.0"],frisk:"7",intCover:"6.2x",rev:["842","905","988"],revGrowth:"8.2%"},
+ "661209":{riskScore:"5 / 10",trend:"Declining",netLev:"2.6x",pastDuePct:"14.0%",adp:"40.2d",security:"PMSI",collateral:"20%",clOfCollat:"88%",
+   maxSuggest:"$3,200,000",curLimit:"$3,200,000",proposed:"$3,200,000",hl:"0",nrd:"01/31/2027",rating:"B",peOwned:"No",segment:"Distribution",
+   netDebtEbitda:["2.2x","2.4x","2.6x"],altman:["2.8","2.5","2.3"],ebitdaMargin:["5.2%","4.9%","4.6%"],gm:["12.0%","11.5%","11.1%"],currentRatio:["1.5","1.4","1.3"],frisk:"4",intCover:"3.1x",rev:["2,404","2,540","2,641"],revGrowth:"4.8%"},
+ "512044":{riskScore:"2 / 10",trend:"Stable",netLev:"0.6x",pastDuePct:"0.0%",adp:"22.1d",security:"None",collateral:"—",clOfCollat:"44%",
+   maxSuggest:"$900,000",curLimit:"$620,000",proposed:"$680,000",hl:"60,000",nrd:"07/31/2027",rating:"BBB",peOwned:"No",segment:"Reseller",
+   netDebtEbitda:["0.8x","0.7x","0.6x"],altman:["4.2","4.4","4.6"],ebitdaMargin:["7.9%","8.2%","8.5%"],gm:["16.0%","16.4%","16.8%"],currentRatio:["2.2","2.3","2.4"],frisk:"8",intCover:"9.4x",rev:["241","258","273"],revGrowth:"6.4%"}
+};
+
+/* ---- ADP/DBT detail ---- */
+const gADP={
+ "804783":{adpw:"73.9",dbtw:"3.79",wterms:"70.11",ytdAdp:"68.4",pyrAdp:"52.1",openOver39:"$96,300",maxBal90:"$1,424,600",maxBalPct:"168%",nsf:"2",cb:"1",type50:"cleared"},
+ "440380":{adpw:"29.4",dbtw:"-0.6",wterms:"30.0",ytdAdp:"28.9",pyrAdp:"31.2",openOver39:"$0",maxBal90:"$1,068,000",maxBalPct:"61%",nsf:"0",cb:"0",type50:"none"},
+ "661209":{adpw:"40.2",dbtw:"—",wterms:"CS",ytdAdp:"39.1",pyrAdp:"36.8",openOver39:"$41,200",maxBal90:"$2,816,000",maxBalPct:"88%",nsf:"0",cb:"0",type50:"none"},
+ "512044":{adpw:"22.1",dbtw:"-2.1",wterms:"30.0",ytdAdp:"21.4",pyrAdp:"23.0",openOver39:"$0",maxBal90:"$273,000",maxBalPct:"44%",nsf:"0",cb:"0",type50:"none"}
+};
+
+/* ---- financial statement (Balance Sheet excerpt) ---- */
+const gFS={
+ "804783":{fy:"2025",period:"P4",periodEnd:"12/31/2025",ccy:"USD",source:"Customer",srcDate:"01/20/2026",days:"365",auditor:"GRANT THORNTON",fs:"audited",opinion:"Unqualified",
+   bs:[["Cash","653,845"],["Accounts Receivable - Trade","805,065"],["Allowance For Doubtful Accounts","(14,286)"],["Accounts Receivable - Others","9,550"],["Inventories","380,250"],["Prepaid Expense","49,853"],["Total Current Assets","1,966,839","tot"],["PP&E (Net)","712,502"],["Total Assets","2,683,378","tot"],["Accounts Payable","604,200"],["Short-Term Debt","310,000"],["Total Current Liabilities","1,214,880","tot"],["Long-Term Debt","640,000"],["Total Equity","828,498","tot"]]}
+};
+// reuse Xerox FS shape for others as placeholder demo
+["440380","661209","512044"].forEach(k=>gFS[k]=gFS["804783"]);
+
+/* ---- exposure & purchases (limit-sizing anchors) ---- */
+const gExpo={
+ "804783":{pending:"$180,000",exposure:"$4,300,000",util:"51%",peak90:"$1,424,600 (Jun 14)",peakUtil:"168%",
+   ttm:"$14.2M",moAvg:"$1.18M",yoy:"+5.1%",since:"2009",implied:"$1.18M × 45d ≈ $1.8M/cycle"},
+ "440380":{pending:"$62,000",exposure:"$1,123,000",util:"64%",peak90:"$1,068,000 (Jul 02)",peakUtil:"61%",
+   ttm:"$11.9M",moAvg:"$0.99M",yoy:"+8.2%",since:"2015",implied:"$0.99M × 30d ≈ $1.0M/cycle"},
+ "661209":{pending:"$95,000",exposure:"$2,911,000",util:"91%",peak90:"$2,816,000 (Jul 25)",peakUtil:"88%",
+   ttm:"$31.7M",moAvg:"$2.64M",yoy:"+4.8%",since:"2012",implied:"CS terms — cash-secured cycle"},
+ "512044":{pending:"$18,400",exposure:"$291,200",util:"47%",peak90:"$273,000 (Jun 30)",peakUtil:"44%",
+   ttm:"$3.1M",moAvg:"$0.26M",yoy:"+6.4%",since:"2018",implied:"$0.26M × 30d ≈ $0.27M/cycle"}
+};
+
+/* ---- review history & notes (Walkthroughs pattern) ---- */
+const gHist={
+ "804783":[["03/15/2026","$7,000,000","$8,500,000","+21%","N. Owens","Increase for Amplify flooring program; UCC-1 filed. Watch ADP."],
+           ["09/20/2025","$7,000,000","$7,000,000","hold","N. Owens","Hold — mixed payment behaviour, requested FY25 audited FS."],
+           ["03/12/2025","$6,000,000","$7,000,000","+17%","P. Rao","Increase for RFP season. PE sponsor support letter on file."]],
+ "440380":[["07/30/2025","$1,500,000","$1,750,000","+17%","J. Kim","Routine annual — clean payer, rev growth supports increase."],
+           ["07/28/2024","$1,500,000","$1,500,000","hold","J. Kim","Hold pending FY24 statements."]],
+ "661209":[["01/22/2026","$3,200,000","$3,200,000","hold","N. Owens","Hold — past-due ratio rising, moved to CS watch."],
+           ["07/18/2025","$2,800,000","$3,200,000","+14%","P. Rao","EDU buying season overline, temp increase made permanent."]],
+ "512044":[["07/25/2025","$550,000","$620,000","+13%","System","Auto review pass — routine increase."]]
+};
+
+/* ---- review trigger & business ask ---- */
+const gTrig={
+ "804783":{trigger:"Rule fail — R1 ADP-W + R5 NSF",ask:"—"},
+ "440380":{trigger:"Cycle due (NRD 07/31/2026)",ask:"Sales requested $2,000,000 for Q4 program"},
+ "661209":{trigger:"Rule fail — R2 past-due % · auto-count 3 of 3",ask:"—"},
+ "512044":{trigger:"Cycle due (NRD 07/31/2026)",ask:"—"}
+};
+
+/* ---- external data detail (NACM / D&B) ---- */
+const gExt={
+ "804783":{
+  flag:["warn","Yellow Flag"],
+  nacm:{score:"62 / 100",scoreA:"⚠️ Elevated",dbt:"41",dbtA:"⚠️ worse QoQ",lines:"14",
+    aging:[["Current","58%"],["1–30","19%"],["31–60","11%"],["61–90","7%"],["90+","5%"]],
+    trades:[["Member A (IT distr.)","$2,400,000","$1,850,000","NET 45","Slow 30"],["Member B (components)","$900,000","$610,000","NET 30","Slow 15"],["Member C (logistics)","$350,000","$120,000","NET 30","Prompt"]],
+    note:"Pays other suppliers 41 days beyond terms on average — slower than with us."},
+  db:{rating:["3A2","✓"],paydex:["62","⚠️ pays 15d slow"],delinq:["72","⚠️ High delinquency risk"],failure:["48","⚠️ Moderate financial stress"],
+    tradelines:"36 trade experiences · high credit $3.2M · payment record on file",maxCredit:"$2,500,000 USD",
+    derog:"No insolvency, judgments, liens, suits, PPSA, or public filings reported.",
+    estab:"Commenced 1998 / registered 1998-03-12 — long-established, thick file.",
+    trend:"PAYDEX down from 68 (6 mo)."},
+  summary:"Credit risk moderate-high: internal ADP-W and NSF events corroborated by NACM DBT 41 and PAYDEX slippage. File depth supports net terms, but limit hold pending updated financials."
+ },
+ "440380":{
+  flag:["ok","Green Flag"],
+  nacm:{score:"28 / 100",scoreA:"✓ Low",dbt:"4",dbtA:"✓ stable",lines:"9",
+    aging:[["Current","93%"],["1–30","5%"],["31–60","2%"],["61–90","0%"],["90+","0%"]],
+    trades:[["Member A (IT distr.)","$1,200,000","$880,000","NET 30","Prompt"],["Member B (telecom)","$500,000","$310,000","NET 30","Prompt"]],
+    note:"Consistently prompt across trade group."},
+  db:{rating:["4A1","✓"],paydex:["80","✓ prompt"],delinq:["12","✓ Low"],failure:["9","✓ Low"],
+    tradelines:"22 trade experiences · high credit $1.9M · strong payment record",maxCredit:"$2,200,000 USD",
+    derog:"No insolvency, judgments, liens, suits, PPSA, or public filings reported.",
+    estab:"Commenced 2004 / registered 2004-06-01 — established, supportive file.",
+    trend:"PAYDEX stable 12 mo."},
+  summary:"Credit risk low: prompt across internal and external trade files; D&B max credit supports requested increase to $2.0M on net terms."
+ },
+ "661209":{
+  flag:["warn","Yellow Flag"],
+  nacm:{score:"48 / 100",scoreA:"⚠️ Moderate",dbt:"22",dbtA:"⚠️ worse QoQ",lines:"11",
+    aging:[["Current","71%"],["1–30","15%"],["31–60","9%"],["61–90","3%"],["90+","2%"]],
+    trades:[["Member A (hardware)","$1,600,000","$1,340,000","NET 30","Slow 15"],["Member B (electrical)","$700,000","$505,000","NET 30","Slow 10"],["Member C (fasteners)","$240,000","$95,000","NET 30","Prompt"]],
+    note:"Slowing across trade group; consistent with our past-due rise."},
+  db:{rating:["2A3","⚠️ Fair"],paydex:["71","⚠️ pays 8d slow"],delinq:["44","⚠️ Moderate"],failure:["39","⚠️ Moderate"],
+    tradelines:"18 trade experiences · high credit $2.1M · payment record on file",maxCredit:"$2,800,000 USD",
+    derog:"No insolvency, judgments, liens, suits, PPSA, or public filings reported.",
+    estab:"Commenced 2001 / registered 2001-09-20 — established.",
+    trend:"PAYDEX down from 75 (6 mo)."},
+  summary:"Credit risk moderate: past-due breach and trade-group slowing align. Hold limit on CS terms; request updated FS before any increase."
+ },
+ "512044":{
+  flag:["ok","Green Flag"],
+  nacm:{score:"19 / 100",scoreA:"✓ Low",dbt:"2",dbtA:"✓ stable",lines:"6",
+    aging:[["Current","96%"],["1–30","4%"],["31–60","0%"],["61–90","0%"],["90+","0%"]],
+    trades:[["Member A (IT distr.)","$300,000","$180,000","NET 30","Prompt"],["Member B (peripherals)","$120,000","$60,000","NET 30","Prompt"]],
+    note:"Prompt payer across trade group."},
+  db:{rating:["4A1","✓"],paydex:["82","✓ prompt"],delinq:["8","✓ Low"],failure:["6","✓ Low"],
+    tradelines:"12 trade experiences · high credit $520K · strong payment record",maxCredit:"$750,000 USD",
+    derog:"No insolvency, judgments, liens, suits, PPSA, or public filings reported.",
+    estab:"Commenced 2013 / registered 2015-04-24 — established.",
+    trend:"PAYDEX stable."},
+  summary:"Credit risk low: clean internal and external files; full-auto thresholds satisfied."
+ }
+};
+
+/* ---- AI per-topic assessments (summary · key points · verdict per area) ---- */
+const gAiSec={
+ "804783":[
+  ["Payment behavior","warn","ADP-W deteriorated to 73.9d vs 38d threshold; two NSF events in 90 days. Past due $212K concentrated in 61–90 and 90+ buckets. Internal payment trend is the primary risk driver."],
+  ["Financials","warn","FY25 audited (Grant Thornton, unqualified). Net leverage 3.4x and rising; Altman-Z 1.6 in distress zone; EBITDA margin compressing 3 years running. Financials declining."],
+  ["External signals","warn","NACM DBT 41 and PAYDEX 62 (15d slow) corroborate internal slowing — customer pays other suppliers slower than us. D&B delinquency score high (72). No derogatory filings."],
+  ["Relationship & exposure","ok","Financial group of 4 subs; exposure $4.3M at 51% utilization, but 90-day peak hit 168% of limit. UCC-1 security on file, collateral 12%."]
+ ],
+ "440380":[
+  ["Payment behavior","ok","ADP-W 29.4d inside NET 30; zero past due for 12+ months. All six review rules pass."],
+  ["Financials","ok","Revenue +8.2% YoY; Altman-Z 4.1, net leverage 1.1x, current ratio 2.0. Improving three-year trend across all metrics."],
+  ["External signals","ok","NACM 28/100 prompt across 9 tradelines; PAYDEX 80 stable; D&B max credit $2.2M supports the requested $2.0M."],
+  ["Relationship & exposure","ok","Single account, utilization 64% with clean peak history. Sales requested $2.0M for Q4 program — supported by purchase trend ($0.99M/mo × 30d)."]
+ ],
+ "661209":[
+  ["Payment behavior","warn","Past-due ratio 14% of AR breached the 10% threshold (R2). ADP-W 40.2d marginal. Auto-review count reached 3 of 3 — mandatory manual."],
+  ["Financials","warn","FY24 statements stale (18 months). Net leverage 2.6x rising, Altman-Z 2.3 grey zone, margins compressing."],
+  ["External signals","warn","NACM trade group slowing (DBT 22, worse QoQ) consistent with our past-due rise; PAYDEX down from 75 to 71 in 6 months."],
+  ["Relationship & exposure","neu","Utilization 91% — effectively at limit on CS terms. PMSI security. Group of 2 subs; one sharing=N reviewed standalone."]
+ ],
+ "512044":[
+  ["Payment behavior","ok","ADP-W 22.1d, zero past due, no NSF/chargeback. All rules pass."],
+  ["Financials","ok","Altman-Z 4.6, FRISK 8, leverage 0.6x. Small but healthy."],
+  ["External signals","ok","NACM 19/100 prompt; PAYDEX 82; clean D&B file since 2013."],
+  ["Relationship & exposure","ok","Single account at 47% utilization. All full-auto thresholds satisfied."]
+ ]
+};
+
+/* ---- AI top decision drivers ---- */
+const gDrivers={
+ "804783":[["neg","ADP-W 73.9d vs 38d threshold (R1)"],["neg","2 NSF events in 90d (R5)"],["neg","Net leverage 3.4x, declining financials"]],
+ "440380":[["pos","ADP-W 29.4d, no past due"],["pos","Rev growth +8.2%, Altman-Z 4.1"],["pos","Utilization 64% with clean peak history"]],
+ "661209":[["neg","Past-due 14% of AR vs 10% threshold (R2)"],["neg","Auto-review count 3 of 3 (R6)"],["neu","Utilization 91% — near limit on CS terms"]],
+ "512044":[["pos","All full-auto thresholds satisfied"],["pos","FRISK 8, Altman-Z 4.6"],["pos","Utilization 47%, prompt PAYDEX"]]
+};
+
+/* ---- decision scope ---- */
+const gScope={
+ "804783":"Applies to financial group — master + 2 sharing=Y subs. Xerox Gov Sales (sharing=N) and Xerox Canada (RSA) reviewed standalone.",
+ "440380":"Applies to this single account.",
+ "661209":"Applies to financial group — master + 1 sharing=Y sub. Meridian Pro Install (sharing=N) reviewed standalone.",
+ "512044":"Applies to this single account."
+};
+const amtCell=(v,t)=>`<div class="amt ${t==='high'?'high':t==='soft'?'soft':''}">${v}${t==='high'?'<span class="s">&gt; $50k</span>':t==='soft'?'<span class="s">$25–50k</span>':(v==='$0'?'<span class="s">no past due</span>':'')}</div>`;
+const modePill=m=>({manual:'high',ai:'ai',auto:'pass'})[m];
+
+/* ---------- queue ---------- */
+function rowHtml(r){return `<div class="row p-${r.priority}">
+  <div class="cust"><div class="name">${r.name} <span class="rel-tag ${r.rel==='master'?'master':r.rel==='indep'?'indep':''}">${r.rel==='master'?'MASTER':r.rel==='single'?'SINGLE':'SUB'}</span></div>
+    <div class="sub"><span class="mono">#${r.id}</span><span>${r.terr}</span><span>Terms ${r.terms}</span></div></div>
+  <div><div class="amt">${r.limit}</div></div>
+  <div>${amtCell(r.pastDue,r.pastDueTier)}</div>
+  <div class="risk-wrap"><span class="risk-band" style="color:${bandColor(r.riskBand)}">${r.riskBand}</span><span class="risk-num">${r.riskNum}</span></div>
+  <div class="mode-cell"><span class="pill ${modePill(r.mode)}">${r.modeLabel}</span><span class="conf">${r.mode==='auto'?r.conf:(r.conf==='gate'?'large-limit gate':'AI conf. '+r.conf)}</span></div>
+  <div class="nrd">${gProfile[r.id].nrd.slice(0,5)}<span>${gProfile[r.id].nrd.slice(6)}</span></div>
+  <div><button class="open-btn ${r.mode==='auto'?'ghost':''}" onclick="openDetail('${r.id}')">${r.mode==='auto'?'View':'Review'}</button></div>
+</div>`;}
+document.getElementById('list').innerHTML=rows.map(rowHtml).join('');
+
+/* ---------- detail ---------- */
+function scardHtml(title,icon,cls,badge,lines){
+  return `<div class="scard ${cls}"><div class="sc-h">${icon} <span class="t">${title}</span>
+    <span class="badge ${badge[0]}">${badge[1]}</span><a class="more">View more</a></div>
+    <div class="sc-b">${lines.map((l,i)=>`<div class="sline ${i%2?'':''}"><span class="sl-l">${l[0]}</span><span class="sl-v ${l[1]==='Missing'||l[1]==='Not provided'?'miss':''}">${l[1]}</span></div>`).join('')}</div></div>`;
+}
+function riskRows(r){return RISK_FACTORS.map((f,i)=>{const s=r.scores[i];return `<div class="risk-line"><span class="rl-n">${f}</span><div class="score-bar"><i class="s${s}" style="width:${s/4*100}%"></i></div><span class="rl-v">${s} / 4</span></div>`;}).join('');}
+function rulesRow(r){return r.rules.map(([n,st,note])=>`<span class="rule ${st}">${st==='ok'?'✓':st==='fail'?'✕':'◐'} ${n}${note?' · '+note:''}</span>`).join('');}
+function agingTbl(r){const h=`<tr><th>Month</th><th>AR Bal</th><th>Current</th><th>1–30</th><th>31–60</th><th>61–90</th><th>90+</th><th>PD %</th></tr>`;
+  const b=r.aging.map(a=>`<tr><td>${a[0]}</td><td>${a[1]}</td><td>${a[2]}</td><td>${a[3]}</td><td>${a[4]}</td><td class="${a[5]!=='$0'?'warn':''}">${a[5]}</td><td class="${a[6]!=='$0'?'warn':''}">${a[6]}</td><td>${a[7]}</td></tr>`).join('');
+  return `<table class="tbl">${h}${b}</table>`;}
+function signalsGrid(r){return `<div class="sig">`+r.signals.map(s=>`<div class="s-item"><div class="l">${s[0]}</div><div class="v">${s[1]} ${s[2]?'<small>'+s[2]+'</small>':''}</div></div>`).join('')+`</div>`;}
+function relTbl(r){const h=`<tr><th>Account</th><th>Share</th><th>Own limit</th><th>AR balance</th><th>Past due</th></tr>`;
+  const b=r.relTbl.map(x=>{const isM=x[1]==='master';
+    let share=x[1]==='y'?'<span class="share y">Y</span>':x[1]==='n'?'<span class="share n">N</span>':x[1]==='indep'?'<span class="rel-tag indep">indep</span>':'—';
+    return `<tr class="${isM?'master':''}"><td>${x[0]}</td><td style="text-align:center">${share}</td><td>${x[2]}</td><td>${x[3]}</td><td>${x[4]}</td></tr>`;}).join('');
+  const note=r.rel==='master'?`<div style="font-size:11px;color:var(--faint);margin-top:9px">sharing=Y rolls up into master · sharing=N &amp; independent (RSA) subs reviewed standalone</div>`:'';
+  return `<table class="rel-tbl">${h}${b}</table>${note}`;}
+function filesTbl(r){const b=r.files.map(f=>`<tr><td class="fn">${f[0]}</td><td>${f[1]}</td><td>${f[2]}</td><td>${f[3]}</td><td class="del">🗑</td></tr>`).join('');
+  return `<table class="atbl"><tr><th>File name</th><th>Category</th><th>Uploaded by</th><th>Date</th><th></th></tr>${b}</table>`;}
+
+/* ===== detail helper builders ===== */
+function jump(sec){document.getElementById(sec).scrollIntoView({behavior:'smooth',block:'start'});
+  const el=document.getElementById(sec);el.classList.add('flash');setTimeout(()=>el.classList.remove('flash'),1200);}
+function coreSnapshot(r){
+  const p=gProfile[r.id];
+  // [label, value, jump-target section]
+  const rows=[
+    ["Current credit limit",r.limit,"sec-rel"],["Proposed limit",p.proposed,"sec-rel"],["Max suggested limit",p.maxSuggest,"sec-risk"],
+    ["AR balance",r.relTbl[0][4],"sec-aging"],["Past due",r.pastDue,"sec-aging"],["Past due %",p.pastDuePct,"sec-aging"],
+    ["Terms",r.terms,"sec-rel"],["ADP-W",p.adp,"sec-adp"],["Internal risk score",p.riskScore,"sec-risk"],
+    ["Net leverage",p.netLev,"sec-risk"],["Financials",p.trend,"sec-fs"],["Next review date",p.nrd,"sec-rules"],
+    ["NACM risk / DBT",gExt[r.id].nacm.score.split(' ')[0]+" · "+gExt[r.id].nacm.dbt,"sec-ext"],
+    ["D&B PAYDEX",gExt[r.id].db.paydex[0]+" ("+gExt[r.id].db.paydex[1].replace('⚠️ ','').replace('✓ ','')+")","sec-ext"],
+    ["External flag",gExt[r.id].flag[1],"sec-ext"]
+  ];
+  return `<div class="kv">${rows.map(x=>`<div class="kv-i jump" onclick="jump('${x[2]}')"><div class="kv-l">${x[0]}</div><div class="kv-v">${x[1]}</div></div>`).join('')}</div>
+    <div class="jump-note">↕ Tap any figure to jump to its detail below.</div>`;
+}
+function creditProfile(r){
+  const p=gProfile[r.id];
+  // [label, value, jump]
+  const fin=[
+    ["CIQ rating",p.rating,"sec-risk"],["PE owned",p.peOwned,"sec-risk"],["Segment",p.segment,"sec-risk"],["Security",p.security,"sec-risk"],
+    ["Collateral",p.collateral,"sec-risk"],["CL % of collateral",p.clOfCollat,"sec-adp"],["FRISK score",p.frisk,"sec-risk"],["Interest coverage",p.intCover,"sec-risk"]
+  ];
+  const tri=(label,arr,jmp)=>`<tr class="jump" onclick="jump('${jmp}')"><td class="l">${label}</td><td>${arr[0]}</td><td>${arr[1]}</td><td>${arr[2]}</td></tr>`;
+  return `
+    <div class="sig" style="grid-template-columns:repeat(2,1fr)">${fin.map(x=>`<div class="s-item jump" onclick="jump('${x[2]}')"><div class="l">${x[0]}</div><div class="v">${x[1]}</div></div>`).join('')}</div>
+    <table class="tbl" style="margin-top:12px"><tr><th class="l">Trend (3-yr)</th><th>FY-2</th><th>FY-1</th><th>FY</th></tr>
+      ${tri("Net Debt / EBITDA",p.netDebtEbitda,"sec-risk")}${tri("Altman Z-Score",p.altman,"sec-risk")}${tri("EBITDA Margin",p.ebitdaMargin,"sec-fs")}
+      ${tri("Gross Margin %",p.gm,"sec-fs")}${tri("Current Ratio",p.currentRatio,"sec-risk")}${tri("Revenue ($M)",p.rev,"sec-fs")}
+      <tr><td class="l">Avg Rev Growth</td><td colspan="3" style="text-align:right;font-weight:700">${p.revGrowth}</td></tr>
+    </table>`;
+}
+function exposureBlock(r){
+  const e=gExpo[r.id];
+  const utilNum=parseInt(e.util);
+  const utilCls=utilNum>=85?'high':utilNum>=65?'soft':'pass';
+  const items=[
+    ["Total exposure (AR + pending)",e.exposure,"sec-aging"],["Utilization of limit",`<span class="util ${utilCls}">${e.util}</span>`,"sec-aging"],
+    ["Peak balance (90d)",e.peak90,"sec-adp"],["Peak % of limit",e.peakUtil,"sec-adp"],
+    ["TTM purchases",e.ttm,"sec-fs"],["Monthly avg purchases",e.moAvg,"sec-fs"],
+    ["Purchases YoY",e.yoy,"sec-fs"],["Purchase since",e.since,"sec-rel"]
+  ];
+  return `<div class="kv" style="grid-template-columns:repeat(4,1fr)">${items.map(x=>`<div class="kv-i jump" onclick="jump('${x[2]}')"><div class="kv-l">${x[0]}</div><div class="kv-v">${x[1]}</div></div>`).join('')}</div>
+    <div class="implied">Limit-sizing anchor: <b>${e.implied}</b> <span>(monthly purchases × terms days)</span></div>`;
+}
+function historySection(r){
+  const h=gHist[r.id];
+  const rowsH=h.map(x=>`<tr><td class="l">${x[0]}</td><td>${x[1]}</td><td>${x[2]}</td><td style="text-align:center"><span class="hchg ${x[3]==='hold'?'hold':'up'}">${x[3]}</span></td><td class="l">${x[4]}</td><td class="l note">${x[5]}</td></tr>`).join('');
+  return `<table class="hist-tbl"><tr><th class="l">Date</th><th>Old limit</th><th>New limit</th><th>Δ</th><th class="l">By</th><th class="l">Comments / rationale</th></tr>${rowsH}</table>`;
+}
+function extSection(r){
+  const e=gExt[r.id];
+  const nacmAging=e.nacm.aging.map(x=>`<div class="s-item"><div class="l">${x[0]}</div><div class="v">${x[1]}</div></div>`).join('');
+  const tradeRows=e.nacm.trades.map(t=>`<tr><td class="l">${t[0]}</td><td>${t[1]}</td><td>${t[2]}</td><td class="l">${t[3]}</td><td class="l">${t[4]}</td></tr>`).join('');
+  const dbRow=(m,v,a)=>`<tr><td class="l"><b>${m}</b></td><td>${v}</td><td class="l">${a}</td></tr>`;
+  return `
+  <div class="ext-flag ${e.flag[0]}">Overall external assessment: <b>${e.flag[1]}</b> — ${e.summary}</div>
+  <div class="ext-grid2">
+    <div class="ext-card">
+      <div class="ext-h">NACM <span class="ext-badge ${e.nacm.scoreA.includes('✓')?'ok':'warn'}">${e.nacm.scoreA.replace('⚠️ ','').replace('✓ ','')}</span></div>
+      <table class="ext-tbl"><tr><th class="l">Metric</th><th>Value</th><th class="l">Assessment</th></tr>
+        ${dbRow('NACM Risk Score',e.nacm.score,e.nacm.scoreA)}
+        ${dbRow('NACM DBT',e.nacm.dbt,e.nacm.dbtA)}
+      </table>
+      <div class="ext-sub">Trade-group aging · ${e.nacm.lines} tradelines</div>
+      <div class="sig" style="grid-template-columns:repeat(5,1fr)">${nacmAging}</div>
+      <div class="ext-sub" style="margin-top:12px">Tradeline detail</div>
+      <table class="ext-tbl"><tr><th class="l">Reporting member</th><th>High credit</th><th>Balance</th><th class="l">Terms</th><th class="l">Manner</th></tr>${tradeRows}</table>
+      <div class="ext-note">${e.nacm.note}</div>
+    </div>
+    <div class="ext-card">
+      <div class="ext-h">D&amp;B <span class="ext-badge ${e.db.paydex[1].includes('✓')?'ok':'warn'}">PAYDEX ${e.db.paydex[0]}</span></div>
+      <table class="ext-tbl"><tr><th class="l">Metric</th><th>Value</th><th class="l">Assessment</th></tr>
+        ${dbRow('Rating',e.db.rating[0],e.db.rating[1])}
+        ${dbRow('PAYDEX',e.db.paydex[0],e.db.paydex[1])}
+        ${dbRow('Delinquency Score',e.db.delinq[0],e.db.delinq[1])}
+        ${dbRow('Failure Score',e.db.failure[0],e.db.failure[1])}
+      </table>
+      <div class="ext-kvlist">
+        <div><span>Tradelines</span><b>${e.db.tradelines}</b></div>
+        <div><span>D&amp;B max credit recommendation</span><b>${e.db.maxCredit}</b></div>
+        <div><span>Derogatory remarks</span><b>${e.db.derog}</b></div>
+        <div><span>Establishment</span><b>${e.db.estab}</b></div>
+      </div>
+      <div class="ext-note">${e.db.trend}</div>
+    </div>
+  </div>`;
+}
+function adpDetail(r){
+  const a=gADP[r.id];
+  const items=[["ADP-W",a.adpw+"d"],["DBT-W",a.dbtw],["Weighted Terms",a.wterms],["YTD ADP",a.ytdAdp+"d"],["PYR ADP",a.pyrAdp+"d"],
+    ["Open invoices ≥39d",a.openOver39],["Max balance (90d)",a.maxBal90],["Max bal % of limit",a.maxBalPct],["NSF (66/99)",a.nsf],["Chargeback (98)",a.cb],["Type 50",a.type50]];
+  return `<div class="sig" style="grid-template-columns:repeat(4,1fr)">${items.map(x=>`<div class="s-item"><div class="l">${x[0]}</div><div class="v">${x[1]}</div></div>`).join('')}</div>`;
+}
+function rulesDetail(r){
+  const desc={
+    "R1 ADP-W":"ADP-W &gt; 38 days (90-day weighted, financial group)",
+    "R2 low-ADP+PD":"ADP-W &lt; 39d but open invoices ≥39d and past due ≥10% of balance",
+    "R3 max-bal vs limit":"Max balance in 90d ≥150% of credit limit (visibility only)",
+    "R4 restricted":"Account flagged restricted (any sharing=Y sub)",
+    "R5 NSF/CB":"Invoice types 66/98/99 (NSF, chargeback) in last 90d",
+    "R6 auto-count":"Reviewed by Auto Review N times → force manual"
+  };
+  return `<table class="rule-tbl"><tr><th class="l">Rule</th><th class="l">Condition</th><th>Result</th><th class="l">Detail</th></tr>
+    ${r.rules.map(([n,st,note])=>`<tr><td class="l"><b>${n}</b></td><td class="l">${desc[n]||''}</td>
+      <td><span class="rule ${st}">${st==='ok'?'PASS':st==='fail'?'FAIL':'VIEW'}</span></td><td class="l">${note||'—'}</td></tr>`).join('')}
+  </table>`;
+}
+function fsSection(r){
+  const f=gFS[r.id];
+  const head=[["Fiscal Year",f.fy],["Period End",f.periodEnd],["Reporting Currency",f.ccy],["Source",f.source],["Source Date",f.srcDate],["# Days in Period",f.days],["Auditor",f.auditor],["F/S",f.fs],["Auditor Opinion",f.opinion]];
+  const bs=f.bs.map(x=>`<tr class="${x[2]==='tot'?'tot':''}"><td class="l">${x[0]}</td><td>${x[1]}</td></tr>`).join('');
+  return `
+    <div class="fs-tabs"><button aria-current="true">Balance Sheet</button><button>Income Stmt</button><button>Cash Flow Stmt</button><button>Financial Ratios</button></div>
+    <div class="fs-bar">
+      <div class="fs-sel"><span>FY</span><select><option>${f.fy}</option><option>2024</option></select><span>FY Period</span><select><option>${f.period}</option><option>P3</option></select></div>
+      <div class="spacer"></div>
+      <span class="ro-tag">view only</span>
+    </div>
+    <div class="fs-meta">${head.map(x=>`<div class="fm"><span>${x[0]}</span><b>${x[1]}</b></div>`).join('')}</div>
+    <table class="fs-tbl">${bs}</table>`;
+}
+function relTblRegion(r){
+  // region-selectable relationship rollup styled like global view
+  const head=["Region","Company","Cust#","Cust Name","Share","Own Limit","AR Balance","Past Due"];
+  const rowsHtml=r.relTbl.map(x=>{
+    const isM=x[1]==='master';
+    const share=x[1]==='y'?'<span class="yn y">Y</span>':x[1]==='n'?'<span class="yn n">N</span>':x[1]==='indep'?'<span class="flag">indep</span>':'—';
+    const region=x[0].includes('Canada')||x[0].includes('RSA')?'CA':'US';
+    return `<tr class="${isM?'master-row':''}"><td class="l"><span class="rgn ${region==='CA'?'ca':''}">${region}</span></td><td class="l">${isM?'100':(x[1]==='n'?'200':'100')}</td><td class="l">${r.id}</td><td class="l">${x[0]}</td><td class="l">${share}</td><td>${x[2]}</td><td>${x[3]}</td><td class="${x[4]!=='$0'&&x[4]!==''?'warn':''}">${x[4]||'$0'}</td></tr>`;
+  }).join('');
+  return `<table class="gtbl" style="min-width:820px"><tr>${head.map((h,i)=>`<th class="${i<5?'l':''}">${h}</th>`).join('')}</tr>${rowsHtml}</table>
+    <div style="font-size:11px;color:var(--faint);margin-top:9px">sharing=Y rolls up into master · sharing=N &amp; independent (RSA) subs reviewed standalone</div>`;
+}
+function agingRegion(r){
+  const head=["Region","Company","Cust#","AR Balance","Current","1–30","31–60","61–90","91–180","181–360","360+"];
+  // build one aging line per rel account (demo: master detailed, others simple)
+  const lines=r.relTbl.map((x,i)=>{
+    const region=x[0].includes('Canada')||x[0].includes('RSA')?'CA':'US';
+    const ar=x[3]; 
+    if(i===0){ return ["US","100",r.id,ar,r.aging[0][2],r.aging[0][3],r.aging[0][4],r.aging[0][5],r.aging[0][6],"$0","$0"]; }
+    return [region, region==='CA'?'300':'100', r.id, ar, ar,"$0","$0","$0","$0","$0","$0"];
+  });
+  const body=lines.map(x=>`<tr><td class="l"><span class="rgn ${x[0]==='CA'?'ca':''}">${x[0]}</span></td><td class="l">${x[1]}</td><td class="l">${x[2]}</td>${x.slice(3).map((v,j)=>`<td class="${j>=4&&v!=='$0'?'warn':''}">${v}</td>`).join('')}</tr>`).join('');
+  return `<table class="gtbl" style="min-width:900px"><tr>${head.map((h,i)=>`<th class="${i<3?'l':''}">${h}</th>`).join('')}</tr>${body}</table>`;
+}
+
+function detailHtml(r){
+  const isAuto=r.mode==='auto';
+  return `
+  <div class="dbanner slim">
+    <div class="dtop">
+      <h2><span class="num">${r.id}</span> — ${r.name}</h2>
+      <span class="status-tag">${r.status}</span>
+      <span class="rel-tag ${r.rel==='master'?'master':''}" style="margin-left:4px">${r.relLabel}</span>
+      <div class="spacer"></div>
+      <button class="hbtn">⤓ Export Review</button>
+    </div>
+    <div class="dmeta5">
+      <div class="m"><div class="l">Review trigger</div><div class="v" style="font-size:13.5px">${gTrig[r.id].trigger}</div>${gTrig[r.id].ask!=='—'?`<div class="s ask">💬 ${gTrig[r.id].ask}</div>`:''}</div>
+      <div class="m"><div class="l">Recommended limit</div><div class="v">${r.rec[0][1]}</div><div class="s">Current ${r.limit}</div></div>
+      <div class="m"><div class="l">Recommended terms</div><div class="v">${r.recTerms}</div></div>
+      <div class="m"><div class="l">AI recommendation</div><div class="v rec-${r.recRecTone}">${r.recRec}</div><div class="s">Risk ${r.riskBand} · ${r.riskNum}/4</div></div>
+      <div class="m"><div class="l">Current reviewer</div><div class="v" style="font-size:14px">${isAuto?'— (auto)':'You'}</div><div class="s">Next review ${gProfile[r.id].nrd}</div></div>
+    </div>
+  </div>
+
+  <!-- sticky sub-nav -->
+  <div class="subnav" id="subnav">
+    <button onclick="jump('sec-ai')">🧠 AI Review</button>
+    <button onclick="jump('sec-hist')">🕘 History</button>
+    <button onclick="jump('sec-risk')">⚖️ Risk</button>
+    <button onclick="jump('sec-ext')">🌐 External</button>
+    <button onclick="jump('sec-rules')">📋 Rules</button>
+    <button onclick="jump('sec-adp')">🧮 ADP/DBT</button>
+    <button onclick="jump('sec-rel')">🔗 Relationship</button>
+    <button onclick="jump('sec-aging')">📊 AR Aging</button>
+    <button onclick="jump('sec-fs')">📄 Financials</button>
+    <button onclick="jump('sec-files')">📎 Files</button>
+  </div>
+
+  <!-- UPPER: left core / right AI -->
+  <div class="upper">
+    <div class="ucol">
+      <div class="section"><div class="s-h">👤 Customer Review Snapshot</div><div class="s-b">${coreSnapshot(r)}</div></div>
+      <div class="section"><div class="s-h">💰 Exposure &amp; Purchases</div><div class="s-b">${exposureBlock(r)}</div></div>
+      <div class="section"><div class="s-h">📈 Credit &amp; Financial Profile</div><div class="s-b">${creditProfile(r)}</div></div>
+      <div class="panel" id="sec-files"><div class="p-h">📎 <span class="t">Attachments</span><div class="spacer"></div><button class="upl">⤒ Upload file</button></div>
+        <div class="p-b">${filesTbl(r)}<div class="dropzone">Drag &amp; drop FS / supporting files, or <b>browse</b>. Saved as <span class="mono">Cust#+Type+FY+Period</span>.</div></div></div>
+    </div>
+
+    <div class="ucol">
+      <div class="panel ai-panel" id="sec-ai">
+        <div class="p-h">🧠 <span class="t">AI Review &amp; Recommendation</span><div class="spacer"></div>
+          <span style="font-size:11px;color:var(--faint);margin-right:8px">confidence ${isAuto?'—':r.conf==='gate'?'gated':r.conf}</span>
+          <button class="rerun">↻ Re-run AI Review</button></div>
+        <div class="p-b">
+          <div class="ai-concl ${r.conclTone}"><b>Conclusion:</b> ${r.concl}</div>
+          <div class="drivers">${gDrivers[r.id].map(d=>`<span class="drv ${d[0]}">${d[0]==='pos'?'▲':d[0]==='neg'?'▼':'●'} ${d[1]}</span>`).join('')}</div>
+          <div class="ai-secs">
+            ${gAiSec[r.id].map(s=>`<div class="ai-sec"><div class="ai-sec-h"><span class="ai-dot ${s[1]}"></span>${s[0]}</div><div class="ai-sec-b">${s[2]}</div></div>`).join('')}
+          </div>
+          <div class="ai-body"><p>${r.ai}</p></div>
+          <div class="ai-rec">${r.rec.map(rc=>`<div class="rc"><div class="l">${rc[0]}</div><div class="v">${rc[2]==='up'?'<span class="up">'+rc[1]+' ▲</span>':rc[2]==='hold'?rc[1]+' <span class="hold">hold</span>':rc[1]}</div></div>`).join('')}</div>
+
+          <div class="actzone">
+            <div class="az-h">✨ AI pre-filled — ${isAuto?'auto-cleared, view only':'edit before you confirm'}</div>
+            <div class="dfields">
+              <div class="field"><label>New credit limit</label><input value="${r.rec[0][1]}" ${isAuto?'disabled':''}/><div class="hint ai-fill">AI suggested</div></div>
+              <div class="field"><label>Terms</label><select ${isAuto?'disabled':''}><option>${r.terms}</option><option>NET 30</option><option>NET 45</option><option>CS</option></select></div>
+              <div class="field"><label>Next review date</label><input value="${r.rec[2][1]}" ${isAuto?'disabled':''}/><div class="hint ai-fill">AI suggested</div></div>
+              <div class="field"><label>Credit / risk score override</label><input value="${gProfile[r.id].riskScore}" ${isAuto?'disabled':''}/></div>
+              <div class="field wide"><label>Analyst commentary &amp; rationale</label><textarea ${isAuto?'disabled':''}>${isAuto?'Full-auto cleared in Phase 2 — no commentary required.':'AI: '+r.concl+'  [edit before confirming]'}</textarea></div>
+            </div>
+            <div class="scope-note">🎯 <b>Decision scope:</b> ${gScope[r.id]}</div>
+            <div class="dactions">
+              ${isAuto?'<button class="btn ghost">View only (auto-cleared)</button>':
+                `<button class="btn primary">Confirm &amp; update CIS</button>
+                 <button class="btn adjust">Adjust &amp; update CIS</button>
+                 <button class="btn ghost">Request Financial Statements (Email Cust)</button>
+                 <button class="btn ghost">Forward To Reviewer (CIS Task)</button>
+                 <button class="btn danger">Decline</button>`}
+            </div>
+            <div class="task-note" style="margin-top:9px">↩ Updates CIS: limit · terms · score · next review · notes — no email. Forward creates a review task for another analyst.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 1. Review history & notes -->
+  <div class="section" id="sec-hist"><div class="s-h">🕘 Review History &amp; Notes</div><div class="s-b">${historySection(r)}</div></div>
+
+  <!-- 2. Risk score breakdown + internal signals -->
+  <div class="section" id="sec-risk">
+    <div class="s-h">⚖️ Risk Score breakdown <span class="tag" style="color:${bandColor(r.riskBand)}">${r.riskNum}</span></div>
+    <div class="s-b"><div class="grid2">
+      <div>${riskRows(r)}<div class="risk-total"><span class="rt-l">Weighted risk score</span><span class="rt-band" style="color:${bandColor(r.riskBand)}">${r.riskBand}</span></div></div>
+      <div>${signalsGrid(r)}</div>
+    </div></div>
+  </div>
+
+  <!-- 3. External data -->
+  <div class="section" id="sec-ext"><div class="s-h">🌐 External Data — NACM · D&amp;B</div><div class="s-b">${extSection(r)}</div></div>
+
+  <!-- 4. Rules detail -->
+  <div class="section" id="sec-rules"><div class="s-h">📋 Review Rules — detail</div><div class="s-b">${rulesDetail(r)}</div></div>
+
+  <!-- 5. ADP/DBT -->
+  <div class="section" id="sec-adp"><div class="s-h">🧮 ADP / DBT Detail</div><div class="s-b">${adpDetail(r)}</div></div>
+
+  <!-- 6. Relationship roll-up: region + currency selectable -->
+  <div class="section" id="sec-rel">
+    <div class="s-h">🔗 Financial Relationship Roll-up
+      <div class="s-ctrl">
+        <div class="seg-toggle sm"><button aria-current="true">Current region</button><button>All regions</button></div>
+        <div class="seg-toggle sm"><button aria-current="true">USD</button><button>CAD</button></div>
+      </div>
+    </div>
+    <div class="s-b"><div class="gv-scroll">${relTblRegion(r)}</div></div>
+  </div>
+
+  <!-- AR Aging: region + currency selectable -->
+  <div class="section" id="sec-aging">
+    <div class="s-h">📊 AR Aging
+      <div class="s-ctrl">
+        <div class="seg-toggle sm"><button aria-current="true">Current region</button><button>All regions</button></div>
+        <div class="seg-toggle sm"><button aria-current="true">USD</button><button>CAD</button></div>
+      </div>
+    </div>
+    <div class="s-b"><div class="gv-scroll">${agingRegion(r)}</div></div>
+  </div>
+
+  <!-- Financial Statement (view only) -->
+  <div class="section" id="sec-fs"><div class="s-h">📄 Financial Statement <span style="margin-left:auto;font-size:11px;font-weight:600;color:var(--faint)">view only</span></div><div class="s-b">${fsSection(r)}</div></div>
+
+  <div style="margin-top:6px"><a onclick="showQueue()">← Back to worklist</a></div>
+  `;
+}
+
+function openDetail(id){
+  const r=rows.find(x=>x.id===id);
+  document.getElementById('detailBody').innerHTML=detailHtml(r);
+  document.getElementById('queue').classList.add('hide');
+  document.getElementById('detail').classList.add('show');
+  document.getElementById('crumb').style.display='flex';
+  window.scrollTo(0,0);
+}
+function showQueue(){
+  document.getElementById('detail').classList.remove('show');
+  document.getElementById('queue').classList.remove('hide');
+  document.getElementById('crumb').style.display='none';
+  window.scrollTo(0,0);
+}
+
+/* ---------- view toggle: Current Region vs Global ---------- */
+function setView(v){
+  const region=v==='region';
+  document.getElementById('vw-region').setAttribute('aria-current',region);
+  document.getElementById('vw-global').setAttribute('aria-current',!region);
+  document.getElementById('queueWrap').style.display=region?'':'none';
+  document.getElementById('filterbar').style.display=region?'':'none';
+  document.getElementById('globalWrap').style.display=region?'none':'';
+  document.getElementById('viewNote').innerHTML=region
+    ? 'Worklist &amp; review for the current region.'
+    : '🔗 Reference only — one customer across US + CA. No review actions here.';
+  if(!region) renderGlobal();
+  window.scrollTo(0,0);
+}
+
+/* ---------- GLOBAL VIEW (reference only) ---------- */
+// relationship detail rows: region, company, master#, cust#, name, restricted, discontinued, sharing, terms, ccy, limit, ar, pending, pastdue, maxpddays, purchaseSince
+const gRel=[
+ ["US","100","804783","804783","Xerox IT Solutions (Master)","N","N","—","NET 45","USD","$8,500,000","$4,120,000","$180,000","$212,400","74","2009"],
+ ["US","100","804783","804784","Xerox Financial Svcs","N","N","Y","NET 45","USD","incl.","$1,020,000","$40,000","$0","0","2011"],
+ ["US","100","804783","804785","Xerox Managed Print","N","N","Y","NET 30","USD","incl.","$640,300","$12,000","$0","0","2014"],
+ ["US","200","804783","804790","Xerox Gov Sales","Y","N","N","NET 45","USD","$500,000","$210,400","$0","$8,900","41","2016"],
+ ["CA","300","804783","CA55120","Xerox Canada (RSA)","N","N","N","NET 30","CAD","$1,200,000","$780,000","$60,000","$14,200","33","2012"],
+];
+// aging: region, company, cust#, ar, current, 1-30,31-60,61-90,91-180,181-360,360+
+const gAge=[
+ ["US","100","804783","$4,120,000","$3,010,400","$602,100","$280,300","$68,900","$92,400","$46,200","$19,700"],
+ ["US","100","804784","$1,020,000","$1,020,000","$0","$0","$0","$0","$0","$0"],
+ ["US","100","804785","$640,300","$640,300","$0","$0","$0","$0","$0","$0"],
+ ["US","200","804790","$210,400","$180,100","$21,400","$0","$0","$4,200","$4,700","$0"],
+ ["CA","300","CA55120","$780,000","$690,300","$61,300","$14,200","$8,900","$3,100","$1,200","$1,000"],
+];
+
+function renderGlobal(){
+  const relHead=["Region","Company","Fin Master#","Cust#","Cust Name","Restr.","Disc.","Share","Terms","Ccy","Credit Limit","AR Balance","Pending Amt","Past Due","Max PD Days","Since"];
+  const relBody=gRel.map((x,i)=>{
+    const isM=x[3]===x[2];
+    const rgn=`<span class="rgn ${x[0]==='CA'?'ca':''}">${x[0]}</span>`;
+    const restr=x[5]==='Y'?'<span class="flag">Y</span>':'—';
+    const disc=x[6]==='Y'?'<span class="flag">Y</span>':'—';
+    const share=x[7]==='Y'?'<span class="yn y">Y</span>':x[7]==='N'?'<span class="yn n">N</span>':'—';
+    const pdCls=x[13]!=='$0'?'warn':'';
+    return `<tr class="${isM?'master-row':''}">
+      <td class="l">${rgn}</td><td class="l">${x[1]}</td><td class="l">${x[2]}</td><td class="l">${x[3]}</td><td class="l">${x[4]}</td>
+      <td class="l">${restr}</td><td class="l">${disc}</td><td class="l">${share}</td><td class="l">${x[8]}</td><td class="l">${x[9]}</td>
+      <td>${x[10]}</td><td>${x[11]}</td><td>${x[12]}</td><td class="${pdCls}">${x[13]}</td><td class="${x[14]!=='0'?'warn':''}">${x[14]}</td><td>${x[15]}</td></tr>`;
+  }).join('');
+  const relTot=`<tr class="tot"><td class="l">TOTAL (USD)</td><td class="l" colspan="9"></td>
+    <td>$10,200,000</td><td>$6,770,700</td><td>$292,000</td><td class="warn">$235,500</td><td></td><td></td></tr>`;
+  const relTbl=`<table class="gtbl"><tr>${relHead.map((h,i)=>`<th class="${i<10?'l':''}">${h}</th>`).join('')}</tr>${relBody}${relTot}</table>`;
+
+  const ageHead=["Region","Company","Cust#","AR Balance","Current","1–30","31–60","61–90","91–180","181–360","360+"];
+  const ageBody=gAge.map(x=>`<tr>
+    <td class="l"><span class="rgn ${x[0]==='CA'?'ca':''}">${x[0]}</span></td><td class="l">${x[1]}</td><td class="l">${x[2]}</td>
+    <td>${x[3]}</td><td>${x[4]}</td><td>${x[5]}</td><td>${x[6]}</td>
+    <td class="${x[7]!=='$0'?'warn':''}">${x[7]}</td><td class="${x[8]!=='$0'?'warn':''}">${x[8]}</td><td class="${x[9]!=='$0'?'warn':''}">${x[9]}</td><td class="${x[10]!=='$0'?'warn':''}">${x[10]}</td></tr>`).join('');
+  const ageTot=`<tr class="tot"><td class="l">TOTAL (USD)</td><td class="l"></td><td class="l"></td>
+    <td>$6,770,700</td><td>$5,541,100</td><td>$684,800</td><td>$294,500</td><td class="warn">$77,800</td><td class="warn">$99,700</td><td class="warn">$52,100</td><td class="warn">$20,700</td></tr>`;
+  const ageTbl=`<table class="gtbl" style="min-width:1000px"><tr>${ageHead.map((h,i)=>`<th class="${i<3?'l':''}">${h}</th>`).join('')}</tr>${ageBody}${ageTot}</table>`;
+
+  document.getElementById('globalBody').innerHTML=`
+    <div class="gv-card"><div class="gc-h">🌐 Relationship detail — all regions <span class="note">values converted to USD · CAD accounts marked</span></div>
+      <div class="gv-scroll">${relTbl}</div></div>
+    <div class="gv-card"><div class="gc-h">📊 AR Aging — all regions <span class="note">buckets in days</span></div>
+      <div class="gv-scroll">${ageTbl}</div></div>`;
+}
+</script>
+</body>
+</html>

@@ -97,8 +97,10 @@ test("trusted proxy origin and protocol control origin checks and Secure cookies
 
 test("AI mode protects product assets until the session is authenticated", async () => {
   const app = createApp({ config: loadConfig(aiEnvironment()) });
-  assert.equal((await request(app, "/")).status, 404);
-  assert.equal((await request(app, "/styles.css")).status, 404);
-  assert.equal((await request(app, "/src/ui/access.js")).status, 404);
+  for (const publicShell of ["/", "/styles.css", "/src/ui/access.js", "/v2", "/v2/", "/v2/index.html", "/v2/styles.css", "/v2/src/access.js"]) {
+    assert.equal((await request(app, publicShell)).status, 404, `${publicShell} should reach the static handler`);
+  }
   assert.equal((await request(app, "/src/ui/app.js")).status, 401);
+  assert.equal((await request(app, "/v2/src/app.js")).status, 401);
+  assert.equal((await request(app, "/src/core/runtime.js")).status, 401);
 });
