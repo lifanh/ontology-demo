@@ -14,6 +14,7 @@ const config = loadConfig();
 const provider = config.aiEnabled ? createCopilotProvider(config) : undefined;
 const app = createApp({ config, ...(provider ? { provider, aiExecutors: { draft_rule: draftRuleExecutor, explain_review: explainReviewExecutor, explain_policy_analysis: explainPolicyAnalysisExecutor } } : {}), clientIp: c => getConnInfo(c).remote.address || "unknown" });
 const dist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../dist");
+app.get("/v2", context => context.redirect("/v2/"));
 app.use("/*", serveStatic({ root: dist }));
 app.get("*", serveStatic({ path: path.join(dist, "index.html") }));
 

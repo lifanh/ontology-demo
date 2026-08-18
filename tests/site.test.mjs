@@ -20,6 +20,7 @@ test("assembled site preserves every deployed demo source byte for byte", async 
     path.join(root, "styles.css"),
     ...await filesUnder(path.join(root, "src")),
     ...await filesUnder(path.join(root, "artifacts")),
+    ...await filesUnder(path.join(root, "v2")),
   ];
 
   for (const source of sourceFiles) {

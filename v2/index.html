@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Customer Review v2 · Illustrative POC</title>
+<!-- Version 2 demo. Structure and style follow docs/prototypes/customer_review_prototype.html (SE vision, 2026-08).
+     All data is fictional. AI proposes the review result of every account; credit analysts decide. -->
+<link rel="stylesheet" href="./styles.css"/>
+</head>
+<body>
+
+<div class="topbar">
+  <h1 id="brand">Customer Review <span class="env">ILLUSTRATIVE POC</span></h1>
+  <div class="crumbnav" id="crumb" style="display:none">
+    <a onclick="showQueue()">Customer Review</a><span class="sep">/</span><span class="cur">Review Detail</span>
+  </div>
+  <div class="spacer"></div>
+  <div class="search">🔍<input id="topSearch" placeholder="Search customer # or name…"/></div>
+  <button class="tbtn">Configure rules</button>
+</div>
+
+<!-- ============ QUEUE SCREEN ============ -->
+<div id="queue" class="screen">
+  <div class="scope">
+    <span class="lbl">View</span>
+    <div class="crumb">
+      <button class="seg" id="vw-region" aria-current="true" onclick="setView('region')">Current Region · US</button>
+      <button class="seg" id="vw-global" aria-current="false" onclick="setView('global')">Global</button>
+    </div>
+    <div class="spacer"></div>
+    <div class="link-note" id="viewNote">Worklist &amp; review for the current region.</div>
+  </div>
+
+  <!-- filter bar -->
+  <div class="filterbar" id="filterbar">
+    <div class="fgrid">
+      <div class="ff"><label>Company #</label><input placeholder="e.g. 100 / 200"/></div>
+      <div class="ff"><label>Review date range</label>
+        <div class="daterange"><input type="date"/><span>→</span><input type="date"/></div></div>
+      <div class="ff"><label>Customer # / name</label><input id="fCust" placeholder="Cust# or name"/></div>
+      <div class="ff"><label>Status</label>
+        <select id="fStatus"><option>All</option><option>AI proposal · awaiting decision</option><option>Auto-cleared</option><option>Completed</option></select></div>
+
+      <div class="ff"><label>Credit Analyst</label>
+        <select><option>All</option><option>N. Owens</option><option>P. Rao</option><option>J. Kim</option></select></div>
+      <div class="ff"><label>Analyst Manager</label>
+        <select><option>All</option><option>D. Fisher</option><option>M. Alvarez</option></select></div>
+      <div class="ff"><label>Director</label>
+        <select><option>All</option><option>S. Chen</option></select></div>
+      <div class="ff"><label>Current Reviewer</label>
+        <select><option>All</option><option>Me</option><option>N. Owens</option><option>P. Rao</option><option>J. Kim</option><option>Unassigned</option></select></div>
+
+      <div class="ff fbtns"><button class="fapply">Search</button><button class="fclear">Clear</button></div>
+    </div>
+  </div>
+
+  <div class="wrap" id="queueWrap">
+    <!-- KPI cards and tabs are rendered from the shared deterministic engine by src/app.js -->
+    <div class="kpis"></div>
+
+    <div class="toolbar">
+      <div class="tabs" role="tablist"></div>
+      <div class="legend">
+        <span><i class="lg high"></i>Escalation proposed</span><span><i class="lg soft"></i>Docs / limit change</span>
+        <span><i class="lg ai"></i>AI proposal</span><span><i class="lg pass"></i>Auto-cleared</span>
+      </div>
+    </div>
+
+    <div class="col-head">
+      <div>Customer</div><div>Credit limit</div><div>Past due</div><div>Risk score</div><div>Review mode</div><div>Next review</div><div></div>
+    </div>
+    <div class="list" id="list"></div>
+  </div>
+
+  <!-- GLOBAL VIEW (reference only) -->
+  <div class="wrap" id="globalWrap" style="display:none">
+    <div class="gv-head">
+      <div>
+        <div class="gv-title">Global customer view <span class="ro">read-only</span></div>
+        <div class="gv-sub">All narrative accounts. Reference only — no review actions here.</div>
+      </div>
+      <div class="gv-search">🔍<input value="Narrative accounts · 2001–2004" /></div>
+      <div class="ccy">
+        <span class="lbl2">Currency</span>
+        <div class="seg-toggle"><button aria-current="true">USD</button><button aria-current="false">CAD</button></div>
+      </div>
+    </div>
+    <div id="globalBody"></div>
+  </div>
+</div>
+
+<!-- ============ DETAIL SCREEN ============ -->
+<div id="detail" class="detailpage">
+  <div class="wrap" id="detailBody"></div>
+</div>
+
+<div class="foot">Illustrative POC · Worklist-first Customer Review. AI proposes the review result of every account; credit analysts decide. Deterministic rules and calculations remain authoritative. Decisions here update this browser tab only — in production, confirmation would flow to CIS. All data is fictional.</div>
+
+<script type="module" src="./src/app.js"></script>
+</body>
+</html>
