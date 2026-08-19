@@ -254,7 +254,10 @@ function renderQueue() {
     impactNotice.classList.add("hidden");
     impactNotice.textContent = "";
   }
-  const visible = records.filter(tabFilters[activeTab]).filter(matchesFilters);
+  const visible = records
+    .filter(tabFilters[activeTab])
+    .filter(matchesFilters)
+    .sort((left, right) => Number(isAuto(left)) - Number(isAuto(right)));
   document.getElementById("list").innerHTML = visible.length
     ? visible.map(rowHtml).join("")
     : `<div style="padding:22px;font-size:13px;color:var(--faint)">No accounts match the current tab and filters.</div>`;

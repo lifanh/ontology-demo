@@ -88,6 +88,8 @@ test("v2 worklist and detail present the SE-aligned deterministic business scena
     for (const name of ["Northwind Components", "Cascade Freight", "Meridian Industrial", "Ironclad Manufacturing"]) {
       assert.ok(listText.includes(name), `worklist should include ${name}`);
     }
+    const landingRows = await page.locator("#list .row").allTextContents();
+    assert.match(landingRows.at(-1), /Northwind Components/, "the auto-cleared account should appear last");
     assert.match(await page.locator('#list .row:has-text("Cascade")').textContent(), /< 10% of AR/);
     assert.match(await page.locator('#list .row:has-text("Meridian")').textContent(), /≥ 10% of AR/);
     assert.match(await page.locator('#list .row:has-text("Northwind")').textContent(), /no actioning finding · view only/);
