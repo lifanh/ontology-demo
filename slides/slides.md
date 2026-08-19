@@ -60,47 +60,60 @@ The whole session comes down to one sentence: AI proposes the review result of e
 -->
 
 ---
+class: capacity-slide
+---
 
 <p class="kicker">The problem · Portfolio</p>
 
-# 66,000 customers, two gaps
+# A $500k threshold leaves 64,200 customers unreviewed
 
-<div class="gap-split">
-  <section class="below">
-    <header><b>Below $50,000</b><span>Auto-review rules outdated and stopped</span></header>
-    <div class="gap-figure"><strong>48,400</strong><small>customers</small></div>
+<div class="portfolio-bands">
+  <section class="not-reviewed">
+    <header><b>Below $50k</b><span>Former automated segment</span></header>
+    <div class="portfolio-figure"><strong>48,400</strong><small>customers</small></div>
     <ul><li>US 40,000</li><li>CA 8,400</li></ul>
-    <p>Nothing automated runs here today.</p>
+    <p>Legacy rules stopped. <b>No review today.</b></p>
   </section>
-  <div class="gap-line"><span>$50,000</span><i></i><small>the capacity line</small></div>
-  <section class="above">
-    <header><b>Above $50,000</b><span>Manual review, rotated</span></header>
-    <div class="gap-figure"><strong>17,600</strong><small>customers</small></div>
-    <ul><li>US 15,000</li><li>CA 2,600</li></ul>
-    <p>The population grows. The team does not.</p>
+  <section class="not-reviewed">
+    <header><b>$50k–$500k</b><span>Removed from manual review</span></header>
+    <div class="portfolio-figure"><strong>15,800</strong><small>customers</small></div>
+    <ul><li>US 13,500</li><li>CA 2,300</li></ul>
+    <p>The new exposure gap. <b>No review today.</b></p>
+  </section>
+  <section class="manual-review">
+    <header><b>Above $500k</b><span>Current manual threshold</span></header>
+    <div class="portfolio-figure"><strong>1,800</strong><small>customers</small></div>
+    <div class="capacity-math"><span><b>US · 46 days</b><small>1,500 ÷ 33 analysts</small></span><span><b>CA · 30 days</b><small>300 ÷ 10 analysts</small></span></div>
+    <p>At one customer per analyst per day.</p>
   </section>
 </div>
+
+<div class="coverage-result"><b>97.3% of the portfolio receives no review</b><span>The higher threshold manages analyst capacity — not customer risk.</span></div>
 
 <!--
 SCRIPT
 
-Here is the size of the problem. Sixty-six thousand customers across the US and Canada.
+Here is the size of the problem. We have sixty-six thousand customers across the US and Canada, but the manual-review threshold has moved from fifty thousand dollars to five hundred thousand because analyst capacity is limited.
 
-Forty-eight thousand four hundred of them sit below the fifty-thousand-dollar credit limit — forty thousand in the US, eight thousand four hundred in Canada. The legacy rules for that segment were outdated, so they were stopped. Nothing automated runs there today.
+Below fifty thousand dollars are forty-eight thousand four hundred customers. The legacy automated rules for that segment were outdated and stopped, so those customers receive no review today.
 
-Seventeen thousand six hundred sit above the line — fifteen thousand US, two thousand six hundred Canada. Every one of those is a manual review.
+Between fifty thousand and five hundred thousand are another fifteen thousand eight hundred customers. Raising the threshold removes them from manual review, but it does not remove their risk. They also receive no review today.
 
-So the line cuts two ways. Below it, the rules that should run are switched off. Above it, nothing is automated — and because the population keeps growing while the team stays the same size, reviews get taken in rotation. That produces backlog, delays, and coverage that is incomplete by design.
+That leaves eighteen hundred customers above five hundred thousand dollars for manual review: fifteen hundred in the US and three hundred in Canada. At one customer per analyst per day, thirty-three US analysts need about forty-six working days for one pass, while ten Canadian analysts need thirty.
+
+So the capacity threshold makes the queue smaller by leaving sixty-four thousand two hundred customers — ninety-seven point three percent of the portfolio — without review. It manages capacity, not risk. The opportunity is to screen every account deterministically, assemble and explain the evidence, and reserve analyst capacity for judgment and approval.
 
 讲稿
 
-这就是问题的规模。美国和加拿大一共六万六千个 customer。
+这就是问题的规模。美国和加拿大一共六万六千个 customer，但由于 credit analyst 产能有限，manual-review threshold 已经从五万美元提高到五十万美元。
 
-其中四万八千四百个在五万美元 credit limit 以下——美国四万，加拿大八千四百。这一段的旧规则已经过时，所以被停掉了。今天这里没有任何自动化在跑。
+五万美元以下有四万八千四百个 customer。这一段的旧自动化规则已经过时并被停用，所以这些 customer 今天没有 review。
 
-一万七千六百个在这条线以上——美国一万五千，加拿大两千六百。每一个都是人工复核。
+五万美元到五十万美元之间还有一万五千八百个 customer。提高 threshold 把他们移出了 manual review，但没有消除他们的 risk；他们今天同样没有 review。
 
-所以这条线切出了两边。线以下，本该运行的规则被关掉了。线以上，没有任何自动化——而且 customer 数量持续增长，团队规模不变，复核只能轮流做。结果就是积压、延误，以及覆盖面从设计上就不完整。
+这样，五十万美元以上还剩一千八百个 customer 需要 manual review——美国一千五百个，加拿大三百个。按照每位 analyst 每天只能 review 一个 customer 计算，美国三十三位 analyst 完成一轮大约需要四十六个工作日，加拿大十位 analyst 需要三十个工作日。
+
+所以，这条 capacity threshold 是通过让六万四千二百个 customer——也就是整个 portfolio 的百分之九十七点三——不接受 review，来缩小 queue。它管理的是 capacity，不是 risk。机会在于用 deterministic screening 覆盖每个账户，提前组装并解释 evidence，把 analyst 产能留给 judgment 和 approval。
 
 -->
 
