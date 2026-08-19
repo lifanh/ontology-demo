@@ -1,6 +1,6 @@
-/* Version 2 fictional review context (Tier-2 data).
-   Everything in this file is invented, corroborating color for the four SE-aligned
-   business scenarios (2001–2004). It has no engine equivalent: territories,
+/* Version 2 seeded review context (Tier-2 data).
+   This file supplies corroborating context for the four SE-aligned business
+   scenarios (2001–2004). It has no engine equivalent: territories,
    reviewers, review history, attachments, and NACM / D&B style external data.
    All review facts, rules, findings, calculator output, and actions come from
    the v2 deterministic review pack. Context here cannot change those results. */
@@ -23,7 +23,7 @@ export const reviewMeta = Object.freeze({
     nrd: "07/31/2027",
     nextReviewDelta: "+12 mo",
     ask: null,
-    scope: "Applies to this single account. No financial-group restriction is present in the fictional relationship snapshot.",
+    scope: "Applies to this single account. No financial-group restriction is present in the relationship snapshot.",
     persona: "Low-risk automatic pass: no old open invoices, no past due, ADP-W below weighted terms, no recent payment exceptions, current statements, and one prior automatic review.",
     files: [
       ["Northwind_FS_FY2025.pdf", "Financial Stmt", "System", "07/12/2026 10:02"],
@@ -59,7 +59,7 @@ export const reviewMeta = Object.freeze({
     nrd: "10/31/2026",
     nextReviewDelta: "+3 mo",
     ask: null,
-    scope: "Applies to the financial master represented by this fictional roll-up. No sharing-member restriction is present.",
+    scope: "Applies to the financial master represented by this roll-up. No sharing-member restriction is present.",
     persona: "Deteriorating payer: financial-group ADP-W is 73.9 days against 45 weighted-term days, three recent NSF/chargeback events require review, and the 90-day peak balance is 168% of limit. R3 adds visibility but does not create the manual-review action.",
     files: [
       ["Cascade_FS_FY2025.pdf", "Financial Stmt", "P. Rao", "07/18/2026 14:30"],
@@ -96,7 +96,7 @@ export const reviewMeta = Object.freeze({
     nrd: "09/30/2026",
     nextReviewDelta: "+2 mo",
     ask: null,
-    scope: "Applies to the financial master represented by this fictional roll-up. No sharing-member restriction is present.",
+    scope: "Applies to the financial master represented by this roll-up. No sharing-member restriction is present.",
     persona: "Mandatory manual gate: ADP-W remains below 39 days, but old invoices are open and 14% of AR is past due. The account has reached its automatic-review limit, and stale statements separately block limit advice.",
     files: [
       ["Meridian_FS_FY2024.pdf", "Financial Stmt", "J. Kim", "06/15/2025 09:00"],

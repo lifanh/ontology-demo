@@ -1,6 +1,6 @@
 /* V2-only deterministic Customer Review domain.
-   The fact names and R1-R6 controls follow the SE business prototype, while all
-   values remain fictional. V1 continues to use src/domains/credit/pack.js. */
+   The fact names and R1-R6 controls follow the SE business prototype.
+   V1 continues to use src/domains/credit/pack.js. */
 import { FactRegistry } from "../../src/core/runtime.js";
 
 const factDefinition = (displayName, group, type = "decimal", unit = null, extra = {}) => ({

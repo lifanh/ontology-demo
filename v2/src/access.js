@@ -15,7 +15,7 @@ const showGate = message => {
   $("#loginPassword").focus();
 };
 
-window.addEventListener("demo-auth-required", () => showGate("Your session expired. Sign in again to continue; this tab's workspace state is preserved."));
+window.addEventListener("demo-auth-required", () => showGate("Your session expired. Sign in again to continue; your work is preserved."));
 
 const unlock = async status => {
   $("#accessGate").classList.add("hidden");

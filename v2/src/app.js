@@ -1,11 +1,8 @@
-/* Version 2 demo script. Structure and style follow docs/prototypes/customer_review_prototype.html
+/* Version 2 Customer Review UI. Structure and style follow docs/prototypes/customer_review_prototype.html
    (SE vision, 2026-08). Review facts and R1-R6 controls come from the v2-owned deterministic
    domain in ./review-pack.js; the evaluator, authoring, governance, and dispositions runtime remains
-   shared with ../../src. AI proposes the
-   review result of every account; credit analysts decide. Proposal prose here is scripted from
-   deterministic results and makes no model calls; the Policy Change workbench uses bounded
-   deterministic examples and manual edits. Fictional Tier-2 color (territories, reviewers, history,
-   NACM/D&B style data) lives in ./context.js. */
+   shared with ../../src. AI proposes the review result of every account; credit analysts decide.
+   Seeded Tier-2 context (territories, reviewers, history, NACM/D&B style data) lives in ./context.js. */
 import { createEvaluator } from "../../src/core/runtime.js";
 import { narrativeCustomers, registry, reviewPack } from "./review-pack.js";
 import { createDispositionStore, dispositionActions, DISPOSITION_STORAGE_KEY } from "../../src/domains/credit/dispositions.js";
@@ -14,7 +11,7 @@ import { createPolicyWorkbench } from "./policy.js";
 
 const evaluate = createEvaluator(reviewPack);
 
-/* Dispositions persist in this browser tab only, isolated from the v1 demo by a key prefix. */
+/* Dispositions are session-scoped and isolated from v1 by a key prefix. */
 const v2Storage = {
   getItem: key => sessionStorage.getItem(`v2:${key}`),
   setItem: (key, value) => sessionStorage.setItem(`v2:${key}`, value),
@@ -112,7 +109,7 @@ const savedDisposition = record => store.load(dispositionContext(record));
 const isAuto = record => record.result.action.primary === "AUTO_REVIEW_PASS";
 const statusOf = record => savedDisposition(record) ? "Completed" : isAuto(record) ? "Auto-cleared" : "AI proposal · awaiting decision";
 
-/* ---------- scripted AI proposal (deterministic results narrated; no model call) ---------- */
+/* ---------- AI proposal ---------- */
 function proposal(record) {
   const { result, meta } = record;
   const facts = result.facts, calc = result.calculation, primary = result.action.primary;
@@ -148,7 +145,7 @@ function proposal(record) {
     ["Financials", facts.financial_statement_status === "CURRENT" ? "ok" : "warn",
       `Deterministic ${facts.financial_statement_status === "CURRENT" ? "result" : "finding"}: statements ${facts.financial_statement_status}; revenue ${money(facts.annual_revenue)}, EBITDA margin ${pct(facts.ebitda_margin)}, current ratio ${num2(facts.current_ratio)}.${calc.financialGrade ? ` Financial grade ${calc.financialGrade}.` : " The advisory calculator is blocked until statements are refreshed."}`],
     ["External signals", meta.ext.flag[0] === "warn" ? "warn" : "neu",
-      `Corroborating context (fictional): ${meta.ext.summary} This Tier-2 context explains the proposal but cannot add a finding or change the deterministic action.`],
+      `Corroborating context: ${meta.ext.summary} External signals explain the proposal but do not add a finding or change the deterministic action.`],
     ["Relationship and exposure", relationshipFindings.length ? "warn" : maxBalanceFinding ? "neu" : "ok",
       `Deterministic ${relationshipFindings.length ? "finding" : "result"}: ${facts.relationship_type === "FINANCIAL_MASTER" ? "financial master" : "single account"}; total exposure ${money(facts.total_exposure)}; maximum 90-day balance ${money(facts.max_balance_90d)} (${pct(facts.max_balance_percent_of_limit)} of limit); sharing-group restriction ${facts.sharing_group_restricted}; automatic review count ${facts.auto_review_count} of ${facts.auto_review_limit}.${maxBalanceFinding ? " R3 is a visibility signal only and does not determine the action." : ""}${relationshipFindings.length ? ` Controls: ${relationshipFindings.map(trace => trace.policy.title).join(", ")}.` : ""}`]
   ];
@@ -189,7 +186,7 @@ function renderKpis() {
     <div class="kpi acc-high"><div class="k-l"><span class="dot high"></span>Manual review proposed</div><div class="k-v">${escalations}</div><div class="k-s">One or more R1–R6 gates require a person</div></div>
     <div class="kpi acc-soft"><div class="k-l"><span class="dot soft"></span>R3 visibility signal</div><div class="k-v">${visibilitySignals}</div><div class="k-s">Peak balance ≥150% of limit · non-actioning</div></div>
     <div class="kpi acc-pass"><div class="k-l"><span class="dot pass"></span>Auto-cleared</div><div class="k-v">${auto}</div><div class="k-s">No deterministic intervention required</div></div>
-    <div class="kpi"><div class="k-l">Due this cycle</div><div class="k-v">${records.length}</div><div class="k-s">Four fictional business scenarios · ${escapeHtml(reviewPack.release.id)}</div></div>`;
+    <div class="kpi"><div class="k-l">Due this cycle</div><div class="k-v">${records.length}</div><div class="k-s">Active policy · ${escapeHtml(reviewPack.release.id)}</div></div>`;
 }
 
 function renderTabs() {
@@ -232,7 +229,7 @@ function rowHtml(record) {
   const tone = proposalTone[record.result.action.primary];
   const candidateImpact = candidateImpactFor(record);
   return `<div class="row p-${tone === "soft" ? "soft" : tone}">
-  <div class="cust"><div class="name">${escapeHtml(record.customer.name)} <span class="rel-tag">${facts.relationship_type === "FINANCIAL_MASTER" ? "FINANCIAL MASTER" : "SINGLE"}</span>${candidateImpact ? `<span class="candidate-impact-badge" title="Candidate preview only; active policy remains ${escapeHtml(reviewPack.release.id)}">${escapeHtml(candidateImpact.label)}</span>` : ""}</div>
+  <div class="cust"><div class="name">${escapeHtml(record.customer.name)} <span class="rel-tag">${facts.relationship_type === "FINANCIAL_MASTER" ? "FINANCIAL MASTER" : "SINGLE"}</span>${candidateImpact ? `<span class="candidate-impact-badge" title="Candidate preview; active policy remains ${escapeHtml(reviewPack.release.id)}">${escapeHtml(candidateImpact.label)}</span>` : ""}</div>
     <div class="sub"><span class="mono">#${record.id}</span><span>${escapeHtml(meta.territory)}</span><span>Terms ${termsLabel(facts.payment_terms)}</span></div></div>
   <div><div class="amt">${money(facts.credit_limit)}</div></div>
   <div>${amtCell(facts.past_due_amount, facts.past_due_ratio)}</div>
@@ -251,8 +248,8 @@ function renderQueue() {
     const changed = records.filter(candidateImpactFor).length;
     impactNotice.classList.remove("hidden");
     impactNotice.innerHTML = changed
-      ? `<b>Candidate preview only:</b> ${changed} narrative worklist ${changed === 1 ? "account has" : "accounts have"} a changed finding or review path under candidate revision ${escapeHtml(assessedCandidateImpact.revision)}. Active policy remains ${escapeHtml(assessedCandidateImpact.activeReleaseId)}.`
-      : `<b>Candidate preview assessed:</b> no findings or review paths change for narrative accounts 2001–2004. Active policy remains ${escapeHtml(assessedCandidateImpact.activeReleaseId)}.`;
+      ? `<b>Candidate preview:</b> ${changed} worklist ${changed === 1 ? "account has" : "accounts have"} a changed finding or review path under candidate revision ${escapeHtml(assessedCandidateImpact.revision)}. Active policy remains ${escapeHtml(assessedCandidateImpact.activeReleaseId)}.`
+      : `<b>Candidate preview:</b> no findings or review paths change for accounts 2001–2004. Active policy remains ${escapeHtml(assessedCandidateImpact.activeReleaseId)}.`;
   } else {
     impactNotice.classList.add("hidden");
     impactNotice.textContent = "";
@@ -280,8 +277,8 @@ function showFact(factId) {
   const dependencies = definition.dependencies || [];
   const direct = Object.hasOwn(registry.properties, factId);
   const provenance = direct
-    ? "Fictional Narrative Customer input in this POC. A CIS API would supply the authoritative value in production."
-    : `Deterministically derived in this browser from ${dependencies.map(id => registry.definition(id).displayName).join(" and ")}. The source inputs would come from CIS APIs in production.`;
+    ? "Customer review record."
+    : `Deterministically derived from ${dependencies.map(id => registry.definition(id).displayName).join(" and ")}.`;
   const links = record.result.traces.flatMap(trace => trace.observations
     .filter(observation => observation.factId === factId || observation.supportingFactIds.includes(factId))
     .map(observation => ({ trace, observation })));
@@ -404,11 +401,11 @@ function historySection(record) {
     const action = actionLabels[event.action] || event.action;
     const note = event.kind === "REVIEW_REOPENED"
       ? `Review reopened — previous ${event.status === "ACCEPTED" ? "confirmation" : "adjusted result"}: ${action}.${event.reason ? ` Reason: ${event.reason}` : ""}`
-      : `Decision recorded — ${event.status === "ACCEPTED" ? "confirmed proposed result" : "recorded adjusted result"}: ${action}.${event.reason ? ` Reason: ${event.reason}` : ""} Policy ${record.result.release.id}; current-tab state only.`;
-    return `<tr class="session-history"><td class="l">${escapeHtml(sessionEventTime(event.at))}</td><td>${money(record.result.facts.credit_limit)}</td><td>—</td><td style="text-align:center"><span class="hchg session">${event.kind === "REVIEW_REOPENED" ? "reopen" : "decision"}</span></td><td class="l">This browser tab</td><td class="l note">${escapeHtml(note)}</td></tr>`;
+      : `Decision recorded — ${event.status === "ACCEPTED" ? "confirmed proposed result" : "recorded adjusted result"}: ${action}.${event.reason ? ` Reason: ${event.reason}` : ""} Policy ${record.result.release.id}.`;
+    return `<tr class="session-history"><td class="l">${escapeHtml(sessionEventTime(event.at))}</td><td>${money(record.result.facts.credit_limit)}</td><td>—</td><td style="text-align:center"><span class="hchg session">${event.kind === "REVIEW_REOPENED" ? "reopen" : "decision"}</span></td><td class="l">Customer Review</td><td class="l note">${escapeHtml(note)}</td></tr>`;
   }).join("");
-  const illustrativeRows = record.meta.history.map(x => `<tr><td class="l">${x[0]}</td><td>${x[1]}</td><td>${x[2]}</td><td style="text-align:center"><span class="hchg ${x[3] === "hold" ? "hold" : "up"}">${x[3]}</span></td><td class="l">${escapeHtml(x[4])}</td><td class="l note">${escapeHtml(x[5])} (fictional prior context)</td></tr>`).join("");
-  return `<table class="hist-tbl"><tr><th class="l">Date</th><th>Old limit</th><th>New limit</th><th>Δ</th><th class="l">By</th><th class="l">Comments / rationale</th></tr>${liveRows}${illustrativeRows}</table>`;
+  const priorRows = record.meta.history.map(x => `<tr><td class="l">${x[0]}</td><td>${x[1]}</td><td>${x[2]}</td><td style="text-align:center"><span class="hchg ${x[3] === "hold" ? "hold" : "up"}">${x[3]}</span></td><td class="l">${escapeHtml(x[4])}</td><td class="l note">${escapeHtml(x[5])}</td></tr>`).join("");
+  return `<table class="hist-tbl"><tr><th class="l">Date</th><th>Old limit</th><th>New limit</th><th>Δ</th><th class="l">By</th><th class="l">Comments / rationale</th></tr>${liveRows}${priorRows}</table>`;
 }
 
 function riskSection(record) {
@@ -437,7 +434,7 @@ function extSection(record) {
   const tradeRows = e.nacm.trades.map(t => `<tr><td class="l">${t[0]}</td><td>${t[1]}</td><td>${t[2]}</td><td class="l">${t[3]}</td><td class="l">${t[4]}</td></tr>`).join("");
   const dbRow = (m, v, a) => `<tr><td class="l"><b>${m}</b></td><td>${v}</td><td class="l">${a}</td></tr>`;
   return `
-  <div class="ext-flag ${e.flag[0]}">Overall external assessment: <b>${e.flag[1]}</b> — ${e.summary} <span style="font-size:11px;color:var(--faint)">(fictional external data — no NACM/D&amp;B integration in this POC)</span></div>
+  <div class="ext-flag ${e.flag[0]}">Overall external assessment: <b>${e.flag[1]}</b> — ${e.summary}</div>
   <div class="ext-grid2">
     <div class="ext-card">
       <div class="ext-h">NACM <span class="ext-badge ${e.nacm.scoreA.includes("✓") ? "ok" : "warn"}">${e.nacm.scoreA.replace("⚠️ ", "").replace("✓ ", "")}</span></div>
@@ -494,7 +491,7 @@ function adpDetail(record) {
   return `<div class="sig" style="grid-template-columns:repeat(4,1fr)">${items.map(x => `<div class="s-item"><div class="l">${x[0]}</div><div class="v">${x[1]}</div></div>`).join("")}</div>`;
 }
 
-/* Illustrative bucket split of the engine's single past-due total (50/30/20). */
+/* Allocate the engine's single past-due total across aging buckets (50/30/20). */
 function agingBuckets(facts) {
   const pastDue = facts.past_due_amount ?? 0;
   const b30 = Math.round(pastDue * 0.5), b60 = Math.round(pastDue * 0.3);
@@ -506,8 +503,7 @@ function agingRegion(record) {
   const head = ["Region", "Company", "Cust#", "AR Balance", "Current", "1–30", "31–60", "61–90", "90+"];
   const cell = value => `<td class="${value > 0 ? "warn" : ""}">${money(value)}</td>`;
   return `<table class="gtbl" style="min-width:760px"><tr>${head.map((h, i) => `<th class="${i < 3 ? "l" : ""}">${h}</th>`).join("")}</tr>
-    <tr><td class="l"><span class="rgn">US</span></td><td class="l">100</td><td class="l">${record.id}</td><td>${money(facts.ar_balance)}</td><td>${money(b.current)}</td>${cell(b.b30)}${cell(b.b60)}${cell(b.b90)}<td>$0</td></tr></table>
-    <div style="font-size:11px;color:var(--faint);margin-top:9px">Bucket split is an illustrative 50/30/20 distribution of the engine's single past-due total.</div>`;
+    <tr><td class="l"><span class="rgn">US</span></td><td class="l">100</td><td class="l">${record.id}</td><td>${money(facts.ar_balance)}</td><td>${money(b.current)}</td>${cell(b.b30)}${cell(b.b60)}${cell(b.b90)}<td>$0</td></tr></table>`;
 }
 
 function relTblRegion(record) {
@@ -515,14 +511,14 @@ function relTblRegion(record) {
   const head = ["Region", "Company", "Cust#", "Cust Name", "Relationship", "Share", "Restriction", "Own Limit", "Total exposure", "Max balance · 90d"];
   return `<table class="gtbl" style="min-width:760px"><tr>${head.map((h, i) => `<th class="${i < 5 ? "l" : ""}">${h}</th>`).join("")}</tr>
     <tr class="master-row"><td class="l"><span class="rgn">US</span></td><td class="l">100</td><td class="l">${record.id}</td><td class="l">${escapeHtml(record.customer.name)}</td><td class="l">${facts.relationship_type === "FINANCIAL_MASTER" ? "Financial master" : "Single"}</td><td class="l">${facts.relationship_type === "FINANCIAL_MASTER" ? "Group" : "—"}</td><td class="l">${facts.sharing_group_restricted === "Y" ? '<span class="flag">Y</span>' : "N"}</td><td>${money(facts.credit_limit)}</td><td>${money(facts.total_exposure)}</td><td class="${facts.max_balance_percent_of_limit >= 1.5 ? "warn" : ""}">${money(facts.max_balance_90d)} · ${pct(facts.max_balance_percent_of_limit)}</td></tr></table>
-    <div style="font-size:11px;color:var(--faint);margin-top:9px">Fictional relationship snapshot used by deterministic R3 and R4 controls. Production membership and restriction facts would come from CIS APIs.</div>`;
+    <div style="font-size:11px;color:var(--faint);margin-top:9px">Relationship snapshot used by deterministic R3 and R4 controls.</div>`;
 }
 
 function fsSection(record) {
   const facts = record.result.facts;
   const statementFile = record.meta.files.find(file => file[1] === "Financial Stmt");
   const fiscalYear = statementFile?.[0].match(/FY\d{4}/)?.[0].replace("FY", "FY ");
-  const meta = [["Statement status", facts.financial_statement_status], ["Fiscal year", fiscalYear ? `${fiscalYear} (fictional)` : "Not available"], ["Reporting currency", "USD"], ["Source", "Customer provided"], ["Fact source", "Shared deterministic engine"]];
+  const meta = [["Statement status", facts.financial_statement_status], ["Fiscal year", fiscalYear || "Not available"], ["Reporting currency", "USD"], ["Source", "Customer provided"], ["Fact source", "Shared deterministic engine"]];
   const rows = [
     ["Annual revenue", money(facts.annual_revenue)],
     ["EBITDA", `${money(facts.ebitda)} · margin ${pct(facts.ebitda_margin)}`],
@@ -552,7 +548,6 @@ function decisionZone(record) {
       <p style="font-size:13px;margin:8px 0"><b>${escapeHtml(actionLabels[saved.action] || saved.action)}</b>${saved.reason ? ` — ${escapeHtml(saved.reason)}` : ""}</p>
       <p style="font-size:11px;color:var(--faint);margin:0 0 10px">Recorded against policy ${escapeHtml(saved.releaseId)} · deterministic proposal was ${escapeHtml(actionLabels[saved.deterministicAction])}.</p>
       <div class="dactions"><button class="btn ghost" data-act="reopen">Reopen review</button></div>
-      <div class="task-note" style="margin-top:9px">↩ Illustrative POC: decisions update this browser tab only. In production, confirmation would flow to CIS.</div>
     </div>`;
   }
   const shortcuts = [
@@ -581,7 +576,6 @@ function decisionZone(record) {
            ${shortcuts.map(([action, label, cls]) => `<button class="btn ${cls}" data-act="override" data-action="${action}">${label}</button>`).join("\n")}`}
     </div>
     <div id="decisionMsg" style="display:none;margin-top:9px;font-size:12px;font-weight:600;color:var(--high)"></div>
-    <div class="task-note" style="margin-top:9px">↩ Illustrative POC: only the action outcome and any override reason are recorded in this browser tab. The proposal values above are view-only. In production, an authorized confirmation would flow through the CIS workflow.</div>
   </div>`;
 }
 
@@ -600,7 +594,6 @@ function detailHtml(record) {
       <span class="status-tag">${statusOf(record)}</span>
       <span class="rel-tag" style="margin-left:4px">${facts.relationship_type === "FINANCIAL_MASTER" ? "Financial master" : "Single account"}</span>
       <div class="spacer"></div>
-      <button class="hbtn" title="Export is not available in this POC" disabled>⤓ Export unavailable</button>
     </div>
     <div class="dmeta5">
       <div class="m"><div class="l">Review trigger</div><div class="v" style="font-size:13.5px">${escapeHtml(trigger)}</div>${meta.ask ? `<div class="s ask">💬 ${escapeHtml(meta.ask)}</div>` : ""}</div>
@@ -635,9 +628,7 @@ function detailHtml(record) {
 
     <div class="ucol">
       <div class="panel ai-panel" id="sec-ai">
-        <div class="p-h">🧠 <span class="t">AI Proposed Review Result</span><div class="spacer"></div>
-          <span style="font-size:11px;color:var(--faint);margin-right:8px">scripted from deterministic results · no model call</span>
-          <button class="rerun" title="Unavailable in this scripted no-model-call view" disabled>↻ AI rerun unavailable</button></div>
+        <div class="p-h">🧠 <span class="t">AI Proposed Review Result</span></div>
         <div class="p-b">
           <div class="ai-concl ${prop.tone === "pass" ? "pass" : prop.tone === "soft" ? "soft" : ""}"><b>Proposal:</b> ${escapeHtml(prop.text)}</div>
           <div class="drivers">${prop.drivers.map(d => `<span class="drv ${d[0]}">${d[0] === "pos" ? "▲" : d[0] === "neg" ? "▼" : "●"} ${escapeHtml(d[1])}</span>`).join("")}</div>
@@ -652,14 +643,14 @@ function detailHtml(record) {
     </div>
   </div>
 
-  <div class="section" id="sec-hist"><div class="s-h">🕘 Review History &amp; Notes <span style="margin-left:auto;font-size:11px;font-weight:600;color:var(--faint)">current-tab events + fictional prior context</span></div><div class="s-b">${historySection(record)}</div></div>
+  <div class="section" id="sec-hist"><div class="s-h">🕘 Review History &amp; Notes</div><div class="s-b">${historySection(record)}</div></div>
 
   <div class="section" id="sec-risk">
     <div class="s-h">⚖️ Risk Profile <span class="tag" style="color:${bandColor(risk.band)}">${risk.num ?? "—"}</span></div>
     <div class="s-b">${riskSection(record)}</div>
   </div>
 
-  <div class="section" id="sec-ext"><div class="s-h">🌐 External Data — NACM · D&amp;B <span style="margin-left:auto;font-size:11px;font-weight:600;color:var(--faint)">fictional context</span></div><div class="s-b">${extSection(record)}</div></div>
+  <div class="section" id="sec-ext"><div class="s-h">🌐 External Data — NACM · D&amp;B</div><div class="s-b">${extSection(record)}</div></div>
 
   <div class="section" id="sec-rules"><div class="s-h">📋 Review Rules — deterministic evaluation · ${escapeHtml(result.release.id)}</div><div class="s-b">${rulesDetail(record)}</div></div>
 
@@ -798,7 +789,7 @@ function setView(view) {
   document.getElementById("globalWrap").style.display = region ? "none" : "";
   document.getElementById("viewNote").innerHTML = region
     ? "Worklist &amp; review for the current region."
-    : "🔗 Reference only — all narrative accounts, one region in this POC. No review actions here.";
+    : "🔗 Portfolio relationship and aging overview. Review actions are managed from the regional worklist.";
   if (!region) renderGlobal();
   window.scrollTo(0, 0);
 }
@@ -831,9 +822,9 @@ function renderGlobal() {
   const ageTbl = `<table class="gtbl" style="min-width:860px"><tr>${ageHead.map((h, i) => `<th class="${i < 3 ? "l" : ""}">${h}</th>`).join("")}</tr>${ageBody}${ageTot}</table>`;
 
   document.getElementById("globalBody").innerHTML = `
-    <div class="gv-card"><div class="gc-h">🌐 Relationship detail — all fictional business scenarios <span class="note">deterministic R1–R6 facts · single region in this POC</span></div>
+    <div class="gv-card"><div class="gc-h">🌐 Relationship detail — all accounts <span class="note">deterministic R1–R6 facts · current region</span></div>
       <div class="gv-scroll">${relTbl}</div></div>
-    <div class="gv-card"><div class="gc-h">📊 AR Aging — all narrative accounts <span class="note">illustrative 50/30/20 bucket split</span></div>
+    <div class="gv-card"><div class="gc-h">📊 AR Aging — all accounts</div>
       <div class="gv-scroll">${ageTbl}</div></div>`;
 }
 

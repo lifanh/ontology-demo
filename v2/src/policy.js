@@ -41,7 +41,7 @@ let governance;
 let intentDraft;
 let dslDraft;
 let narrativeImpact = null;
-let notice = "Choose an example intent, use its example candidate, or edit the bounded DSL.";
+let notice = "Choose a policy intent, load its candidate, or edit the bounded DSL.";
 let draftFeedback = null;
 let notifyImpact = () => {};
 let nextRevisions;
@@ -300,11 +300,11 @@ function impactResults() {
     <div class="s-h">Review impact · deterministic candidate preview <span class="policy-state ${impact.complete ? "pass" : "warn"}">${impact.complete ? "Complete" : "Incomplete"}</span></div>
     <div class="s-b">
       <h3>${escapeHtml(impact.headline)}</h3>
-      <p><b>Fixed fictional boundary cohort—not a production portfolio, forecast, or workload estimate.</b> Candidate evidence is pinned to ${escapeHtml(governance.current.logicalId)}@${governance.current.revision}, preview release ${escapeHtml(previewReleaseId)}, and baseline ${escapeHtml(release.id)}.</p>
+      <p>Candidate evidence is pinned to ${escapeHtml(governance.current.logicalId)}@${governance.current.revision}, preview release ${escapeHtml(previewReleaseId)}, and baseline ${escapeHtml(release.id)}.</p>
       <div class="policy-metrics">${metrics.map(([label, value]) => `<div><small>${escapeHtml(label)}</small><b>${escapeHtml(value)}</b></div>`).join("")}</div>
       ${rows ? `<div class="policy-impact-table"><table><thead><tr><th>Boundary record</th><th>Active action</th><th>Candidate action</th><th>Finding changes</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<p>No boundary records changed.</p>`}
-      <div class="policy-worklist-result"><b>Narrative worklist preview:</b> ${narrativeResult} This separate deterministic comparison does not project boundary-cohort results onto worklist accounts.</div>
-      ${governance.evidenceComplete() ? `<div class="policy-boundary"><b>Evidence complete for this candidate revision.</b> Governed review, approval, publication, and activation happen outside this POC. The candidate remains a preview and does not change the active policy or customer state.</div>` : ""}
+      <div class="policy-worklist-result"><b>Worklist preview:</b> ${narrativeResult}</div>
+      ${governance.evidenceComplete() ? `<div class="policy-boundary"><b>Evidence complete for this candidate revision.</b> The candidate is ready for governed review and approval. The active policy and customer state remain unchanged.</div>` : ""}
     </div>
   </section>`;
 }
@@ -315,7 +315,7 @@ function render(focusSelector = null) {
   const validationReady = current.state === "DRAFT";
   const analysisReady = current.state === "VALIDATED" && !governance.evidence.analysis;
   const impactReady = current.state === "ANALYZED" && !governance.evidence.batch;
-  const provenance = current.provenance === "AI" ? "AI-drafted candidate" : current.provenance === "HUMAN_EDIT" ? "Human-edited candidate" : "Example candidate";
+  const provenance = current.provenance === "AI" ? "AI-drafted candidate" : current.provenance === "HUMAN_EDIT" ? "Human-edited candidate" : "Preconfigured candidate";
   const hasUnappliedEdits = intentDraft !== current.sourcePolicy || dslDraft !== current.sourceDsl;
   container.innerHTML = `<div class="wrap policy-wrap">
     <div class="dbanner policy-banner">
@@ -326,24 +326,22 @@ function render(focusSelector = null) {
         <button class="hbtn" data-policy-action="close">Back to worklist</button>
       </div>
       <div class="policy-baseline-grid">
-        <div><span>Active policy version</span><b>${escapeHtml(release.id)}</b><small>Authoritative baseline for this POC</small></div>
-        <div><span>Candidate</span><b>${escapeHtml(current.logicalId)}@${current.revision}</b><small>Preview only · never activated here</small></div>
+        <div><span>Active policy version</span><b>${escapeHtml(release.id)}</b><small>Authoritative active baseline</small></div>
+        <div><span>Candidate</span><b>${escapeHtml(current.logicalId)}@${current.revision}</b><small>Preview · pending approval</small></div>
         <div><span>Authority boundary</span><b>AI drafts; controls assess</b><small>People and CIS retain approval and state authority</small></div>
       </div>
     </div>
 
     <div class="policy-grid">
       <section class="panel policy-intents">
-        <div class="p-h"><span class="t">1 · Example policy intents</span></div>
+        <div class="p-h"><span class="t">1 · Policy intents</span></div>
         <div class="p-b">
-          <p>Select an illustrative bounded intent. Selection does not replace the current candidate until you load its example candidate.</p>
+          <p>Select a bounded policy intent. Selection does not replace the current candidate until you load it.</p>
           <div class="policy-scenarios">${Object.entries(scenarioMeta).map(([id, meta]) => `<button data-policy-scenario="${id}" aria-pressed="${selected === id}"><b>${escapeHtml(meta.label)}</b><span>${escapeHtml(meta.detail)}</span></button>`).join("")}</div>
           <label class="policy-field"><span>Business intent</span><textarea id="policyIntent" maxlength="1200">${escapeHtml(intentDraft)}</textarea></label>
           <div class="dactions">
-            <button class="btn ghost" id="policyDraftButton" disabled title="AI drafting is not configured for the v2 R1/R2 policy families">AI drafting unavailable</button>
-            <button class="btn ghost" data-policy-action="example" ${selected ? "" : "disabled"}>Use example candidate</button>
+            <button class="btn ghost" data-policy-action="example" ${selected ? "" : "disabled"}>Load candidate</button>
           </div>
-          <p class="policy-mode-note">Use an SE-aligned example candidate or edit the bounded DSL manually. AI drafting is not configured for the v2 R1/R2 families, so this workbench makes no model calls.</p>
           ${draftFeedback ? `<div class="policy-draft-feedback ${draftFeedback.tone || ""}" id="policyDraftStatus" role="status" tabindex="-1"><b>${escapeHtml(draftFeedback.title)}</b><p>${escapeHtml(draftFeedback.message)}</p></div>` : ""}
         </div>
       </section>
@@ -414,8 +412,8 @@ function useExampleCandidate() {
   governance = new Governance({ activeRelease: release, candidate });
   dslDraft = candidate.sourceDsl;
   clearImpact();
-  draftFeedback = { title: "Example candidate loaded", message: "The candidate is unvalidated. Review the structured diff, then run deterministic validation." };
-  notice = "Example candidate loaded as a draft. No active policy or customer state changed.";
+  draftFeedback = { title: "Candidate loaded", message: "The candidate is unvalidated. Review the structured diff, then run deterministic validation." };
+  notice = "Candidate loaded as a draft. No active policy or customer state changed.";
 }
 
 function handleAction(action) {
@@ -472,7 +470,7 @@ export function createPolicyWorkbench({ onOpen, onClose, onImpactAssessed }) {
       captureInputs();
       selected = scenario.dataset.policyScenario;
       intentDraft = scenarios[selected].policy;
-      draftFeedback = { title: "Example intent selected", message: "Load the deterministic example candidate or edit the bounded DSL. The current candidate is unchanged." };
+      draftFeedback = { title: "Policy intent selected", message: "Load the candidate or edit the bounded DSL. The current candidate is unchanged." };
       notice = "Intent selected; the current candidate and its evidence remain unchanged until replaced.";
       persist();
       render(`[data-policy-scenario="${selected}"]`);

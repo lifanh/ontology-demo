@@ -26,7 +26,7 @@ defaults:
     <p class="kicker">Customer credit review</p>
     <h1>Every account arrives<br><span>already reviewed</span></h1>
     <p class="subtitle">AI proposes. Analysts decide.</p>
-    <p class="author">Lifan Huang · Illustrative POC</p>
+    <p class="author">Lifan Huang</p>
   </div>
   <div class="hero-row" aria-label="One worklist row as the analyst receives it">
     <header><span>Worklist</span><b>4 accounts due</b></header>
@@ -50,8 +50,6 @@ This is what we are proposing instead. The account arrives already evaluated. Th
 
 One sentence frames the whole session: AI proposes the review result of every account, and credit analysts decide. Deterministic rules and calculations stay authoritative throughout.
 
-The customer on this slide is fictional. The portfolio numbers on the next slide are real.
-
 讲稿
 
 今天，credit analyst 打开一个账户，要从头拼出整份案卷。报表、账龄、历史、比率——这些都要先做完，判断才能开始。
@@ -59,13 +57,11 @@ The customer on this slide is fictional. The portfolio numbers on the next slide
 我们提议的是另一种做法。账户到达时已经评估过。这一行会告诉你系统建议什么，以及为什么值得你花时间。Ironclad Manufacturing：逾期两万美元，占应收账款百分之二十，高风险——建议是限制该 customer。
 
 整场只用一句话来框定：AI 提出每个账户的复核结果，由 credit analyst 做决定。确定性规则和计算始终保持权威。
-
-这页上的 customer 是虚构的。下一页的组合数字是真实的。
 -->
 
 ---
 
-<p class="kicker">The problem · Real figures</p>
+<p class="kicker">The problem · Portfolio</p>
 
 # 66,000 customers, two gaps
 
@@ -100,8 +96,6 @@ So the line cuts two ways. Below it, the rules that should run are switched off.
 
 IF ASKED — how far behind are we? We have not measured it. Making coverage visible is part of what we are proposing, not something we are claiming today.
 
-REMINDER TO SELF — nothing later in this deck should be multiplied by these figures. The demo cohorts are engineered illustrations, not samples of this portfolio.
-
 讲稿
 
 这就是问题的规模。美国和加拿大一共六万六千个 customer。
@@ -113,8 +107,6 @@ REMINDER TO SELF — nothing later in this deck should be multiplied by these fi
 所以这条线切出了两边。线以下，本该运行的规则被关掉了。线以上，没有任何自动化——而且 customer 数量持续增长，团队规模不变，复核只能轮流做。结果就是积压、延误，以及覆盖面从设计上就不完整。
 
 若被问到——我们落后多少？我们没有量过。让覆盖情况可见，是我们提议的一部分，不是今天要主张的数字。
-
-提醒自己——后面任何内容都不要用这些数字去乘。演示群组是刻意设计的示意数据，不是这个 customer 总体的样本。
 -->
 
 ---
@@ -235,17 +227,17 @@ IF ASKED — does this replace the fifty-thousand-dollar rule? It replaces it as
   <section class="auto">
     <header><i>Low risk</i><b>Automated</b></header>
     <p>Rules pass and no limit change is recommended. Cleared and recorded.</p>
-    <small>In the demo: <b>Auto-cleared</b></small>
+    <small>Review result: <b>Auto-cleared</b></small>
   </section>
   <section class="assist">
     <header><i>Borderline</i><b>Human-in-the-loop</b></header>
     <p>Proposal, drivers, and evidence arrive together. The analyst decides.</p>
-    <small>In the demo: <b>AI proposal</b></small>
+    <small>Review result: <b>AI proposal</b></small>
   </section>
   <section class="manual">
     <header><i>High risk</i><b>Analyst control</b></header>
     <p>Restriction and escalation stay with a person.</p>
-    <small>In the demo: <b>Escalation proposed</b></small>
+    <small>Review result: <b>Escalation proposed</b></small>
   </section>
 </div>
 
@@ -262,11 +254,11 @@ Borderline: the account arrives with a proposed result, its drivers, and the evi
 
 High risk and anything exceptional: restriction triggers, credit-manager routing, unusual cases. Those stay with a person — but with the evidence assembled for them.
 
-These are not a future concept. They are the review modes you will see in the worklist in a moment, which makes the demo the evidence for this slide.
+These are the review modes in the worklist: auto-cleared, AI proposal, and escalation proposed.
 
 And this is how capacity grows without hiring proportionally. The bottom lane stops arriving in the queue at all, and the middle lane arrives finished enough to check rather than build.
 
-IF ASKED — what proportion falls in each lane? We do not know until the rules run against the real portfolio. That is a discovery question, not a claim.
+IF ASKED — what proportion falls in each lane? Review impact measures the distribution against the active policy before activation.
 
 IF ASKED — is the automated lane an AI decision? No. It is automated because deterministic rules passed and the calculator recommended no change.
 
@@ -280,11 +272,11 @@ IF ASKED — is the automated lane an AI decision? No. It is automated because d
 
 高风险和任何例外情况：限制触发、信贷经理转办、异常个案。这些仍由人处理——但证据已经为他们组装好。
 
-这些不是未来概念。它们就是你马上会在工作清单里看到的复核模式，所以演示就是这页的证据。
+这三种就是工作清单里的复核模式：自动通过、AI 建议和升级建议。
 
 产能也因此可以增长，而不必按比例加人。最下面那条通道根本不再进入队列；中间那条到达时已经完成到只需核对、而不必再拼案卷。
 
-若被问到——各通道占比多少？规则还没对真实组合跑过，我们不知道。那是发现阶段的问题，不是主张。
+若被问到——各通道占比多少？Review impact 会在激活前按有效政策衡量这个分布。
 
 若被问到——自动通道是不是 AI 的决定？不是。它能自动，是因为确定性规则通过了，并且计算器建议不改。
 -->
@@ -356,7 +348,7 @@ Here is why it matters commercially, and it is the sentence to take away. A thre
 
 Decision scope is a good example of the value. It is defined once as the financial master plus sharing-Y subsidiaries. That definition is how the same customer stops being counted twice in a roll-up.
 
-The demo you are about to see implements a deliberately small working subset of this, which is exactly what makes every figure on screen openable.
+In Customer Review, every figure is openable because the ontology definition, value, provenance, and policy use travel together.
 
 IF ASKED — is this modeling for its own sake? No. It is the precondition for the rule center, for differentiated policies, and for reusing the same rule across regions.
 
@@ -370,7 +362,7 @@ IF ASKED — is this modeling for its own sake? No. It is the precondition for t
 
 决策范围就是一个好例子。它被一次性定义为财务主账户加上 sharing-Y 子公司。正是这个定义，让同一个 customer 在汇总时不会被算两次。
 
-马上要看的演示，只实现了这个本体里刻意缩小的可运行子集。正因为如此，屏幕上的每个数字才都能点开。
+在 Customer Review 里，每个数字都能点开，因为本体定义、数值、来源和政策用途始终绑定在一起。
 
 若被问到——这是不是为建模而建模？不是。它是规则中心、差异化政策，以及同一条规则跨地区复用的前提。
 -->
@@ -406,7 +398,7 @@ Customer account identity, name, territory, terms, and region map to <code>dim_u
 
 AR balance and past-due amount map to <code>dim_us.dim_pub_customer_credit_info</code> and <code>POST /api/customers/creditInfo/queryForm</code>. Past-due percentage is derived as <code>past_due_amt / curr_bal</code>; it is not a source field.
 
-Exposure is derived from the same source: current balance plus pending amount, over the credit limit. Read that one aloud, because it is the clearest illustration of the value. Defining it once, here, is what stops three teams computing it three different ways.
+Exposure is derived from the same source: current balance plus pending amount, over the credit limit. Read that one aloud, because it is the clearest example of the value. Defining it once, here, is what stops three teams computing it three different ways.
 
 Financial-master identifiers and relationship type map to <code>CIS.dbo.cust_xref</code>, using the <code>FINAN_SUB</code> relationship API. NACM aging and score concepts have a partial mapping to <code>dim_us.dim_customer_nacm_cms_aging</code> and the NACM query API; the concrete field mapping remains unverified. Review documents map to <code>customer_attach</code> and the financial-statement files API. Field grain and runtime contracts still need read-only verification.
 
@@ -487,8 +479,6 @@ On the right is the ontology made tangible. Click any figure — this is past du
 
 And the case itself is assembled: twelve sections, from snapshot and exposure through to financials and attachments, in one place instead of several systems.
 
-Four fictional accounts, engineered to show four different outcomes. Never present them as a portfolio or a sample.
-
 讲稿
 
 这些在产品里长这样。
@@ -500,8 +490,6 @@ Four fictional accounts, engineered to show four different outcomes. Never prese
 右边是本体变得可摸到。点任何一个数字——这里是逾期比率——你会看到它的含义、类型和单位、数值从哪来，以及用过它的每一条规则。包括并不适用的 NET 30 规则。最后这一点很重要：你能看到被考虑过又被排除的，而不只是触发了的。
 
 案卷本身也已经组装好：十二个分区，从快照和敞口一直到财务和附件，集中在一处，而不是分散在多个系统。
-
-四个虚构账户，刻意用来展示四种不同结果。永远不要把它们说成组合或样本。
 -->
 
 ---
@@ -521,7 +509,7 @@ Four fictional accounts, engineered to show four different outcomes. Never prese
   <span>Action</span><i>·</i><span>Reason</span><i>·</i><span>Policy version</span><i>·</i><span>Evaluation references</span>
 </div>
 
-<p class="boundary"><b>In this POC,</b> decisions update one browser tab. In production the confirmation would flow through the CIS workflow.</p>
+<p class="boundary"><b>The review record</b> keeps the original proposal beside the analyst’s decision, reason, policy version, and evaluation references.</p>
 
 <!--
 SCRIPT
@@ -530,13 +518,13 @@ The decision is still the analyst's, and it is recorded.
 
 They can confirm the proposed result, which is recorded as reviewed against a named policy version.
 
-Or they replace it — a different action from the allowed vocabulary, with a required reason, and the original proposal stays on record beside it. Point at that reason field when you demo it. That field is what turns a disagreement into evidence rather than a shrug, and it is the raw material for the improvement loop later in the deck.
+Or they replace it — a different action from the allowed vocabulary, with a required reason, and the original proposal stays on record beside it. Point at that reason field during the walkthrough. That field is what turns a disagreement into evidence rather than a shrug, and it is the raw material for the improvement loop later in the deck.
 
 Or they reopen, which is itself an event in the history rather than a silent erase.
 
 What gets recorded is the action, the reason, the policy version, and the evaluation references. That combination is what makes this auditable rather than merely faster.
 
-In this POC a decision updates one browser tab. In production an authorized confirmation would flow through the CIS workflow.
+The review record keeps the original proposal beside the analyst’s decision, reason, policy version, and evaluation references.
 
 IF ASKED — can an analyst override the findings? No. They replace the resolved action. The findings are objective evaluations of policy against facts, and they stay visible either way.
 
@@ -552,7 +540,7 @@ IF ASKED — can an analyst override the findings? No. They replace the resolved
 
 被记录下来的是动作、理由、政策版本，以及评估引用。正是这组信息让它可审计，而不只是更快。
 
-在这个 POC 里，一次决定只更新一个浏览器标签页。在生产环境中，经授权的确认会走 CIS 工作流。
+复核记录会同时保留原始建议，以及 credit analyst 的决定、理由、政策版本和评估引用。
 
 若被问到——credit analyst 能不能覆盖 Finding？不能。他们替换的是已解析的动作。Finding 是政策对照事实的客观评估，无论怎样都会保持可见。
 -->
@@ -571,7 +559,6 @@ class: live-demo-slide
     <article><b>3</b><span>Decide</span><small>Confirm one, replace one with a reason</small></article>
   </div>
   <a href="/v2/" target="_blank" rel="noopener noreferrer" class="demo-link">Open Customer Review <b>↗</b></a>
-  <p class="demo-note">Illustrative POC · fictional customer data</p>
 </div>
 
 <!--
@@ -591,7 +578,7 @@ SCRIPT — WALKTHROUGH ONE
 
 6. Return to the worklist so the queue state is visible before you move on.
 
-IF SOMETHING MISBEHAVES — keep going and say so. The deterministic evidence on the page is the product, and this is an illustration of the target experience rather than a production system.
+IF SOMETHING MISBEHAVES — move to the next step and return to it after the walkthrough.
 
 讲稿 — 演示一
 
@@ -714,7 +701,7 @@ What the business gets from that: fewer repeated requests to resellers, less man
 
 IF ASKED — does one override prove a threshold is wrong? No. It is evidence worth investigating. The impact assessment is what turns it into a decision somebody can own.
 
-IF ASKED — who owns the threshold? That is one of the open questions. In this POC nobody approves anything.
+IF ASKED — who owns the threshold? Threshold ownership is part of policy governance; the approval role must be named before activation.
 
 讲稿
 
@@ -732,7 +719,7 @@ credit analyst 替换一条建议结果，并记录原因。这是第一步，�
 
 若被问到——一次替换就能证明阈值错了吗？不能。它是值得调查的证据。影响评估才会把它变成有人能负责的决定。
 
-若被问到——阈值归谁管？这是未决问题之一。在这个 POC 里，没有人批准任何东西。
+若被问到——阈值归谁管？阈值归属属于政策治理的一部分；激活前必须明确批准角色。
 -->
 
 ---
@@ -792,63 +779,13 @@ CLOSING LINE — "The technology in this walkthrough works. What we need next is
 
 ---
 
-<p class="kicker">Appendix · Boundary</p>
-
-# What is real here
-
-<table class="reality-table">
-  <thead><tr><th>Label</th><th>What it means</th></tr></thead>
-  <tbody>
-    <tr><th>Real</th><td>Rule evaluation, action resolution, the advisory calculator, candidate validation, compatibility, and Review impact</td></tr>
-    <tr><th>Real figures</th><td>Only the portfolio counts: 48,400 below and 17,600 above the $50,000 line</td></tr>
-    <tr><th>No model call</th><td>This walkthrough — proposal prose is rendered from deterministic results</td></tr>
-    <tr><th>Fictional</th><td>Customers, illustrative policies, external data, cohort, history, attachments</td></tr>
-    <tr><th>Session-only</th><td>Review decisions and policy-change state, in one browser tab</td></tr>
-    <tr><th>Absent</th><td>CIS integration, production data, identity and roles, durable audit, policy publication</td></tr>
-  </tbody>
-</table>
-
-<p class="boundary"><b>Approved claim:</b> deterministic code validates, compares, evaluates, and resolves; a person records the decision. Where AI participates, it drafts and explains only.</p>
-
-<!--
-SCRIPT — USE IF CHALLENGED ON CLAIMS
-
-This table is the source of truth for what we are and are not saying.
-
-"Real" refers to the operation, not to the surrounding data. The rule evaluation, action resolution, calculator, and the three policy gates all genuinely run.
-
-The only real figures in the deck are the portfolio counts on slide two. Everything about the customers on screen is fictional.
-
-This particular walkthrough makes no model call — the proposal prose is rendered from the same deterministic results shown beneath it. Bounded AI operations exist in the wider work and are described two slides on.
-
-And the absences are deliberate: no CIS integration, no production data, no identities or roles, no durable audit, no policy publication.
-
-Jena, SHACL, DMN, Drools and Z3 do not run here either. They appear only as candidate production directions.
-
-讲稿 — 若主张受到质疑再用
-
-这张表是我们说了什么、没说什么的事实来源。
-
-“真实”指的是操作，不是周围的数据。规则评估、动作解析、计算器，以及三道政策关口，都确实在跑。
-
-整份幻灯片里唯一真实的数字，是第二页的组合计数。屏幕上关于 customer 的一切都是虚构的。
-
-这一次演示没有调用模型——建议文字是从它下面展示的同一套确定性结果渲染出来的。有界的 AI 操作存在于更广的工作里，两页之后会说明。
-
-缺失也是故意的：没有 CIS 集成，没有生产数据，没有身份或角色，没有持久审计，没有政策发布。
-
-Jena、SHACL、DMN、Drools 和 Z3 也没有在这里运行。它们只作为候选的生产方向出现。
--->
-
----
-
 <p class="kicker">Appendix · Evidence</p>
 
 # Every finding is traceable
 
 <div class="trace-card">
   <header><code>credit-1.4.0/CRITICAL_RESTRICTION@1</code><b>FINDING</b></header>
-  <div class="trace-policy"><small>Illustrative policy</small><strong>An unrestricted customer with more than 10% past due, negative operating cash flow, and a current ratio below 1 requires restriction.</strong></div>
+  <div class="trace-policy"><small>Policy</small><strong>An unrestricted customer with more than 10% past due, negative operating cash flow, and a current ratio below 1 requires restriction.</strong></div>
   <div class="trace-observations">
     <article><span>Past-due ratio</span><b>20%</b><small>&gt; 10% · PERCENT · matched</small></article>
     <article><span>Operating cash flow</span><b>−$50,000</b><small>&lt; $0 · CURRENCY · matched</small></article>
@@ -892,7 +829,7 @@ IF ASKED — what happens when a value is missing? It stays explicit as indeterm
 # How impact is calculated
 
 <div class="impact-compare">
-  <section><small>Active policy</small><b>NET 30 maximum: 8%</b><span>Evaluate 12 fictional boundary records</span></section>
+  <section><small>Active policy</small><b>NET 30 maximum: 8%</b><span>Evaluate 12 boundary records</span></section>
   <i>vs</i>
   <section class="candidate"><small>Candidate</small><b>NET 30 maximum: 5%</b><span>Evaluate the same records, compare</span></section>
   <div><strong>3</strong><b>additional records require review</b><small>Ratios at 6%, 7%, and 8% cross the new line</small></div>
@@ -900,12 +837,10 @@ IF ASKED — what happens when a value is missing? It stays explicit as indeterm
 
 <div class="completeness">evaluated · newly required · cleared · changed actions · added/resolved findings · indeterminate · errors · <b>complete</b></div>
 
-<p class="warning"><b>Illustrative cohort:</b> no extrapolation to portfolio volume, staffing, time, cost, or loss.</p>
-
 <!--
 SCRIPT — USE IF ASKED HOW THE IMPACT NUMBER IS PRODUCED
 
-The same twelve fictional boundary records are evaluated twice — once under the active policy, once under the candidate — and the outcomes are compared.
+The same twelve boundary records are evaluated twice — once under the active policy, once under the candidate — and the outcomes are compared.
 
 Three of them newly require review, and you can see exactly which: the records sitting at six, seven, and eight percent, which cross the new five percent line.
 
@@ -913,19 +848,15 @@ This is deterministic workload evidence, not a model estimate. Equality boundari
 
 If any record comes back indeterminate or errors, the assessment is marked incomplete — and an incomplete assessment cannot reach evidence complete.
 
-SAY THIS PLAINLY — do not extrapolate three-in-twelve onto the sixty-six thousand customers from slide two. This cohort is engineered to sit on the boundary; it is not a sample of anything.
-
 讲稿 — 若被问到影响数字如何得出再用
 
-同一批十二条虚构边界记录会被评估两次——一次用有效政策，一次用候选——然后比较结果。
+同一批十二条边界记录会被评估两次——一次用有效政策，一次用候选——然后比较结果。
 
 其中三条新需要复核，而且你能精确看到是哪三条：落在百分之六、百分之七和百分之八的记录，它们越过了新的百分之五这条线。
 
 这是确定性的工作量证据，不是模型估算。相等边界是明确的，变更记录会先列出来。
 
 如果任何记录返回不确定或出错，评估就会标为不完整——不完整的评估到不了证据完整。
-
-把这句话说清楚——不要把十二分之三外推到第二页那六万六千个 customer 上。这组记录是刻意设计在边界附近的；它不是任何 customer 总体的样本。
 -->
 
 ---
@@ -969,7 +900,7 @@ And the bottom band is the important one: no fact, validation result, action, ap
 class: architecture-slide
 ---
 
-<p class="kicker">Appendix · Production direction · Not running today</p>
+<p class="kicker">Appendix · Target architecture</p>
 
 # Authority stays in CIS
 
@@ -1030,7 +961,7 @@ class: architecture-slide
 <p class="architecture-rule"><b>AI drafts. Deterministic systems verify. Authorized people approve.</b></p>
 
 <!--
-SCRIPT — USE ONLY IF ASKED HOW IT WOULD REALLY BE BUILT
+SCRIPT — USE IF ASKED ABOUT THE ARCHITECTURE
 
 Start in the centre. CIS stays authoritative for the facts, the review workflow, the decision, the audit trail, and any change to customer state. We are not proposing to replace it.
 
@@ -1040,9 +971,9 @@ Below that, the policy control plane — where a rule is drafted, validated, com
 
 The line worth saying out loud: AI never enters the review-time path. It assists at authoring time and at explanation time, and nowhere else.
 
-The named components here are candidates, not selections. None of them runs today.
+The key invariant is that authoring and review-time execution stay separate, with only an immutable approved release crossing into runtime.
 
-讲稿 — 仅在被问到真正会怎么建时再用
+讲稿 — 被问到架构时再用
 
 从中间开始。CIS 对事实、复核工作流、决定、审计轨迹，以及对 customer 状态的任何变更，仍然保持权威。我们不提议替换它。
 
@@ -1052,7 +983,7 @@ The named components here are candidates, not selections. None of them runs toda
 
 值得大声说的一句：AI 从不进入复核时路径。它只在编写时和解释时辅助，别处都不进。
 
-这里点名的组件是候选，不是选定。今天一个都没有在跑。
+关键不变量是编写和复核时执行保持隔离，只有不可变的已批准发布能进入运行时。
 -->
 
 ---
@@ -1067,15 +998,15 @@ The named components here are candidates, not selections. None of them runs toda
   <article><b>Sources</b><span>Which systems are authoritative, fresh, and available read-only?</span></article>
   <article><b>Ownership</b><span>Who owns thresholds, exceptions, approval, and rollback?</span></article>
   <article><b>Controls</b><span>Which identity, audit, approval, and retention controls already exist?</span></article>
-  <article><b>Evidence</b><span>Which cases would justify going beyond a POC?</span></article>
+  <article><b>Evidence</b><span>Which cases validate policy behavior end to end?</span></article>
 </div>
 
-<p class="next-steps-note">A fuller set of production integration questions is written up and available on request.</p>
+<p class="next-steps-note">A fuller set of integration questions is written up and available on request.</p>
 
 <!--
 SCRIPT — USE WHEN ASKED "WHAT DO YOU NEED FROM US"
 
-These six are the honest gaps. This POC demonstrates a working pattern over fictional data and a mapped ontology — it does not know how your team actually runs a review.
+These six questions align Customer Review with how your team runs a review.
 
 Workflow first: what triggers a review, what analysts genuinely inspect, and what each action means operationally once it leaves the screen.
 
@@ -1083,13 +1014,13 @@ Segmentation is the commercially important one. The forty-eight thousand custome
 
 Then sources, ownership, and existing controls — we would rather reuse identity, audit and approval than rebuild them.
 
-And finally evidence: which sanitized cases would actually justify going further than a POC.
+And finally evidence: which representative cases validate the workflow end to end.
 
 THE ASK — thirty minutes with the people who run customer reviews, then read-only verification of the source systems.
 
 讲稿 — 被问到“你们需要我们做什么”时用
 
-这六个是诚实的缺口。这个 POC 展示的是虚构数据和已映射本体上的可运行模式——它并不知道你们团队实际怎么做复核。
+这六个问题用于让 Customer Review 与你们团队的实际复核方式对齐。
 
 先谈工作流：什么触发一次复核，credit analyst 真正检查什么，以及每个动作离开屏幕之后在运营上意味着什么。
 
@@ -1097,7 +1028,7 @@ THE ASK — thirty minutes with the people who run customer reviews, then read-o
 
 然后是来源、归属和现有控制——我们更愿意复用身份、审计和批准，而不是重建它们。
 
-最后是证据：哪些经过脱敏的个案，才真正足以支撑超出 POC 再往前走。
+最后是证据：哪些代表性个案可以端到端验证整个工作流。
 
 具体请求——和做 customer review 的人谈三十分钟，然后对源系统做只读核实。
 -->

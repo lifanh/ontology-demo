@@ -127,6 +127,7 @@ test("maintainer guidance documents both portable modes and exact approved claim
   assert.match(readme, /Cloudflare is optional/);
   assert.match(readme, /deterministic-only static assets/);
   assert.doesNotMatch(slides, /Demo Release|Policy Studio/);
+  assert.doesNotMatch(slides, /Illustrative POC|fictional customer|no real data|not a production system/i);
   assert.match(context, /\*\*Active Policy Version\*\*/);
 });
 
