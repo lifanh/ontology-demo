@@ -291,19 +291,57 @@ IF ASKED — is the automated lane an AI decision? No. It is automated because d
 
 ---
 
-<p class="kicker">The foundation</p>
+<p class="kicker">The foundation · v1.0</p>
 
-# One vocabulary under every number
+# Customer Credit Review Ontology
 
-<div class="onto-map">
-  <section><label>Case &amp; account</label><span>CustomerReview</span><span>CustomerAccount</span><span>FinancialRelationship</span></section>
-  <section><label>Exposure &amp; behavior</label><span>ExposureProfile</span><span>ARBalance</span><span>ARAgingSnapshot</span><span>ADPDBTProfile</span></section>
-  <section><label>Risk &amp; financials</label><span>RiskAssessment</span><span>FinancialProfile</span><span>FinancialStatement</span></section>
-  <section><label>External</label><span>ExternalCreditProfile</span><span>ExternalTradeLine</span></section>
-  <section><label>Decision &amp; workflow</label><span>CreditDecision</span><span>ReviewRuleResult</span><span>AIReview</span><span>ReviewHistoryEntry</span><span>AnalystAction</span><span>ReviewDocument</span></section>
+<p class="ontology-subtitle">One vocabulary under every number</p>
+
+<div class="onto-tree" aria-label="Customer Credit Review Ontology entity and property tree">
+  <section>
+    <label>Case &amp; account</label>
+    <ul>
+      <li><b>CustomerReview</b><small>review_id · status · review_mode<br>decision_scope · source_system</small></li>
+      <li><b>CustomerAccount</b><small>customer_id · customer_name · terms<br>territory · region</small></li>
+      <li><b>FinancialRelationship</b><small>financial_master_id · relationship_type<br>sharing · restricted · rolled_up_credit_limit</small></li>
+    </ul>
+  </section>
+  <section>
+    <label>Exposure &amp; behavior</label>
+    <ul>
+      <li><b>ExposureProfile</b><small>total_exposure · utilization_of_limit<br>peak_balance_90d · purchases_yoy</small></li>
+      <li><b>ARBalance</b><small>ar_balance · past_due_amount<br>past_due_percentage · aging_as_of</small></li>
+      <li><b>ARAgingSnapshot</b><small>current · days_1_30 · days_31_60<br>days_61_90 · days_91_180 · days_360_plus</small></li>
+      <li><b>ADPDBTProfile</b><small>adp_w · dbt_w · weighted_terms<br>nsf_count_90d · chargeback_count_90d</small></li>
+    </ul>
+  </section>
+  <section>
+    <label>Risk &amp; financials</label>
+    <ul>
+      <li><b>RiskAssessment</b><small>risk_band · risk_number · weighted_score<br>trend · factor_scores</small></li>
+      <li><b>FinancialProfile</b><small>net_leverage · altman_z_score<br>ebitda_margin · current_ratio · frisk_score</small></li>
+      <li><b>FinancialStatement</b><small>fiscal_year · period_end · reporting_currency<br>auditor_opinion · line_items</small></li>
+    </ul>
+  </section>
+  <section>
+    <label>External</label>
+    <ul>
+      <li><b>ExternalCreditProfile</b><small>nacm_risk_score · nacm_dbt · dnb_paydex<br>dnb_failure_score · payment_trend</small></li>
+      <li><b>ExternalTradeLine</b><small>reporting_member · high_credit · balance<br>terms · payment_manner</small></li>
+    </ul>
+  </section>
+  <section>
+    <label>Decision &amp; workflow</label>
+    <ul>
+      <li><b>CreditDecision</b><small>recommended_credit_limit · recommendation<br>limit_change_percent · analyst_commentary</small></li>
+      <li><b>ReviewRuleResult</b><small>rule_id · condition · status · detail</small></li>
+      <li><b>AIReview</b><small>confidence · conclusion · drivers · summary</small></li>
+      <li><b>ReviewHistoryEntry</b><small>review_date · decision · decided_by · comments</small></li>
+      <li><b>AnalystAction</b><small>action_type · performed_by · target_system</small></li>
+      <li><b>ReviewDocument</b><small>file_name · category · uploaded_at · document_status</small></li>
+    </ul>
+  </section>
 </div>
-
-<div class="onto-stats"><div><strong>18</strong><small>entities</small></div><div><strong>188</strong><small>attributes</small></div><div><strong>18</strong><small>relationships</small></div><div><strong>R1–R6</strong><small>review rules</small></div><div><strong>7</strong><small>derived metrics</small></div><div><strong>10</strong><small>screen sections</small></div></div>
 
 <p class="takeaway"><b>A threshold is governable only if its terms are defined once.</b></p>
 
@@ -312,7 +350,7 @@ SCRIPT
 
 None of the previous slide works without this one.
 
-This is the customer credit review ontology. Eighteen entities, covering the case and the account, exposure and payment behaviour, risk and financials, external data, and the decision and workflow. Underneath them: a hundred and eighty-eight attributes, eighteen relationships, the six review rules, seven derived metrics, and the ten sections of the review screen.
+This is the Customer Credit Review Ontology, version 1.0. It covers the case and account, exposure and payment behaviour, risk and financials, external data, and the decision and workflow. The tree shows the properties beneath each entity: not just a label such as AR balance, but the balance, past-due amount, past-due percentage, aging date, and the other facts needed to interpret it consistently.
 
 Here is why it matters commercially, and it is the sentence to take away. A threshold can only be governed, versioned, and scoped to a segment if the thing it constrains has one agreed definition, one type, one unit, and one owner. Without that, past due percent means three different things in three systems — and a rule center just becomes a faster way to disagree.
 
@@ -326,7 +364,7 @@ IF ASKED — is this modeling for its own sake? No. It is the precondition for t
 
 没有这一页，前面那一页都立不住。
 
-这就是 customer credit review 本体。十八个实体，覆盖案卷与账户、敞口与付款行为、风险与财务、外部数据，以及决定与工作流。其下是一百八十八个属性、十八个关系、六条复核规则、七个派生指标，以及复核屏幕的十个分区。
+这就是 Customer Credit Review Ontology 1.0。它覆盖案卷与账户、敞口与付款行为、风险与财务、外部数据，以及决定与工作流。树状结构展示了每个实体下面的属性：不只是“应收账款余额”这样一个标签，而是余额、逾期金额、逾期占比、账龄日期，以及一致解释这个数字所需的其他事实。
 
 商业上为什么重要，带走这一句就够。一条阈值只有在它所约束的对象有一个约定定义、一种类型、一个单位、一个责任人时，才能被治理、被版本化、并限定到某个分段。没有这些，逾期占比在三个系统里会是三种意思——规则中心只会变成更快地各说各话。
 
@@ -344,16 +382,18 @@ IF ASKED — is this modeling for its own sake? No. It is the precondition for t
 # Every attribute has a source
 
 <table class="onto-source">
-  <thead><tr><th>Entity</th><th>Example attributes</th><th>Source</th></tr></thead>
+  <thead><tr><th>Entity</th><th>Example attributes</th><th>Mapped table · API</th></tr></thead>
   <tbody>
-    <tr><td><code>CustomerAccount</code></td><td>customer_id · customer_name · territory · terms · region</td><td>CIS customer master</td></tr>
-    <tr><td><code>ARBalance</code></td><td>ar_balance · past_due_amount · past_due_percentage</td><td>Customer credit snapshot, via the credit API</td></tr>
-    <tr><td><code>ExposureProfile</code></td><td>total_exposure · utilization_of_limit</td><td><b>Derived</b> — AR plus pending, over the limit</td></tr>
-    <tr><td><code>FinancialRelationship</code></td><td>financial_master_id · sharing · restricted</td><td>Customer cross-reference, via the relationship API</td></tr>
-    <tr><td><code>ExternalCreditProfile</code></td><td>nacm_risk_score · nacm_dbt · aging_distribution</td><td>External trade-credit feed</td></tr>
-    <tr><td><code>ReviewDocument</code></td><td>file_name · uploaded_at · document_status</td><td>Financial-statement attachment service</td></tr>
+    <tr><td><code>CustomerAccount</code></td><td>customer_id · customer_name · territory · terms · region</td><td><code>dim_us.dim_pub_customer_info</code><small>GET /api/customer/{custNo}</small></td></tr>
+    <tr><td><code>ARBalance</code></td><td>ar_balance · past_due_amount · past_due_percentage (derived)</td><td><code>dim_us.dim_pub_customer_credit_info</code><small>POST /api/customers/creditInfo/queryForm</small><em>past_due_amt ÷ curr_bal</em></td></tr>
+    <tr><td><code>ExposureProfile</code></td><td>total_exposure · utilization_of_limit</td><td><code>dim_us.dim_pub_customer_credit_info</code><small>POST /api/customers/creditInfo/queryForm · derived</small></td></tr>
+    <tr><td><code>FinancialRelationship</code></td><td>financial_master_id · relationship_type</td><td><code>CIS.dbo.cust_xref</code><small>GET /api/customer/{custNo}/relationship/FINAN_SUB</small></td></tr>
+    <tr><td><code>ExternalCreditProfile</code></td><td>NACM aging and score concepts (partial)</td><td><code>dim_us.dim_customer_nacm_cms_aging</code><small>POST /api/customer/nacm/nacmDetail/excel/queryForm</small><em>Field mapping unverified</em></td></tr>
+    <tr><td><code>ReviewDocument</code></td><td>file_name · uploaded_at · document_status</td><td><code>customer_attach</code><small>GET /api/customer/{customerNo}/files?templateType=FINANCIAL_STATEMENT</small></td></tr>
   </tbody>
 </table>
+
+<p class="source-note">Derived and partial mappings are labeled; field grain and runtime contracts still require read-only verification.</p>
 
 <p class="takeaway"><b>Same rule, same meaning, in the US and Canada.</b></p>
 
@@ -362,13 +402,13 @@ SCRIPT
 
 And this is not abstract. Every attribute has a definition and a named source.
 
-Customer account — identity, name, territory, terms, region — comes from the CIS customer master.
+Customer account identity, name, territory, terms, and region map to <code>dim_us.dim_pub_customer_info</code> and <code>GET /api/customer/{custNo}</code>.
 
-AR balance, past due amount, and past due percentage come from the customer credit snapshot, read through the credit API.
+AR balance and past-due amount map to <code>dim_us.dim_pub_customer_credit_info</code> and <code>POST /api/customers/creditInfo/queryForm</code>. Past-due percentage is derived as <code>past_due_amt / curr_bal</code>; it is not a source field.
 
-Exposure is derived: AR balance plus pending, over the credit limit. Read that one aloud, because it is the clearest illustration of the value. Defining it once, here, is what stops three teams computing it three different ways.
+Exposure is derived from the same source: current balance plus pending amount, over the credit limit. Read that one aloud, because it is the clearest illustration of the value. Defining it once, here, is what stops three teams computing it three different ways.
 
-Financial relationship comes from the customer cross-reference. External credit comes from the trade-credit feed. Review documents come from the attachment service.
+Financial-master identifiers and relationship type map to <code>CIS.dbo.cust_xref</code>, using the <code>FINAN_SUB</code> relationship API. NACM aging and score concepts have a partial mapping to <code>dim_us.dim_customer_nacm_cms_aging</code> and the NACM query API; the concrete field mapping remains unverified. Review documents map to <code>customer_attach</code> and the financial-statement files API. Field grain and runtime contracts still need read-only verification.
 
 That is what turns a policy sentence into something a system can evaluate. No more than ten percent past due is enforceable only once past-due percentage has one definition, one unit, and one authoritative source. It is also what lets the same rule mean the same thing in the US and in Canada.
 
@@ -378,13 +418,13 @@ IF ASKED — how complete is this mapping? We have gone through it property by p
 
 而且这并不抽象。每个属性都有定义，也有具名来源。
 
-Customer account——身份、名称、区域、账期、地区——来自 CIS customer master。
+Customer account 的身份、名称、区域、账期和地区，映射到 <code>dim_us.dim_pub_customer_info</code> 和 <code>GET /api/customer/{custNo}</code>。
 
-应收账款余额、逾期金额和逾期占比，来自 customer credit snapshot，通过授信 API 读取。
+应收账款余额和逾期金额，映射到 <code>dim_us.dim_pub_customer_credit_info</code> 和 <code>POST /api/customers/creditInfo/queryForm</code>。逾期占比由 <code>past_due_amt / curr_bal</code> 派生，不是来源字段。
 
-敞口是派生的：应收账款余额加上在途，再除以授信额度。这一条要大声读出来，因为它最能说明价值。在这里定义一次，才能阻止三个团队用三种算法去算。
+敞口由同一来源派生：应收账款余额加上在途，再除以授信额度。这一条要大声读出来，因为它最能说明价值。在这里定义一次，才能阻止三个团队用三种算法去算。
 
-财务关系来自 customer 交叉引用。外部授信来自贸易授信数据源。复核文件来自附件服务。
+财务主账户标识和关系类型映射到 <code>CIS.dbo.cust_xref</code>，并使用 <code>FINAN_SUB</code> 关系 API。NACM 账龄和评分概念只完成了到 <code>dim_us.dim_customer_nacm_cms_aging</code> 与 NACM 查询 API 的部分映射；具体字段仍未核实。复核文件映射到 <code>customer_attach</code> 和财务报表文件 API。字段粒度和运行时契约仍需只读核实。
 
 这才把一句政策变成系统能评估的东西。“逾期不超过百分之十”只有在逾期占比有一个定义、一个单位、一个权威来源时才能执行。这也让同一条规则在美国和加拿大表示同一件事。
 
