@@ -43,26 +43,9 @@ test("v2 session gate unlocks the shell before loading protected app modules", a
       authenticated = true;
       return route.fulfill({ json: { authenticated: true, expiresInSeconds: 28800 } });
     });
-    await page.route("**/api/ai/draft_rule", async route => {
-      assert.deepEqual(route.request().postDataJSON(), {
-        schemaVersion: "1",
-        policyText: "Customers with NET 30 payment terms cannot have more than 5% of their AR balance past due.",
-        activeReleaseId: "credit-1.4.0"
-      });
+    await page.route("**/api/ai/draft_rule", route => {
       draftRequests += 1;
-      if (draftRequests === 3) {
-        return route.fulfill({ status: 401, json: { error: { code: "AUTH_REQUIRED", message: "Authentication required", retryable: false, correlationId: "browser-test" } } });
-      }
-      return route.fulfill({ json: {
-        schemaVersion: "1",
-        operation: "draft_rule",
-        result: {
-          outcome: "CANDIDATE",
-          family: "NET30_PAST_DUE_MAX",
-          summary: "Bounded NET 30 candidate drafted.",
-          dsl: "RULE NET30_PAST_DUE_MAX\nSCOPE customer.payment_terms == \"NET_30\"\nSET_MAX_RATIO customer.past_due_amount\n    TO customer.ar_balance = 0.05\nEND"
-        }
-      } });
+      return route.fulfill({ status: 500, body: "v2 drafting must remain unavailable" });
     });
 
     await page.goto(`http://127.0.0.1:${port}/v2/`);
@@ -73,33 +56,20 @@ test("v2 session gate unlocks the shell before loading protected app modules", a
     await page.waitForSelector("#list .row");
     assert.equal(await page.locator("#accessGate").getAttribute("class"), "access-gate hidden");
 
-    // AI-enabled mode exposes drafting, but the result remains an unvalidated candidate.
+    // Authentication can enable model-backed explanations without implying that the
+    // old server rule families support the v2 R1/R2 policy workbench.
     await page.getByRole("button", { name: "Configure rules" }).click();
     assert.equal(await page.evaluate(() => document.activeElement?.id), "policyWorkbenchTitle");
-    assert.equal(await page.getByRole("button", { name: "Draft with AI" }).isDisabled(), false);
-    await page.getByRole("button", { name: "Draft with AI" }).click();
-    await page.getByText("AI-drafted candidate", { exact: true }).waitFor();
-    assert.match(await page.locator(".policy-banner").textContent(), /candidate revision 6 · AI-drafted candidate/);
-    assert.match(await page.locator(".policy-draft-feedback").textContent(), /Deterministic validation has not run/);
-    assert.equal(await page.evaluate(() => document.activeElement?.id), "policyDraftStatus");
-
-    // Replacing source allocates a new monotonic revision for the same stable rule family.
-    await page.getByRole("button", { name: "Draft with AI" }).click();
-    await page.getByText(/candidate revision 7 · AI-drafted candidate/).waitFor();
-
-    // An expired AI session moves focus to the login gate; the settling draft
-    // promise must not steal it back for a now-hidden workbench status.
-    await page.getByRole("button", { name: "Draft with AI" }).click();
-    await page.waitForSelector("body.auth-locked");
-    await page.waitForFunction(() => document.querySelector("#policyDraftStatus")?.textContent.includes("Authentication required"));
-    assert.equal(await page.evaluate(() => document.activeElement?.id), "loginPassword");
+    assert.equal(await page.getByRole("button", { name: "AI drafting unavailable" }).isDisabled(), true);
+    assert.match(await page.locator(".policy-mode-note").textContent(), /AI drafting is not configured for the v2 R1\/R2 families.*no model calls/i);
+    assert.equal(draftRequests, 0);
   } finally {
     await browser.close();
     try { process.kill(-vite.pid, "SIGTERM"); } catch {}
   }
 });
 
-test("v2 worklist and detail are driven by the shared deterministic engine", async () => {
+test("v2 worklist and detail present the SE-aligned deterministic business scenarios", async () => {
   const port = await freePort();
   const vite = await startVite(port);
   const browser = await chromium.launch({ headless: true });
@@ -110,16 +80,19 @@ test("v2 worklist and detail are driven by the shared deterministic engine", asy
     await page.route("**/api/session", route => route.fulfill({ status: 404, body: "Not found" }));
     await page.goto(`http://127.0.0.1:${port}/v2/index.html`);
 
-    // Worklist rows come from narrativeCustomers, not prototype data.
+    // Worklist rows are the four internally consistent fictional archetypes.
     await page.waitForSelector("#list .row");
     await page.click('[data-tab="all"]');
     const listText = await page.textContent("#list");
     for (const name of ["Northwind Components", "Cascade Freight", "Meridian Industrial", "Ironclad Manufacturing"]) {
       assert.ok(listText.includes(name), `worklist should include ${name}`);
     }
+    assert.match(await page.locator('#list .row:has-text("Cascade")').textContent(), /< 10% of AR/);
+    assert.match(await page.locator('#list .row:has-text("Meridian")').textContent(), /≥ 10% of AR/);
+    assert.match(await page.locator('#list .row:has-text("Northwind")').textContent(), /no actioning finding · view only/);
     assert.ok(!listText.includes("Vantage"), "prototype personas must be gone");
     assert.equal(await page.getByRole("button", { name: "Configure rules" }).isDisabled(), false);
-    assert.equal(await page.locator("#activePolicyVersion").textContent(), "credit-1.4.0");
+    assert.equal(await page.locator("#activePolicyVersion").textContent(), "customer-review-2.0.0");
 
     // Filters without backing data are visibly unavailable rather than silently ignored.
     assert.equal(await page.locator("#filterbar input:disabled, #filterbar select:disabled").count(), 7);
@@ -129,7 +102,7 @@ test("v2 worklist and detail are driven by the shared deterministic engine", asy
     // Global reference controls cannot imply unsupported filtering or currency conversion.
     await page.click("#vw-global");
     assert.equal(await page.locator("#globalWrap .gv-reference input").count(), 0);
-    assert.match(await page.locator("#globalWrap .gv-reference").textContent(), /Narrative accounts · 2001–2004/);
+    assert.match(await page.locator("#globalWrap .gv-reference").textContent(), /Fictional scenarios · 2001–2004/);
     assert.equal(await page.locator("#globalWrap .ccy button").count(), 0);
     assert.equal(await page.locator("#globalWrap .ccy-value").textContent(), "USD only");
     await page.click("#vw-region");
@@ -139,35 +112,48 @@ test("v2 worklist and detail are driven by the shared deterministic engine", asy
     assert.equal(await page.textContent('[data-tab="auto"] .n'), "1");
     assert.equal(await page.textContent('[data-tab="done"] .n'), "0");
 
-    // Ironclad detail: calculator recommendation and exact rule evaluation references.
-    await page.click('#list .row:has-text("Ironclad") .open-btn');
+    // Deteriorating payer: R1 and R5 require manual review while R3 remains visible and non-actioning.
+    await page.click('#list .row:has-text("Cascade") .open-btn');
     const banner = await page.textContent("#detailBody .dbanner");
-    assert.ok(banner.includes("$75,000"), "banner should show the deterministic recommended limit");
-    assert.ok(banner.includes("Restrict customer"), "banner should show the proposed action");
+    assert.ok(banner.includes("$8,500,000"), "banner should show the deterministic hold recommendation");
+    assert.ok(banner.includes("Manual review"), "banner should show the deterministic manual-review action");
     assert.equal(await page.getByRole("button", { name: "Export unavailable" }).isDisabled(), true);
     const rules = await page.textContent("#sec-rules");
-    assert.ok(rules.includes("credit-1.4.0/CRITICAL_RESTRICTION@1"), "rules table should cite the evaluator's evaluationRef");
-    assert.ok(rules.includes("CRITICAL_RESTRICTION_TRIGGER"), "rules table should cite the reason code");
-    assert.ok((await page.textContent("#sec-ai")).includes("no model call"), "proposal must be labeled as scripted");
-    assert.match(await page.textContent(".implied"), /\$90,000\/mo × 45d \/ 30 = \$135,000 term exposure; × 1\.10 buffer = \$148,500 demand basis/);
+    assert.match(rules, /R1 · ADP-W threshold.*FINDING.*ADP_W_THRESHOLD_EXCEEDED/s);
+    assert.match(rules, /R3 · Maximum balance versus limit.*visibility signal, not a hard stop.*FINDING.*MAX_BALANCE_VISIBILITY/s);
+    assert.match(rules, /R5 · NSF or chargeback events.*FINDING.*RECENT_PAYMENT_EXCEPTION/s);
+    const proposal = await page.textContent("#sec-ai");
+    for (const section of ["Payment behavior", "Financials", "External signals", "Relationship and exposure"]) assert.ok(proposal.includes(section));
+    assert.match(proposal, /Deterministic finding.*ADP-W 73\.9d.*3 recent NSF\/chargeback events|Deterministic finding.*ADP-W 73\.9d/s);
+    assert.match(proposal, /Corroborating context \(fictional\).*cannot add a finding or change the deterministic action/s);
+    assert.match(proposal, /R3 is a visibility signal only and does not determine the action/);
+    assert.ok(proposal.includes("no model call"), "proposal must be labeled as scripted");
 
     // Snapshot ontology facts expose their definition, provenance, and exact trace destinations.
-    await page.click('[data-fact="past_due_ratio"]');
+    await page.click('[data-fact="max_balance_90d"]');
     await page.waitForSelector("#factDialog[open]");
     const factReference = await page.textContent("#factDialog");
-    assert.match(factReference, /fact:2004\/past_due_ratio/);
+    assert.match(factReference, /fact:2002\/max_balance_90d/);
     assert.match(factReference, /Type\s*decimal/);
-    assert.match(factReference, /Unit\s*unitless/);
-    assert.match(factReference, /Deterministically derived in this browser/);
-    assert.match(factReference, /credit-1\.4\.0\/CRITICAL_RESTRICTION@1/);
+    assert.match(factReference, /Unit\s*USD/);
+    assert.match(factReference, /Fictional Narrative Customer input/);
+    assert.match(factReference, /customer-review-2\.0\.0\/R3_MAX_BALANCE_VS_LIMIT@1/);
     await page.click("#factDialog .dialog-close");
 
-    // Financial-summary period follows the fictional statement attachment for each account.
+    // Supported increase remains advisory and analyst-decided.
+    await page.click("#crumb a");
+    await page.click('#list .row:has-text("Ironclad") .open-btn');
+    assert.match(await page.textContent("#detailBody .dbanner"), /Recommended limit\s*\$2,000,000.*AI proposal\s*Reassess credit limit/s);
+    assert.match(await page.textContent("#sec-ai"), /supports an increase from \$1,750,000 to \$2,000,000.*Analyst decision required/s);
+
+    // Mandatory gate also keeps the correct fictional statement period.
     await page.click("#crumb a");
     await page.click('#list .row:has-text("Meridian") .open-btn');
     const financialSummary = await page.textContent("#sec-fs");
     assert.match(financialSummary, /Fiscal year\s*FY 2024 \(fictional\)/);
     assert.doesNotMatch(financialSummary, /Fiscal year\s*FY 2025/);
+    assert.match(await page.textContent("#sec-ai"), /R2 · Low ADP with delinquent invoices.*R6 · Automatic review count.*Updated financial statements are also required/s);
+    assert.deepEqual(pageErrors, []);
   } finally {
     await browser.close();
     try { process.kill(-vite.pid, "SIGTERM"); } catch {}
@@ -189,9 +175,10 @@ test("v2 policy change validates, compares, assesses impact, and badges only cha
     await page.getByRole("button", { name: "Configure rules" }).click();
     await page.waitForSelector("#policyWorkbench.show");
     assert.equal(await page.evaluate(() => document.activeElement?.id), "policyWorkbenchTitle");
-    assert.equal(await page.getByRole("button", { name: "Draft with AI" }).isDisabled(), true);
-    assert.match(await page.locator("#policyStructuredDiff").textContent(), /Active revision 4 → candidate revision 5.*8% of accounts receivable.*5% of accounts receivable.*Lower threshold · tightening/s);
-    assert.match(await page.locator(".policy-baseline-grid").textContent(), /Active policy version.*credit-1\.4\.0.*Preview only · never activated here.*AI drafts; controls assess/s);
+    assert.equal(await page.getByRole("button", { name: "AI drafting unavailable" }).isDisabled(), true);
+    assert.match(await page.locator("#policyStructuredDiff").textContent(), /R2_LOW_ADP_PLUS_PD.*Active revision 1 → candidate revision 2.*10% of accounts receivable.*8% of accounts receivable.*Lower threshold · tightening/s);
+    assert.match(await page.locator("#policyStructuredDiff").textContent(), /Unchanged scope/);
+    assert.match(await page.locator(".policy-baseline-grid").textContent(), /Active policy version.*customer-review-2\.0\.0.*Preview only · never activated here.*AI drafts; controls assess/s);
 
     // The shared authoring/governance sequence gates each deterministic step.
     await page.locator(".policy-candidate [data-policy-action=\"validate\"]").click();
@@ -199,36 +186,37 @@ test("v2 policy change validates, compares, assesses impact, and badges only cha
     assert.equal(await page.locator('[data-policy-action="impact"]:enabled').count(), 0);
     assert.equal(await page.evaluate(() => document.activeElement?.dataset.policyAction), "analyze");
     await page.locator('[data-policy-action="analyze"]:enabled').click();
-    assert.match(await page.locator(".policy-evidence-card").nth(1).textContent(), /CompatibilityPassed.*COMPATIBLE REFINEMENT.*Active 8% → candidate 5%/s);
+    assert.match(await page.locator(".policy-evidence-card").nth(1).textContent(), /CompatibilityPassed.*COMPATIBLE REFINEMENT.*Active 10% → candidate 8%/s);
     assert.equal(await page.evaluate(() => document.activeElement?.dataset.policyAction), "impact");
     await page.locator('[data-policy-action="impact"]:enabled').click();
     await page.waitForSelector("#policyImpactResults");
     assert.equal(await page.evaluate(() => document.activeElement?.id), "policyImpactResults");
 
     const impact = await page.locator("#policyImpactResults").textContent();
-    assert.match(impact, /3 additional records require review/);
-    assert.match(impact, /Cohort records12.*Newly required reviews3.*Changed primary actions3/s);
-    assert.match(impact, /preview release credit-1\.4\.0-candidate-NET30_PAST_DUE_MAX-r5/);
+    assert.match(impact, /2 additional records require review/);
+    assert.match(impact, /Cohort records12.*Newly required reviews2.*Changed primary actions2/s);
+    assert.match(impact, /preview release customer-review-2\.0\.0-candidate-R2_LOW_ADP_PLUS_PD-r2/);
     assert.match(impact, /No findings or review paths change for accounts 2001–2004/);
     assert.match(impact, /Governed review, approval, publication, and activation happen outside this POC/);
     assert.equal(await page.getByRole("button", { name: /approve|publish|activate/i }).count(), 0);
 
-    // A tighter, human-edited bounded candidate changes Meridian's finding without
-    // projecting the fixed 3001–3012 impact cohort onto the 2001–2004 worklist.
-    const dsl = await page.locator("#policyDsl").inputValue();
-    await page.locator("#policyDsl").fill(dsl.replace("0.05", "0.01"));
+    // The R1 example is assessed separately and adds an ADP-W finding to Meridian
+    // without changing the active baseline.
+    await page.getByRole("button", { name: /Tighten R1 ADP-W/ }).click();
+    assert.equal(await page.evaluate(() => document.activeElement?.dataset.policyScenario), "adp35");
+    await page.getByRole("button", { name: "Use example candidate" }).click();
+    assert.match(await page.locator(".policy-banner").textContent(), /R1_ADP_W.*candidate revision 2 · Example candidate/s);
     await page.locator(".policy-candidate [data-policy-action=\"validate\"]").click();
-    assert.match(await page.locator(".policy-banner").textContent(), /candidate revision 6 · Human-edited candidate/);
     await page.locator('[data-policy-action="analyze"]:enabled').click();
     await page.locator('[data-policy-action="impact"]:enabled').click();
     await page.waitForSelector("#policyImpactResults");
     assert.match(await page.locator(".policy-worklist-result").textContent(), /1 of 4 accounts have changed findings or review paths/);
-    assert.match(await page.locator("#policyImpactResults").textContent(), /preview release credit-1\.4\.0-candidate-NET30_PAST_DUE_MAX-r6/);
+    assert.match(await page.locator("#policyImpactResults").textContent(), /preview release customer-review-2\.0\.0-candidate-R1_ADP_W-r2/);
 
     await page.getByRole("button", { name: "Back to worklist" }).click();
     assert.equal(await page.evaluate(() => document.activeElement?.id), "configureRulesButton");
     await page.click('[data-tab="all"]');
-    assert.match(await page.locator("#candidateImpactNotice").textContent(), /Candidate preview only:.*1 narrative worklist account has.*Active policy remains credit-1\.4\.0/s);
+    assert.match(await page.locator("#candidateImpactNotice").textContent(), /Candidate preview only:.*1 narrative worklist account has.*Active policy remains customer-review-2\.0\.0/s);
     assert.equal(await page.locator('#list .row:has-text("Meridian") .candidate-impact-badge').textContent(), "Candidate Finding Added");
     assert.equal(await page.locator("#list .candidate-impact-badge").count(), 1);
 
@@ -239,37 +227,17 @@ test("v2 policy change validates, compares, assesses impact, and badges only cha
     await page.waitForSelector("#list .row");
     await page.click('[data-tab="all"]');
     assert.equal(await page.locator('#list .row:has-text("Meridian") .candidate-impact-badge').textContent(), "Candidate Finding Added");
-    assert.equal(await page.locator("#activePolicyVersion").textContent(), "credit-1.4.0");
-
-    // Replacing the candidate never reuses an identity. Revisions are monotonic per
-    // stable rule family, and preview release IDs include that family.
-    await page.getByRole("button", { name: "Configure rules" }).click();
-    await page.getByRole("button", { name: "Use example candidate" }).click();
-    assert.match(await page.locator(".policy-banner").textContent(), /NET30_PAST_DUE_MAX.*candidate revision 7/s);
-    assert.equal(await page.evaluate(() => document.activeElement?.dataset.policyAction), "validate");
-    await page.locator(".policy-candidate [data-policy-action=\"validate\"]").click();
-    await page.locator('[data-policy-action="analyze"]:enabled').click();
-    await page.locator('[data-policy-action="impact"]:enabled').click();
-    assert.match(await page.locator("#policyImpactResults").textContent(), /preview release credit-1\.4\.0-candidate-NET30_PAST_DUE_MAX-r7/);
-
-    await page.getByRole("button", { name: /Tighten high-balance ADP/ }).click();
-    assert.equal(await page.evaluate(() => document.activeElement?.dataset.policyScenario), "adp20");
-    await page.getByRole("button", { name: "Use example candidate" }).click();
-    assert.match(await page.locator(".policy-banner").textContent(), /HIGH_BALANCE_ADP_MAX.*candidate revision 3/s);
-    await page.locator(".policy-candidate [data-policy-action=\"validate\"]").click();
-    await page.locator('[data-policy-action="analyze"]:enabled').click();
-    await page.locator('[data-policy-action="impact"]:enabled').click();
-    assert.match(await page.locator("#policyImpactResults").textContent(), /preview release credit-1\.4\.0-candidate-HIGH_BALANCE_ADP_MAX-r3/);
+    assert.equal(await page.locator("#activePolicyVersion").textContent(), "customer-review-2.0.0");
     const savedPolicy = await page.evaluate(() => JSON.parse(sessionStorage.getItem("v2:customer-review:policy-workbench:v1")));
-    assert.equal(savedPolicy.activeReleaseId, "credit-1.4.0");
-    assert.equal(savedPolicy.nextRevisions.NET30_PAST_DUE_MAX, 8);
-    assert.equal(savedPolicy.nextRevisions.HIGH_BALANCE_ADP_MAX, 4);
+    assert.equal(savedPolicy.activeReleaseId, "customer-review-2.0.0");
+    assert.equal(savedPolicy.nextRevisions.R2_LOW_ADP_PLUS_PD, 3);
+    assert.equal(savedPolicy.nextRevisions.R1_ADP_W, 3);
 
     // Release-bound state is discarded rather than reinterpreted against a new baseline.
     await page.evaluate(() => {
       const key = "v2:customer-review:policy-workbench:v1";
       const saved = JSON.parse(sessionStorage.getItem(key));
-      saved.activeReleaseId = "credit-older-baseline";
+      saved.activeReleaseId = "customer-review-older-baseline";
       sessionStorage.setItem(key, JSON.stringify(saved));
     });
     await page.reload();
@@ -277,7 +245,7 @@ test("v2 policy change validates, compares, assesses impact, and badges only cha
     assert.equal(await page.evaluate(() => sessionStorage.getItem("v2:customer-review:policy-workbench:v1")), null);
     assert.equal(await page.locator("#list .candidate-impact-badge").count(), 0);
     await page.getByRole("button", { name: "Configure rules" }).click();
-    assert.match(await page.locator(".policy-banner").textContent(), /NET30_PAST_DUE_MAX.*candidate revision 5 · Example candidate/s);
+    assert.match(await page.locator(".policy-banner").textContent(), /R2_LOW_ADP_PLUS_PD.*candidate revision 2 · Example candidate/s);
     assert.match(await page.locator(".policy-evidence").textContent(), /ValidationNot run.*CompatibilityNot run.*Review impactNot run/s);
     assert.deepEqual(pageErrors, []);
   } finally {
@@ -303,12 +271,11 @@ test("v2 decisions persist per release, stay isolated from v1, and auto-clear is
     assert.ok(await page.isVisible('button:has-text("View only (auto-cleared)")'));
     assert.equal(await page.locator('[data-act="confirm"]').count(), 0);
     const autoProposal = await page.textContent("#sec-ai");
-    assert.match(autoProposal, /All applicable policy rules pass/);
-    assert.doesNotMatch(autoProposal, /All 6 active policy rules pass/);
+    assert.match(autoProposal, /No deterministic control requires intervention/);
     assert.equal(await page.locator(".rerun").isDisabled(), true);
     assert.equal(await page.locator('[data-act="rerun"]').count(), 0);
     const autoHistory = await page.textContent("#sec-hist");
-    assert.match(autoHistory, /J\. Kim.*Analyst approved routine increase after deterministic review pass/s);
+    assert.match(autoHistory, /J\. Kim.*Analyst approved a routine increase after current statements and order demand supported the change/s);
     assert.doesNotMatch(autoHistory, /System.*Auto review pass/s);
     await page.click("#crumb a");
 
@@ -321,7 +288,7 @@ test("v2 decisions persist per release, stay isolated from v1, and auto-clear is
     await page.click('[data-act="confirm"]');
     await page.waitForSelector('[data-act="reopen"]');
     assert.ok((await page.textContent(".actzone")).includes("AI proposal confirmed"));
-    assert.match(await page.textContent("#sec-hist"), /Decision recorded.*confirmed proposed result.*Restrict customer/s);
+    assert.match(await page.textContent("#sec-hist"), /Decision recorded.*confirmed proposed result.*Reassess credit limit/s);
 
     // Storage is prefixed for v2 and untouched for v1.
     const keys = await page.evaluate(() => ({
@@ -329,7 +296,7 @@ test("v2 decisions persist per release, stay isolated from v1, and auto-clear is
       history: sessionStorage.getItem("v2:customer-review:history:v1"),
       v1: sessionStorage.getItem("customer-review:dispositions:v1")
     }));
-    assert.ok(keys.v2.includes('"deterministicAction":"NEED_TO_RESTRICT"'));
+    assert.ok(keys.v2.includes('"deterministicAction":"RECOMMEND_CREDIT_LIMIT_REASSESSMENT"'));
     assert.ok(keys.history.includes('"kind":"DECISION_RECORDED"'));
     assert.equal(keys.v1, null);
 
@@ -346,7 +313,7 @@ test("v2 decisions persist per release, stay isolated from v1, and auto-clear is
     // Reopen restores the pending decision.
     await page.click('[data-act="reopen"]');
     await page.waitForSelector('[data-act="confirm"]');
-    assert.match(await page.textContent("#sec-hist"), /Review reopened.*Restrict customer/s);
+    assert.match(await page.textContent("#sec-hist"), /Review reopened.*Reassess credit limit/s);
 
     // Override shortcuts require rationale written for the replacement result.
     assert.equal(await page.inputValue("#commentary"), "");

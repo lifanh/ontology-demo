@@ -14,7 +14,7 @@
   <form id="loginForm">
     <div class="env">ACCESS-GATED ILLUSTRATIVE POC</div>
     <h1 id="accessTitle">Customer Review</h1>
-    <p>This POC uses fictional customer data. In AI-enabled mode, the Policy Change workbench can make a real model call to draft a bounded candidate; deterministic-only mode makes no model calls. Do not enter production customer data or confidential policy.</p>
+    <p>This POC uses fictional customer data. The v2 review proposal is scripted from deterministic results, and its R1/R2 Policy Change workbench uses deterministic examples rather than model drafting. Do not enter production customer data or confidential policy.</p>
     <label>Shared demo password<input id="loginPassword" name="password" type="password" required autocomplete="current-password"/></label>
     <button class="btn primary" type="submit">Enter demo</button>
     <p id="loginError" role="alert"></p>
@@ -70,13 +70,13 @@
   </div>
 
   <div class="wrap" id="queueWrap">
-    <!-- KPI cards and tabs are rendered from the shared deterministic engine by src/app.js -->
+    <!-- KPI cards and tabs are rendered from the v2 deterministic review pack by src/app.js -->
     <div class="kpis"></div>
 
     <div class="toolbar">
       <div class="tabs" role="tablist"></div>
       <div class="legend">
-        <span><i class="lg high"></i>Escalation proposed</span><span><i class="lg soft"></i>Docs / limit change</span>
+        <span><i class="lg high"></i>Manual review proposed</span><span><i class="lg soft"></i>Advisory / visibility</span>
         <span><i class="lg ai"></i>AI proposal</span><span><i class="lg pass"></i>Auto-cleared</span>
       </div>
     </div>
@@ -94,9 +94,9 @@
     <div class="gv-head">
       <div>
         <div class="gv-title">Global customer view <span class="ro">read-only</span></div>
-        <div class="gv-sub">All narrative accounts. Reference only — no review actions here.</div>
+        <div class="gv-sub">All four fictional business scenarios. Reference only — no review actions here.</div>
       </div>
-      <div class="gv-reference"><span>Narrative accounts · 2001–2004</span></div>
+      <div class="gv-reference"><span>Fictional scenarios · 2001–2004</span></div>
       <div class="ccy">
         <span class="lbl2">Currency</span>
         <span class="ccy-value">USD only</span>

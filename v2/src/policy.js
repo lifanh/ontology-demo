@@ -5,26 +5,26 @@ import {
   activeRules,
   analyzeCandidate,
   compileCandidate,
-  creditPack,
   narrativeCustomers,
   policyImpactCohort,
   registry,
   release,
+  reviewPack,
   scenarios
-} from "../../src/domains/credit/pack.js";
+} from "./review-pack.js";
 import { actionLabels } from "./context.js";
 
 const STORAGE_KEY = "v2:customer-review:policy-workbench:v1";
-const evaluate = createEvaluator(creditPack);
+const evaluate = createEvaluator(reviewPack);
 const scenarioMeta = Object.freeze({
-  ratio5: Object.freeze({ label: "Tighten NET 30 past due", detail: "8% → 5% · compatible refinement" }),
-  ratio15: Object.freeze({ label: "Relax NET 30 past due", detail: "8% → 15% · conflict example" }),
-  adp20: Object.freeze({ label: "Tighten high-balance ADP", detail: "25 days → 20 days · compatible refinement" }),
-  adp45: Object.freeze({ label: "Relax high-balance ADP", detail: "25 days → 45 days · conflict example" })
+  pastDue8: Object.freeze({ label: "Tighten R2 past-due trigger", detail: "10% → 8% · compatible refinement" }),
+  pastDue12: Object.freeze({ label: "Relax R2 past-due trigger", detail: "10% → 12% · compatible relaxation" }),
+  adp35: Object.freeze({ label: "Tighten R1 ADP-W", detail: "38 days → 35 days · compatible refinement" }),
+  adp40: Object.freeze({ label: "Relax R1 ADP-W", detail: "38 days → 40 days · compatible relaxation" })
 });
 const policyNames = Object.freeze({
-  NET30_PAST_DUE_MAX: "NET 30 past-due limit",
-  HIGH_BALANCE_ADP_MAX: "High-balance payment limit"
+  R1_ADP_W: "R1 · ADP-W threshold",
+  R2_LOW_ADP_PLUS_PD: "R2 · Low ADP with delinquent invoices"
 });
 const stateLabels = Object.freeze({
   DRAFT: "Draft",
@@ -36,15 +36,13 @@ const stateLabels = Object.freeze({
 const escapeHtml = value => String(value ?? "—").replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
 const number = value => new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value);
 
-let selected = "ratio5";
+let selected = "pastDue8";
 let governance;
 let intentDraft;
 let dslDraft;
 let narrativeImpact = null;
 let notice = "Choose an example intent, use its example candidate, or edit the bounded DSL.";
 let draftFeedback = null;
-let draftRequestVersion = 0;
-let draftPending = false;
 let notifyImpact = () => {};
 let nextRevisions;
 
@@ -80,7 +78,7 @@ function scenarioCandidate(id) {
   };
 }
 
-function resetToScenario(id = "ratio5") {
+function resetToScenario(id = "pastDue8") {
   const candidate = scenarioCandidate(id);
   selected = id;
   governance = new Governance({ activeRelease: release, candidate });
@@ -317,7 +315,6 @@ function render(focusSelector = null) {
   const validationReady = current.state === "DRAFT";
   const analysisReady = current.state === "VALIDATED" && !governance.evidence.analysis;
   const impactReady = current.state === "ANALYZED" && !governance.evidence.batch;
-  const aiEnabled = document.documentElement.dataset.aiEnabled === "true";
   const provenance = current.provenance === "AI" ? "AI-drafted candidate" : current.provenance === "HUMAN_EDIT" ? "Human-edited candidate" : "Example candidate";
   const hasUnappliedEdits = intentDraft !== current.sourcePolicy || dslDraft !== current.sourceDsl;
   container.innerHTML = `<div class="wrap policy-wrap">
@@ -339,14 +336,14 @@ function render(focusSelector = null) {
       <section class="panel policy-intents">
         <div class="p-h"><span class="t">1 · Example policy intents</span></div>
         <div class="p-b">
-          <p>Select an illustrative bounded intent. Selection does not replace the current candidate until you draft or load its example candidate.</p>
+          <p>Select an illustrative bounded intent. Selection does not replace the current candidate until you load its example candidate.</p>
           <div class="policy-scenarios">${Object.entries(scenarioMeta).map(([id, meta]) => `<button data-policy-scenario="${id}" aria-pressed="${selected === id}"><b>${escapeHtml(meta.label)}</b><span>${escapeHtml(meta.detail)}</span></button>`).join("")}</div>
           <label class="policy-field"><span>Business intent</span><textarea id="policyIntent" maxlength="1200">${escapeHtml(intentDraft)}</textarea></label>
           <div class="dactions">
-            <button class="btn adjust" id="policyDraftButton" data-policy-action="draft" ${aiEnabled && !draftPending ? "" : `disabled${aiEnabled ? "" : ' title="AI drafting is unavailable in deterministic-only mode"'}`}>Draft with AI</button>
+            <button class="btn ghost" id="policyDraftButton" disabled title="AI drafting is not configured for the v2 R1/R2 policy families">AI drafting unavailable</button>
             <button class="btn ghost" data-policy-action="example" ${selected ? "" : "disabled"}>Use example candidate</button>
           </div>
-          <p class="policy-mode-note">${aiEnabled ? "AI drafting uses the shared GitHub Copilot gateway. The result remains an unvalidated draft." : "Deterministic-only mode: use an example candidate or edit the bounded DSL manually. No model calls are made."}</p>
+          <p class="policy-mode-note">Use an SE-aligned example candidate or edit the bounded DSL manually. AI drafting is not configured for the v2 R1/R2 families, so this workbench makes no model calls.</p>
           ${draftFeedback ? `<div class="policy-draft-feedback ${draftFeedback.tone || ""}" id="policyDraftStatus" role="status" tabindex="-1"><b>${escapeHtml(draftFeedback.title)}</b><p>${escapeHtml(draftFeedback.message)}</p></div>` : ""}
         </div>
       </section>
@@ -421,74 +418,7 @@ function useExampleCandidate() {
   notice = "Example candidate loaded as a draft. No active policy or customer state changed.";
 }
 
-async function draftWithAi() {
-  captureInputs();
-  const policyBuffer = intentDraft;
-  const policyText = policyBuffer.trim();
-  if (!policyText) {
-    draftFeedback = { title: "Draft unavailable", message: "Enter a business intent first.", tone: "error" };
-    render("#policyDraftStatus");
-    return;
-  }
-  const version = ++draftRequestVersion;
-  draftPending = true;
-  draftFeedback = { title: "Drafting with GitHub Copilot…", message: "AI is drafting within the two supported policy families." };
-  render("#policyDraftStatus");
-  try {
-    const response = await fetch("/api/ai/draft_rule", {
-      method: "POST",
-      credentials: "same-origin",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ schemaVersion: "1", policyText, activeReleaseId: release.id })
-    });
-    const payload = await response.json();
-    if (response.status === 401) window.dispatchEvent(new Event("demo-auth-required"));
-    if (!response.ok) throw new Error(`${payload.error?.message || "Drafting failed"}${payload.error?.correlationId ? ` · ${payload.error.correlationId}` : ""}`);
-    const liveIntent = document.getElementById("policyIntent")?.value ?? policyBuffer;
-    if (version !== draftRequestVersion || liveIntent !== policyBuffer) throw new Error("The intent changed while drafting. Retry against the current intent.");
-    const result = payload.result;
-    if (result.outcome === "CANDIDATE") {
-      const active = activeRules.find(rule => rule.id === result.family);
-      if (!active) throw new Error("The drafted rule family is not present in the active policy.");
-      governance = new Governance({
-        activeRelease: release,
-        candidate: {
-          logicalId: result.family,
-          revision: allocateCandidateRevision(result.family),
-          sourcePolicy: policyBuffer,
-          sourceDsl: result.dsl,
-          ast: null,
-          provenance: "AI"
-        }
-      });
-      dslDraft = result.dsl;
-      selected = Object.entries(scenarios).find(([, scenario]) => scenario.logicalId === result.family && formatRule(scenario.ast, { root: "customer" }) === result.dsl)?.[0] || null;
-      clearImpact();
-      draftFeedback = { title: "AI-drafted candidate", message: `${result.summary} Deterministic validation has not run.` };
-      notice = "AI drafted source only. Review the diff and run deterministic validation before compatibility or impact assessment.";
-    } else if (result.outcome === "NEEDS_CLARIFICATION") {
-      draftFeedback = { title: "Needs clarification", message: `${result.question} Missing: ${result.missingFields.join(", ")}.` };
-    } else {
-      draftFeedback = { title: "Unsupported intent", message: result.summary, tone: "error" };
-    }
-  } catch (error) {
-    if (version !== draftRequestVersion) return;
-    draftFeedback = { title: "Draft unavailable", message: error instanceof Error ? error.message : "Drafting failed.", tone: "error" };
-  }
-  draftPending = false;
-  persist();
-  render("#policyDraftStatus");
-}
-
-function invalidatePendingDraft() {
-  if (!draftPending) return;
-  draftRequestVersion += 1;
-  draftPending = false;
-  draftFeedback = { title: "Draft outdated", message: "The intent or source changed while drafting. Draft again against the current edits." };
-}
-
 function handleAction(action) {
-  invalidatePendingDraft();
   captureInputs();
   if (action === "close") return document.dispatchEvent(new CustomEvent("v2-policy-close"));
   let focusSelector = "#policyNotice";
@@ -539,11 +469,10 @@ export function createPolicyWorkbench({ onOpen, onClose, onImpactAssessed }) {
   document.getElementById("policyWorkbench").addEventListener("click", event => {
     const scenario = event.target.closest("[data-policy-scenario]");
     if (scenario) {
-      invalidatePendingDraft();
       captureInputs();
       selected = scenario.dataset.policyScenario;
       intentDraft = scenarios[selected].policy;
-      draftFeedback = { title: "Example intent selected", message: "Draft it with AI or load the deterministic example candidate. The current candidate is unchanged." };
+      draftFeedback = { title: "Example intent selected", message: "Load the deterministic example candidate or edit the bounded DSL. The current candidate is unchanged." };
       notice = "Intent selected; the current candidate and its evidence remain unchanged until replaced.";
       persist();
       render(`[data-policy-scenario="${selected}"]`);
@@ -551,19 +480,11 @@ export function createPolicyWorkbench({ onOpen, onClose, onImpactAssessed }) {
     }
     const action = event.target.closest("[data-policy-action]")?.dataset.policyAction;
     if (!action) return;
-    if (action === "draft") draftWithAi();
-    else handleAction(action);
+    handleAction(action);
   });
   document.getElementById("policyWorkbench").addEventListener("input", event => {
     if (!event.target.matches("#policyIntent, #policyDsl")) return;
     captureInputs();
-    if (draftPending) {
-      invalidatePendingDraft();
-      const feedback = document.querySelector(".policy-draft-feedback");
-      if (feedback) feedback.innerHTML = `<b>${escapeHtml(draftFeedback.title)}</b><p>${escapeHtml(draftFeedback.message)}</p>`;
-      const draftButton = document.getElementById("policyDraftButton");
-      if (draftButton && document.documentElement.dataset.aiEnabled === "true") draftButton.disabled = false;
-    }
     const status = document.getElementById("policyEditStatus");
     if (status) status.textContent = "Unapplied edits · run Apply & validate to create deterministic evidence for a new revision.";
     persist();

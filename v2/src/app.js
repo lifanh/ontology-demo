@@ -1,17 +1,18 @@
 /* Version 2 demo script. Structure and style follow docs/prototypes/customer_review_prototype.html
-   (SE vision, 2026-08). All review data comes from the shared deterministic engine
-   (../../src) — facts, rule traces, calculator output, actions, and dispositions. AI proposes the
+   (SE vision, 2026-08). Review facts and R1-R6 controls come from the v2-owned deterministic
+   domain in ./review-pack.js; the evaluator, authoring, governance, and dispositions runtime remains
+   shared with ../../src. AI proposes the
    review result of every account; credit analysts decide. Proposal prose here is scripted from
-   deterministic results and makes no model calls; the separate Policy Change workbench can request
-   a bounded AI draft in AI-enabled mode. Fictional Tier-2 color (territories, reviewers, history,
+   deterministic results and makes no model calls; the Policy Change workbench uses bounded
+   deterministic examples and manual edits. Fictional Tier-2 color (territories, reviewers, history,
    NACM/D&B style data) lives in ./context.js. */
 import { createEvaluator } from "../../src/core/runtime.js";
-import { creditPack, narrativeCustomers, registry } from "../../src/domains/credit/pack.js";
+import { narrativeCustomers, registry, reviewPack } from "./review-pack.js";
 import { createDispositionStore, dispositionActions, DISPOSITION_STORAGE_KEY } from "../../src/domains/credit/dispositions.js";
 import { actionLabels, reviewMeta } from "./context.js";
 import { createPolicyWorkbench } from "./policy.js";
 
-const evaluate = createEvaluator(creditPack);
+const evaluate = createEvaluator(reviewPack);
 
 /* Dispositions persist in this browser tab only, isolated from the v1 demo by a key prefix. */
 const v2Storage = {
@@ -23,7 +24,7 @@ const store = createDispositionStore(v2Storage);
 const SESSION_HISTORY_STORAGE_KEY = "customer-review:history:v1";
 let assessedCandidateImpact = null;
 
-document.getElementById("activePolicyVersion").textContent = creditPack.release.id;
+document.getElementById("activePolicyVersion").textContent = reviewPack.release.id;
 
 function allSessionEvents() {
   try {
@@ -117,39 +118,39 @@ function proposal(record) {
   const facts = result.facts, calc = result.calculation, primary = result.action.primary;
   const tone = proposalTone[primary];
   const hold = `holding the limit at ${money(facts.credit_limit)}`;
+  const materialFindings = result.findings.filter(trace => trace.finding.material);
+  const manualReasons = materialFindings.map(trace => trace.policy.title).join("; ");
   const text = {
-    AUTO_REVIEW_PASS: () => `All applicable policy rules pass and the deterministic calculator recommends no limit change. Proposed result: auto review pass — keep the limit at ${money(facts.credit_limit)} on ${termsLabel(facts.payment_terms)}. View only; no analyst action required.`,
+    AUTO_REVIEW_PASS: () => `No deterministic control requires intervention and the calculator recommends no limit change. Proposed result: auto review pass — keep the limit at ${money(facts.credit_limit)} on ${termsLabel(facts.payment_terms)}. View only; no analyst action required.`,
     REQUEST_UPDATED_FINANCIAL_STATEMENTS: () => `Financial statements on file are ${facts.financial_statement_status} and policy requires current statements above $50,000; the limit calculator is blocked until they arrive. AI proposes requesting updated financial statements and ${hold}. Analyst decision required.`,
-    NEED_CREDIT_MANAGER_REVIEW: () => `${result.findings.length} material policy findings — past due is ${pct(facts.past_due_ratio)} of AR against the 10% global and 8% NET 30 limits. AI proposes routing to a credit manager with ${hold}. Analyst decision required.`,
-    NEED_MANUAL_REVIEW: () => `A material policy finding requires review. AI proposes manual review with ${hold}. Analyst decision required.`,
-    RECOMMEND_CREDIT_LIMIT_REASSESSMENT: () => `Rules pass but the deterministic calculator recommends ${money(calc.recommended)} (${calc.direction.toLowerCase()}). AI proposes reassessing the credit limit. Analyst decision required.`,
-    NEED_TO_RESTRICT: () => `Critical restriction trigger: past due ${pct(facts.past_due_ratio)} of AR, negative operating cash flow (${money(facts.operating_cash_flow)}), and current ratio ${num2(facts.current_ratio)}. AI proposes restricting the customer; the calculator sizes a reduced limit of ${money(calc.recommended)}. Analyst decision required.`
+    NEED_CREDIT_MANAGER_REVIEW: () => `Deterministic findings require credit-manager review: ${manualReasons}. AI proposes ${hold}. Analyst decision required.`,
+    NEED_MANUAL_REVIEW: () => `Deterministic findings require manual review: ${manualReasons}.${result.action.supporting.includes("REQUEST_UPDATED_FINANCIAL_STATEMENTS") ? " Updated financial statements are also required." : ""} AI proposes ${hold}. Analyst decision required.`,
+    RECOMMEND_CREDIT_LIMIT_REASSESSMENT: () => `No deterministic control requires manual intervention. The advisory calculator supports an increase from ${money(calc.current)} to ${money(calc.recommended)}, capped by ${calc.bindingConstraint === "REQUESTED_LIMIT" ? "the requested limit" : calc.bindingConstraint === "DEMAND" ? "order demand" : "financial capacity"}. AI proposes a credit-limit reassessment. Analyst decision required.`,
+    NEED_TO_RESTRICT: () => `A deterministic restriction control requires intervention. AI proposes restricting the customer and ${hold}. Analyst decision required.`
   }[primary]();
 
   const drivers = result.findings.map(trace => {
     const match = trace.observations.find(o => o.role === "CONDITION" && o.result === "MATCH");
-    return ["neg", `${trace.policy.title}: ${match ? `${match.factLabel} ${fmtPart(match.actual)} vs ${match.comparison.operator} ${fmtPart(match.comparison)}` : trace.finding.reasonCode}`];
+    return [trace.finding.material ? "neg" : "neu", `${trace.finding.material ? "Deterministic finding" : "Visibility signal"} · ${trace.policy.title}: ${match ? `${match.factLabel} ${fmtPart(match.actual)} vs ${match.comparison.operator} ${fmtPart(match.comparison)}` : trace.finding.reasonCode}`];
   });
   if (calc.material) drivers.push([calc.delta < 0 ? "neg" : "neu", `Calculator: ${calc.direction.toLowerCase()} to ${money(calc.recommended)} (${pct(calc.deltaPercent)})`]);
   if (calc.status === "BLOCKED_FINANCIALS_REQUIRED") drivers.push(["neu", "Calculator blocked — current financial statements required"]);
-  if (!drivers.length) drivers.push(["pos", "All applicable policy rules pass"], ["pos", `Calculator: no limit change recommended (${money(calc.recommended)})`]);
+  if (!drivers.length) drivers.push(["pos", "No deterministic control requires intervention"], ["pos", `Calculator: no limit change recommended (${money(calc.recommended)})`]);
 
-  const paymentWarn = facts.past_due_ratio > 0.10 || ["watch", "severe"].includes(calc.paymentGrade);
+  const paymentReasonCodes = new Set(["ADP_W_THRESHOLD_EXCEEDED", "LOW_ADP_DELINQUENT_INVOICES", "RECENT_PAYMENT_EXCEPTION"]);
+  const paymentFindings = result.findings.filter(trace => paymentReasonCodes.has(trace.finding.reasonCode));
+  const paymentWarn = paymentFindings.some(trace => trace.finding.material) || ["watch", "severe"].includes(calc.paymentGrade);
+  const maxBalanceFinding = result.findings.find(trace => trace.finding.reasonCode === "MAX_BALANCE_VISIBILITY");
+  const relationshipFindings = result.findings.filter(trace => ["FINANCIAL_GROUP_RESTRICTED", "AUTO_REVIEW_LIMIT_REACHED"].includes(trace.finding.reasonCode));
   const secs = [
     ["Payment behavior", paymentWarn ? "warn" : "ok",
-      `Past due ${money(facts.past_due_amount)} (${pct(facts.past_due_ratio)}) of AR ${money(facts.ar_balance)}. ADP ${facts.adp_days}d against ${termsLabel(facts.payment_terms)} terms.${calc.paymentGrade ? ` Deterministic payment grade: ${calc.paymentGrade}.` : ""}`],
-    ["Financial statements", facts.financial_statement_status === "CURRENT" ? "ok" : "warn",
-      facts.financial_statement_status === "CURRENT"
-        ? `Statements CURRENT. Deterministic financial grade: ${calc.financialGrade}. Revenue ${money(facts.annual_revenue)}, EBITDA margin ${pct(facts.ebitda_margin)}, current ratio ${num2(facts.current_ratio)}.`
-        : `Statements ${facts.financial_statement_status}. Policy requires current statements above $50,000 and the limit calculator is blocked until they are refreshed.`],
-    ["Policy rules", result.findings.some(trace => trace.finding.material) ? "warn" : result.findings.length ? "neu" : "ok",
-      result.findings.length
-        ? `${result.findings.length} of ${result.traces.length} rules produced findings: ${result.findings.map(trace => trace.finding.reasonCode).join(", ")}.`
-        : `All applicable rules pass under policy release ${result.release.id}.`],
-    ["Limit calculation", calc.recommended == null ? "neu" : calc.delta < 0 ? "warn" : "ok",
-      calc.recommended == null
-        ? `Status ${calc.status.replaceAll("_", " ")} — no recommendation available.`
-        : `Recommended ${money(calc.recommended)} (${calc.direction.toLowerCase().replaceAll("_", " ")}) vs current ${money(calc.current)}. Acceptable range ${money(calc.acceptableRange[0])}–${money(calc.acceptableRange[1])}; binding constraint: ${calc.bindingConstraint === "DEMAND" ? "order demand" : "financial capacity"}.`]
+      `Deterministic ${paymentFindings.length ? "finding" : "result"}: ADP-W ${facts.adp_w_90d}d versus ${facts.weighted_terms_days} weighted-term days; ${money(facts.open_invoices_over_39_days)} in invoices at least 39 days old; past due ${money(facts.past_due_amount)} (${pct(facts.past_due_ratio)} of AR); ${facts.nsf_count_90d} NSF and ${facts.chargeback_count_90d} chargeback events.${paymentFindings.length ? ` Controls: ${paymentFindings.map(trace => trace.policy.title).join(", ")}.` : ""}`],
+    ["Financials", facts.financial_statement_status === "CURRENT" ? "ok" : "warn",
+      `Deterministic ${facts.financial_statement_status === "CURRENT" ? "result" : "finding"}: statements ${facts.financial_statement_status}; revenue ${money(facts.annual_revenue)}, EBITDA margin ${pct(facts.ebitda_margin)}, current ratio ${num2(facts.current_ratio)}.${calc.financialGrade ? ` Financial grade ${calc.financialGrade}.` : " The advisory calculator is blocked until statements are refreshed."}`],
+    ["External signals", meta.ext.flag[0] === "warn" ? "warn" : "neu",
+      `Corroborating context (fictional): ${meta.ext.summary} This Tier-2 context explains the proposal but cannot add a finding or change the deterministic action.`],
+    ["Relationship and exposure", relationshipFindings.length ? "warn" : maxBalanceFinding ? "neu" : "ok",
+      `Deterministic ${relationshipFindings.length ? "finding" : "result"}: ${facts.relationship_type === "FINANCIAL_MASTER" ? "financial master" : "single account"}; total exposure ${money(facts.total_exposure)}; maximum 90-day balance ${money(facts.max_balance_90d)} (${pct(facts.max_balance_percent_of_limit)} of limit); sharing-group restriction ${facts.sharing_group_restricted}; automatic review count ${facts.auto_review_count} of ${facts.auto_review_limit}.${maxBalanceFinding ? " R3 is a visibility signal only and does not determine the action." : ""}${relationshipFindings.length ? ` Controls: ${relationshipFindings.map(trace => trace.policy.title).join(", ")}.` : ""}`]
   ];
   const rec = [
     ["New limit", calc.recommended == null ? money(calc.current) : money(calc.recommended), calc.recommended == null || calc.direction === "NO_CHANGE" ? "hold" : calc.direction === "INCREASE" ? "up" : "down"],
@@ -180,15 +181,15 @@ function matchesFilters(record) {
 
 function renderKpis() {
   const awaiting = records.filter(pending).length;
-  const escalations = records.filter(record => pending(record) && ["NEED_TO_RESTRICT", "NEED_CREDIT_MANAGER_REVIEW"].includes(record.result.action.primary)).length;
-  const overPolicy = records.filter(record => record.result.facts.past_due_ratio > 0.10).length;
+  const escalations = records.filter(record => pending(record) && record.result.action.primary === "NEED_MANUAL_REVIEW").length;
+  const visibilitySignals = records.filter(record => record.result.findings.some(trace => trace.finding.reasonCode === "MAX_BALANCE_VISIBILITY")).length;
   const auto = records.filter(isAuto).length;
   document.querySelector("#queueWrap .kpis").innerHTML = `
     <div class="kpi acc-ai"><div class="k-l"><span class="dot ai"></span>AI proposal, awaiting decision</div><div class="k-v">${awaiting}</div><div class="k-s">Proposal ready for analyst decision</div></div>
-    <div class="kpi acc-high"><div class="k-l"><span class="dot high"></span>Escalation proposed</div><div class="k-v">${escalations}</div><div class="k-s">Restrict or credit-manager routing proposed</div></div>
-    <div class="kpi acc-soft"><div class="k-l"><span class="dot soft"></span>Past due over policy limit</div><div class="k-v">${overPolicy}</div><div class="k-s">Above the 10% of AR threshold</div></div>
-    <div class="kpi acc-pass"><div class="k-l"><span class="dot pass"></span>Auto-cleared (rules pass)</div><div class="k-v">${auto}</div><div class="k-s">Deterministic pass · view only</div></div>
-    <div class="kpi"><div class="k-l">Due this cycle</div><div class="k-v">${records.length}</div><div class="k-s">Fictional narrative set · ${escapeHtml(creditPack.release.id)}</div></div>`;
+    <div class="kpi acc-high"><div class="k-l"><span class="dot high"></span>Manual review proposed</div><div class="k-v">${escalations}</div><div class="k-s">One or more R1–R6 gates require a person</div></div>
+    <div class="kpi acc-soft"><div class="k-l"><span class="dot soft"></span>R3 visibility signal</div><div class="k-v">${visibilitySignals}</div><div class="k-s">Peak balance ≥150% of limit · non-actioning</div></div>
+    <div class="kpi acc-pass"><div class="k-l"><span class="dot pass"></span>Auto-cleared</div><div class="k-v">${auto}</div><div class="k-s">No deterministic intervention required</div></div>
+    <div class="kpi"><div class="k-l">Due this cycle</div><div class="k-v">${records.length}</div><div class="k-s">Four fictional business scenarios · ${escapeHtml(reviewPack.release.id)}</div></div>`;
 }
 
 function renderTabs() {
@@ -219,8 +220,9 @@ function candidateImpactFor(record) {
 }
 
 const amtCell = (value, ratio) => {
-  const tier = ratio > 0.10 ? "high" : value > 0 ? "soft" : "";
-  const sub = ratio > 0.10 ? `<span class="s">&gt; 10% of AR</span>` : value > 0 ? `<span class="s">within 10% policy</span>` : `<span class="s">no past due</span>`;
+  const atOrAboveTenPercent = ratio >= 0.10;
+  const tier = atOrAboveTenPercent ? "high" : value > 0 ? "soft" : "";
+  const sub = atOrAboveTenPercent ? `<span class="s">≥ 10% of AR</span>` : value > 0 ? `<span class="s">&lt; 10% of AR</span>` : `<span class="s">no past due</span>`;
   return `<div class="amt ${tier}">${money(value)}${sub}</div>`;
 };
 
@@ -230,12 +232,12 @@ function rowHtml(record) {
   const tone = proposalTone[record.result.action.primary];
   const candidateImpact = candidateImpactFor(record);
   return `<div class="row p-${tone === "soft" ? "soft" : tone}">
-  <div class="cust"><div class="name">${escapeHtml(record.customer.name)} <span class="rel-tag">SINGLE</span>${candidateImpact ? `<span class="candidate-impact-badge" title="Candidate preview only; active policy remains ${escapeHtml(creditPack.release.id)}">${escapeHtml(candidateImpact.label)}</span>` : ""}</div>
+  <div class="cust"><div class="name">${escapeHtml(record.customer.name)} <span class="rel-tag">${facts.relationship_type === "FINANCIAL_MASTER" ? "FINANCIAL MASTER" : "SINGLE"}</span>${candidateImpact ? `<span class="candidate-impact-badge" title="Candidate preview only; active policy remains ${escapeHtml(reviewPack.release.id)}">${escapeHtml(candidateImpact.label)}</span>` : ""}</div>
     <div class="sub"><span class="mono">#${record.id}</span><span>${escapeHtml(meta.territory)}</span><span>Terms ${termsLabel(facts.payment_terms)}</span></div></div>
   <div><div class="amt">${money(facts.credit_limit)}</div></div>
   <div>${amtCell(facts.past_due_amount, facts.past_due_ratio)}</div>
   <div class="risk-wrap"><span class="risk-band" style="color:${bandColor(record.risk.band)}">${record.risk.band}</span><span class="risk-num">${record.risk.num ?? "—"}</span></div>
-  <div class="mode-cell"><span class="pill ${done ? "pass" : auto ? "pass" : "ai"}">${done ? "Completed" : auto ? "Auto-cleared" : "AI proposal"}</span><span class="conf">${done ? "analyst decided" : auto ? "rules pass · view only" : `proposes: ${escapeHtml(actionLabels[record.result.action.primary])}`}</span></div>
+  <div class="mode-cell"><span class="pill ${done ? "pass" : auto ? "pass" : "ai"}">${done ? "Completed" : auto ? "Auto-cleared" : "AI proposal"}</span><span class="conf">${done ? "analyst decided" : auto ? "no actioning finding · view only" : `proposes: ${escapeHtml(actionLabels[record.result.action.primary])}`}</span></div>
   <div class="nrd">${meta.nrd.slice(0, 5)}<span>${meta.nrd.slice(6)}</span></div>
   <div><button class="open-btn ${auto ? "ghost" : ""}" onclick="openDetail('${record.id}')">${auto || done ? "View" : "Review"}</button></div>
 </div>`;
@@ -312,12 +314,15 @@ function coreSnapshot(record) {
   const rows = [
     ["Current credit limit", money(facts.credit_limit), "sec-rules", "credit_limit"],
     ["Recommended limit", calc.recommended == null ? "Blocked" : money(calc.recommended), "sec-rules"],
+    ["Total exposure", money(facts.total_exposure), "sec-rel", "total_exposure"],
     ["AR balance", money(facts.ar_balance), "sec-aging", "ar_balance"],
     ["Past due", money(facts.past_due_amount), "sec-aging", "past_due_amount"],
     ["Past due %", pct(facts.past_due_ratio), "sec-aging", "past_due_ratio"],
-    ["Utilization", pct(facts.credit_utilization), "sec-adp", "credit_utilization"],
+    ["Exposure utilization", pct(facts.credit_utilization), "sec-adp", "credit_utilization"],
     ["Terms", termsLabel(facts.payment_terms), "sec-adp", "payment_terms"],
-    ["ADP", `${facts.adp_days}d`, "sec-adp", "adp_days"],
+    ["ADP-W · 90 days", `${facts.adp_w_90d}d`, "sec-adp", "adp_w_90d"],
+    ["Weighted terms", `${facts.weighted_terms_days}d`, "sec-adp", "weighted_terms_days"],
+    ["Maximum balance · 90 days", money(facts.max_balance_90d), "sec-rel", "max_balance_90d"],
     ["Statement status", facts.financial_statement_status, "sec-fs", "financial_statement_status"],
     ["Monthly run rate", money(facts.monthly_net_sales_run_rate), "sec-fs", "monthly_net_sales_run_rate"],
     ["Sales trend (180/360)", num2(facts.net_sales_trend_ratio), "sec-fs", "net_sales_trend_ratio"],
@@ -336,14 +341,15 @@ function exposureBlock(record) {
   const facts = record.result.facts, calc = record.result.calculation;
   const utilCls = facts.credit_utilization >= 0.85 ? "high" : facts.credit_utilization >= 0.65 ? "soft" : "pass";
   const items = [
-    ["AR exposure", money(facts.ar_balance), "sec-aging"],
+    ["AR + pending exposure", money(facts.total_exposure), "sec-aging"],
     ["Utilization of limit", `<span class="util ${utilCls}">${pct(facts.credit_utilization)}</span>`, "sec-aging"],
+    ["Maximum balance · 90d", money(facts.max_balance_90d), "sec-rel"],
+    ["Maximum balance / limit", pct(facts.max_balance_percent_of_limit), "sec-rel"],
     ["Net sales · 180d", money(facts.net_sales_180d), "sec-fs"],
     ["Net sales · 360d", money(facts.net_sales_360d), "sec-fs"],
     ["Monthly run rate", money(facts.monthly_net_sales_run_rate), "sec-fs"],
     ["Sales trend (180/360)", num2(facts.net_sales_trend_ratio), "sec-fs"],
-    ["Payment terms", termsLabel(facts.payment_terms), "sec-adp"],
-    ["Customer since", record.meta.since, "sec-hist"]
+    ["Payment terms", termsLabel(facts.payment_terms), "sec-adp"]
   ];
   const anchor = calc.demand
     ? `${money(calc.demand.monthlyRunRate)}/mo × ${calc.demand.termDays}d / 30 = <b>${money(calc.demand.termExposure)}</b> term exposure; × 1.10 buffer = <b>${money(calc.demand.demandBasis)}</b> demand basis`
@@ -415,7 +421,7 @@ function riskSection(record) {
   const facts = result.facts;
   const signals = [
     ["Past due ratio", pct(facts.past_due_ratio)], ["Utilization", pct(facts.credit_utilization)],
-    ["ADP vs terms", `${facts.adp_days}d / ${facts.payment_term_days}d`], ["Sales trend", num2(facts.net_sales_trend_ratio)],
+    ["ADP-W vs weighted terms", `${facts.adp_w_90d}d / ${facts.weighted_terms_days}d`], ["Sales trend", num2(facts.net_sales_trend_ratio)],
     ["Financial grade", result.calculation.financialGrade], ["Payment grade", result.calculation.paymentGrade]
   ];
   return `<div class="grid2">
@@ -478,10 +484,11 @@ function rulesDetail(record) {
 function adpDetail(record) {
   const facts = record.result.facts, calc = record.result.calculation;
   const items = [
-    ["ADP", `${facts.adp_days}d`], ["Payment term", `${facts.payment_term_days}d`],
-    ["ADP vs terms", `${facts.adp_days - facts.payment_term_days >= 0 ? "+" : ""}${facts.adp_days - facts.payment_term_days}d`],
+    ["ADP-W · 90 days", `${facts.adp_w_90d}d`], ["Weighted terms", `${facts.weighted_terms_days}d`],
+    ["ADP-W vs weighted terms", `${facts.adp_w_90d - facts.weighted_terms_days >= 0 ? "+" : ""}${num2(facts.adp_w_90d - facts.weighted_terms_days)}d`],
+    ["Invoices ≥39 days old", money(facts.open_invoices_over_39_days)],
     ["Past due ratio", pct(facts.past_due_ratio)], ["Past due amount", money(facts.past_due_amount)],
-    ["AR balance", money(facts.ar_balance)], ["Utilization", pct(facts.credit_utilization)],
+    ["NSF events · 90 days", facts.nsf_count_90d], ["Chargebacks · 90 days", facts.chargeback_count_90d],
     ["Payment grade", calc.paymentGrade || "Not rated"]
   ];
   return `<div class="sig" style="grid-template-columns:repeat(4,1fr)">${items.map(x => `<div class="s-item"><div class="l">${x[0]}</div><div class="v">${x[1]}</div></div>`).join("")}</div>`;
@@ -505,10 +512,10 @@ function agingRegion(record) {
 
 function relTblRegion(record) {
   const facts = record.result.facts;
-  const head = ["Region", "Company", "Cust#", "Cust Name", "Share", "Own Limit", "AR Balance", "Past Due"];
+  const head = ["Region", "Company", "Cust#", "Cust Name", "Relationship", "Share", "Restriction", "Own Limit", "Total exposure", "Max balance · 90d"];
   return `<table class="gtbl" style="min-width:760px"><tr>${head.map((h, i) => `<th class="${i < 5 ? "l" : ""}">${h}</th>`).join("")}</tr>
-    <tr class="master-row"><td class="l"><span class="rgn">US</span></td><td class="l">100</td><td class="l">${record.id}</td><td class="l">${escapeHtml(record.customer.name)} (Single)</td><td class="l">—</td><td>${money(facts.credit_limit)}</td><td>${money(facts.ar_balance)}</td><td class="${facts.past_due_amount > 0 ? "warn" : ""}">${money(facts.past_due_amount)}</td></tr></table>
-    <div style="font-size:11px;color:var(--faint);margin-top:9px">Single account — financial-group roll-ups (sharing=Y/N, RSA) are a production CIS concept and are not modeled in this POC.</div>`;
+    <tr class="master-row"><td class="l"><span class="rgn">US</span></td><td class="l">100</td><td class="l">${record.id}</td><td class="l">${escapeHtml(record.customer.name)}</td><td class="l">${facts.relationship_type === "FINANCIAL_MASTER" ? "Financial master" : "Single"}</td><td class="l">${facts.relationship_type === "FINANCIAL_MASTER" ? "Group" : "—"}</td><td class="l">${facts.sharing_group_restricted === "Y" ? '<span class="flag">Y</span>' : "N"}</td><td>${money(facts.credit_limit)}</td><td>${money(facts.total_exposure)}</td><td class="${facts.max_balance_percent_of_limit >= 1.5 ? "warn" : ""}">${money(facts.max_balance_90d)} · ${pct(facts.max_balance_percent_of_limit)}</td></tr></table>
+    <div style="font-size:11px;color:var(--faint);margin-top:9px">Fictional relationship snapshot used by deterministic R3 and R4 controls. Production membership and restriction facts would come from CIS APIs.</div>`;
 }
 
 function fsSection(record) {
@@ -584,14 +591,14 @@ function detailHtml(record) {
   const facts = result.facts, calc = result.calculation;
   const auto = isAuto(record);
   const prop = proposal(record);
-  const trigger = result.findings.length ? result.findings.map(trace => trace.policy.title).join(" · ") : "Cycle review — all applicable rules pass";
+  const trigger = result.findings.length ? result.findings.map(trace => trace.policy.title).join(" · ") : "Cycle review — no deterministic intervention required";
   const recTone = prop.tone === "pass" ? "pass" : prop.tone === "soft" ? "soft" : "high";
   return `
   <div class="dbanner slim">
     <div class="dtop">
       <h2><span class="num">${record.id}</span> — ${escapeHtml(record.customer.name)}</h2>
       <span class="status-tag">${statusOf(record)}</span>
-      <span class="rel-tag" style="margin-left:4px">Single account</span>
+      <span class="rel-tag" style="margin-left:4px">${facts.relationship_type === "FINANCIAL_MASTER" ? "Financial master" : "Single account"}</span>
       <div class="spacer"></div>
       <button class="hbtn" title="Export is not available in this POC" disabled>⤓ Export unavailable</button>
     </div>
@@ -798,17 +805,17 @@ function setView(view) {
 
 /* ---------- GLOBAL VIEW (reference only, derived from engine facts) ---------- */
 function renderGlobal() {
-  const relHead = ["Region", "Company", "Cust#", "Cust Name", "Restr.", "Disc.", "Share", "Terms", "Ccy", "Credit Limit", "AR Balance", "Past Due", "ADP", "Since"];
+  const relHead = ["Region", "Company", "Cust#", "Cust Name", "Relationship", "Restr.", "Terms", "Ccy", "Credit Limit", "Total exposure", "Past Due", "ADP-W", "Auto reviews", "Since"];
   const sum = selector => records.reduce((total, record) => total + (selector(record.result.facts) ?? 0), 0);
   const relBody = records.map(record => {
     const facts = record.result.facts;
     return `<tr><td class="l"><span class="rgn">US</span></td><td class="l">100</td><td class="l">${record.id}</td><td class="l">${escapeHtml(record.customer.name)}</td>
-      <td class="l">${facts.restricted_status === "Y" ? '<span class="flag">Y</span>' : "—"}</td><td class="l">${facts.discontinued_status === "Y" ? '<span class="flag">Y</span>' : "—"}</td><td class="l">—</td>
+      <td class="l">${facts.relationship_type === "FINANCIAL_MASTER" ? "Financial master" : "Single"}</td><td class="l">${facts.sharing_group_restricted === "Y" ? '<span class="flag">Y</span>' : "—"}</td>
       <td class="l">${termsLabel(facts.payment_terms)}</td><td class="l">USD</td>
-      <td>${money(facts.credit_limit)}</td><td>${money(facts.ar_balance)}</td><td class="${facts.past_due_amount > 0 ? "warn" : ""}">${money(facts.past_due_amount)}</td><td class="${facts.adp_days > facts.payment_term_days ? "warn" : ""}">${facts.adp_days}d</td><td>${record.meta.since}</td></tr>`;
+      <td>${money(facts.credit_limit)}</td><td>${money(facts.total_exposure)}</td><td class="${facts.past_due_amount > 0 ? "warn" : ""}">${money(facts.past_due_amount)}</td><td class="${facts.adp_w_90d > 38 ? "warn" : ""}">${facts.adp_w_90d}d</td><td>${facts.auto_review_count}/${facts.auto_review_limit}</td><td>${record.meta.since}</td></tr>`;
   }).join("");
-  const relTot = `<tr class="tot"><td class="l">TOTAL (USD)</td><td class="l" colspan="8"></td>
-    <td>${money(sum(f => f.credit_limit))}</td><td>${money(sum(f => f.ar_balance))}</td><td class="warn">${money(sum(f => f.past_due_amount))}</td><td></td><td></td></tr>`;
+  const relTot = `<tr class="tot"><td class="l">TOTAL (USD)</td><td class="l" colspan="7"></td>
+    <td>${money(sum(f => f.credit_limit))}</td><td>${money(sum(f => f.total_exposure))}</td><td class="warn">${money(sum(f => f.past_due_amount))}</td><td></td><td></td><td></td></tr>`;
   const relTbl = `<table class="gtbl"><tr>${relHead.map((h, i) => `<th class="${i < 9 ? "l" : ""}">${h}</th>`).join("")}</tr>${relBody}${relTot}</table>`;
 
   const ageHead = ["Region", "Company", "Cust#", "AR Balance", "Current", "1–30", "31–60", "61–90", "90+"];
@@ -824,7 +831,7 @@ function renderGlobal() {
   const ageTbl = `<table class="gtbl" style="min-width:860px"><tr>${ageHead.map((h, i) => `<th class="${i < 3 ? "l" : ""}">${h}</th>`).join("")}</tr>${ageBody}${ageTot}</table>`;
 
   document.getElementById("globalBody").innerHTML = `
-    <div class="gv-card"><div class="gc-h">🌐 Relationship detail — all narrative accounts <span class="note">engine facts · single region in this POC</span></div>
+    <div class="gv-card"><div class="gc-h">🌐 Relationship detail — all fictional business scenarios <span class="note">deterministic R1–R6 facts · single region in this POC</span></div>
       <div class="gv-scroll">${relTbl}</div></div>
     <div class="gv-card"><div class="gc-h">📊 AR Aging — all narrative accounts <span class="note">illustrative 50/30/20 bucket split</span></div>
       <div class="gv-scroll">${ageTbl}</div></div>`;
