@@ -110,7 +110,7 @@
 
 
 
-.kpi-strip { display: grid; grid-template-columns: repeat(4,1fr); gap: 9px; }
+.kpi-strip { display: grid; grid-template-columns: repeat(5,1fr); gap: 9px; }
 .kpi-strip .kpi { padding: 11px 13px; border: 1px solid var(--line); border-left: 4px solid #93a49d; border-radius: 7px; background: white; }
 .kpi-strip .kpi.ai { border-left-color: var(--green); }
 .kpi-strip .kpi.high { border-left-color: var(--red); }
