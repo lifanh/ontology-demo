@@ -198,8 +198,13 @@ test("v2 policy change validates, compares, assesses impact, and badges only cha
     assert.match(impact, /2 additional records require review/);
     assert.match(impact, /Cohort records12.*Newly required reviews2.*Changed primary actions2/s);
     assert.match(impact, /preview release customer-review-2\.0\.0-candidate-R2_LOW_ADP_PLUS_PD-r2/);
-    assert.match(impact, /No findings or review paths change for accounts 2001–2004/);
-    assert.match(impact, /candidate is ready for governed review and approval.*active policy and customer state remain unchanged/i);
+    assert.doesNotMatch(impact, /Worklist preview|Evidence complete for this candidate revision/);
+    await page.locator('[data-policy-impact-record="3002"]').click();
+    const boundaryDialog = await page.getByRole("dialog").textContent();
+    assert.match(boundaryDialog, /Impact R2 8%.*Fictional boundary record · Customer 3002.*8% past-due ratio.*Policy-relevant facts.*Payment terms.*NET 30.*AR balance.*\$100,000.*Past due amount.*\$8,000.*Dry-run outcome.*Active policy.*Candidate policy.*Maximum 10% past due.*Maximum 8% past due/s);
+    await page.getByRole("dialog").getByText("All input facts").click();
+    assert.match(await page.getByRole("dialog").textContent(), /Financial statements.*Annual revenue.*\$12,000,000/s);
+    await page.locator("#policyImpactDialog .dialog-close").click();
     assert.equal(await page.getByRole("button", { name: /approve|publish|activate/i }).count(), 0);
 
     // The R1 example is assessed separately and adds an ADP-W finding to Meridian
@@ -212,7 +217,7 @@ test("v2 policy change validates, compares, assesses impact, and badges only cha
     await page.locator('[data-policy-action="analyze"]:enabled').click();
     await page.locator('[data-policy-action="impact"]:enabled').click();
     await page.waitForSelector("#policyImpactResults");
-    assert.match(await page.locator(".policy-worklist-result").textContent(), /1 of 4 accounts have changed findings or review paths/);
+    assert.equal(await page.locator(".policy-worklist-result").count(), 0);
     assert.match(await page.locator("#policyImpactResults").textContent(), /preview release customer-review-2\.0\.0-candidate-R1_ADP_W-r2/);
 
     await page.getByRole("button", { name: "Back to worklist" }).click();

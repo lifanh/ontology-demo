@@ -557,7 +557,22 @@ tr.jump:hover td{background:#eef2fd}
 .policy-impact-table th,.policy-impact-table td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
 .policy-impact-table th{background:var(--surface-2);color:var(--faint);font-size:9px;text-transform:uppercase}
 .policy-impact-table td small{display:block;color:var(--faint)}
-.policy-worklist-result,.policy-boundary{margin-top:12px;padding:10px 12px;border:1px solid var(--ai-line);border-radius:8px;background:var(--ai-bg);color:var(--ai);font-size:11.5px}
-.policy-boundary{border-color:var(--pass-line);background:var(--pass-bg);color:var(--pass)}
+.policy-impact-record{display:block;border:0;padding:0;background:transparent;color:var(--brand-ink);font:inherit;text-align:left;cursor:pointer;text-decoration:underline;text-decoration-color:transparent;text-underline-offset:2px}
+.policy-impact-record:hover{text-decoration-color:currentColor}
+.policy-impact-record:focus-visible{outline:2px solid var(--brand);outline-offset:3px;border-radius:2px}
+.impact-fictional{color:var(--faint);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.impact-section{margin-top:20px}
+.impact-fact-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0}
+.impact-fact-grid div{padding:10px;border:1px solid var(--line);border-radius:7px;background:var(--surface-2)}
+.impact-fact-grid dt{color:var(--faint);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.impact-fact-grid dd{margin:4px 0 0;font-weight:700}
+.impact-comparison{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+.impact-comparison table{width:100%;border-collapse:collapse;font-size:12px}
+.impact-comparison th,.impact-comparison td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left}
+.impact-comparison th{background:var(--surface-2)}
+.impact-callout{padding:10px 12px;border:1px solid var(--ai-line);border-radius:8px;background:var(--ai-bg);color:var(--ai)}
+.impact-dialog details{margin-top:14px}
+.impact-dialog summary{cursor:pointer;font-weight:700}
+.impact-dialog pre{overflow:auto;padding:12px;border-radius:8px;background:var(--surface-2);font-size:11px}
 @media(max-width:1050px){.topbar{flex-wrap:wrap}.policy-grid{grid-template-columns:1fr}.policy-metrics{grid-template-columns:repeat(3,1fr)}}
-@media(max-width:700px){.policy-baseline-grid,.policy-evidence-grid{grid-template-columns:1fr}.policy-scenarios{grid-template-columns:1fr}.policy-metrics{grid-template-columns:repeat(2,1fr)}.policy-diff{grid-template-columns:1fr}.policy-diff>div{border-right:0}.policy-diff>div:last-child{grid-column:auto}}
+@media(max-width:700px){.policy-baseline-grid,.policy-evidence-grid{grid-template-columns:1fr}.policy-scenarios{grid-template-columns:1fr}.policy-metrics{grid-template-columns:repeat(2,1fr)}.policy-diff{grid-template-columns:1fr}.policy-diff>div{border-right:0}.policy-diff>div:last-child{grid-column:auto}.impact-fact-grid{grid-template-columns:1fr}}

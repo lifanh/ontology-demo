@@ -7,6 +7,7 @@ import {
   compileCandidate,
   narrativeCustomers,
   policyImpactCohort,
+  properties,
   registry,
   release,
   reviewPack,
@@ -35,6 +36,16 @@ const stateLabels = Object.freeze({
 
 const escapeHtml = value => String(value ?? "—").replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
 const number = value => new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value);
+const money = value => value == null ? "—" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
+
+function formatFact(id, value) {
+  if (value == null) return "—";
+  const definition = registry.definition(id);
+  if (definition.format === "CURRENCY") return money(value);
+  if (definition.format === "PERCENT") return `${number(value * 100)}%`;
+  if (definition.format === "DAYS") return `${number(value)} days`;
+  return typeof value === "number" ? number(value) : String(value).replaceAll("_", " ");
+}
 
 let selected = "pastDue8";
 let governance;
@@ -274,6 +285,49 @@ function evidenceCard(kind, title, description, button) {
   </article>`;
 }
 
+function policyThreshold(rule) {
+  if (rule.constraint?.type === "SET_MAX_RATIO") return `Maximum ${number(rule.constraint.value * 100)}% past due`;
+  if (rule.constraint?.type === "SET_MAX") return `Maximum ${number(rule.constraint.value)} ${String(rule.constraint.unit || "").toLowerCase()}`;
+  return "See policy statement";
+}
+
+function policyOutcome(result, logicalId) {
+  const outcome = result.traces.find(trace => trace.policyRef.ruleId === logicalId)?.outcome;
+  return { FINDING: "Threshold exceeded", PASS: "Within threshold", NOT_APPLICABLE: "Policy does not apply", INDETERMINATE: "Could not determine" }[outcome] || "Not evaluated";
+}
+
+function renderImpactRecord(record, row) {
+  const context = registry.context(record);
+  const logicalId = governance.current.logicalId;
+  const keyFacts = logicalId === "R1_ADP_W"
+    ? ["adp_w_90d", "weighted_terms_days", "payment_terms", "ar_balance", "past_due_amount", "past_due_ratio"]
+    : ["payment_terms", "ar_balance", "past_due_amount", "past_due_ratio", "open_invoices_over_39_days", "adp_w_90d"];
+  const factList = ids => `<dl class="impact-fact-grid">${ids.map(id => `<div><dt>${escapeHtml(registry.definition(id).displayName)}</dt><dd>${escapeHtml(formatFact(id, context.get(id)))}</dd></div>`).join("")}</dl>`;
+  const boundary = logicalId === "R1_ADP_W"
+    ? `This record tests ${formatFact("adp_w_90d", context.get("adp_w_90d"))} ADP-W against the active and candidate thresholds.`
+    : `This record tests a ${formatFact("past_due_ratio", context.get("past_due_ratio"))} past-due ratio for a ${formatFact("payment_terms", context.get("payment_terms"))} customer with old open invoices.`;
+  let outcome;
+  if (row.error) {
+    outcome = `<p class="impact-callout"><b>Evaluation could not complete.</b> This record is included so the input and failure remain inspectable.</p>`;
+  } else {
+    const rules = candidateRules();
+    const activeResult = evaluate(record, activeRules, release);
+    const candidateResult = evaluate(record, rules, candidateRelease(rules));
+    const activeRule = activeRules.find(rule => rule.id === logicalId);
+    const candidateRule = rules.find(rule => rule.id === logicalId);
+    const actionChanged = row.baselineAction !== row.candidateAction;
+    const findingChanged = row.addedFindings.length || row.resolvedFindings.length;
+    const impact = actionChanged
+      ? `The candidate changes the recommended review action from ${actionLabels[row.baselineAction] || row.baselineAction} to ${actionLabels[row.candidateAction] || row.candidateAction}.`
+      : findingChanged
+        ? `The recommended review action remains ${actionLabels[row.candidateAction] || row.candidateAction}, but the candidate changes the policy findings.`
+        : `The candidate produces no change for this record; the recommended action remains ${actionLabels[row.candidateAction] || row.candidateAction}.`;
+    outcome = `<div class="impact-comparison" role="region" aria-label="Active and candidate policy comparison"><table><thead><tr><th></th><th>Active policy</th><th>Candidate policy</th></tr></thead><tbody><tr><th>Threshold</th><td>${escapeHtml(policyThreshold(activeRule))}</td><td>${escapeHtml(policyThreshold(candidateRule))}</td></tr><tr><th>Policy result</th><td>${escapeHtml(policyOutcome(activeResult, logicalId))}</td><td>${escapeHtml(policyOutcome(candidateResult, logicalId))}</td></tr><tr><th>Review action</th><td>${escapeHtml(actionLabels[row.baselineAction] || row.baselineAction)}</td><td>${escapeHtml(actionLabels[row.candidateAction] || row.candidateAction)}</td></tr></tbody></table></div><p class="impact-callout"><b>Candidate impact:</b> ${escapeHtml(impact)}</p>`;
+  }
+  const groupedInputs = Object.entries(properties).filter(([id]) => !["customer_number", "name"].includes(id)).reduce((groups, [id, definition]) => ((groups[definition.group] ||= []).push(id), groups), {});
+  return `<p class="impact-fictional">Fictional boundary record · Customer ${record.customer_number}</p><p>${escapeHtml(boundary)}</p><section class="impact-section"><h4>Policy-relevant facts</h4>${factList(keyFacts)}</section><section class="impact-section"><h4>Dry-run outcome</h4>${outcome}</section><details class="impact-inputs"><summary>All input facts</summary>${Object.entries(groupedInputs).map(([group, ids]) => `<section><h4>${escapeHtml(group)}</h4>${factList(ids)}</section>`).join("")}</details><details><summary>Technical fixture details</summary><pre>${escapeHtml(JSON.stringify(record, null, 2))}</pre></details>`;
+}
+
 function impactResults() {
   const impact = governance.evidence.batch;
   if (!impact) return "";
@@ -288,14 +342,8 @@ function impactResults() {
     ["Resolved findings", summary.resolvedFindings]
   ];
   const rows = impact.changedRows.map(row => row.error
-    ? `<tr><td>${escapeHtml(row.label)}</td><td colspan="3">${escapeHtml(row.error)}</td></tr>`
-    : `<tr><td><b>${escapeHtml(row.label)}</b><small>#${row.customerId}</small></td><td>${escapeHtml(actionLabels[row.baselineAction] || row.baselineAction)}</td><td>${escapeHtml(actionLabels[row.candidateAction] || row.candidateAction)}</td><td>${row.addedFindings.length ? `Added: ${row.addedFindings.map(escapeHtml).join(", ")}` : ""}${row.addedFindings.length && row.resolvedFindings.length ? " · " : ""}${row.resolvedFindings.length ? `Resolved: ${row.resolvedFindings.map(escapeHtml).join(", ")}` : ""}</td></tr>`).join("");
-  const narrativeChanges = narrativeImpact?.changedRows.filter(row => !row.error && !row.indeterminate).length || 0;
-  const narrativeResult = !narrativeImpact?.complete
-    ? "The narrative worklist comparison is incomplete, so no preview badges are shown."
-    : narrativeChanges
-      ? `${narrativeChanges} of ${narrativeCustomers.length} accounts have changed findings or review paths and are badged in the worklist.`
-      : "No findings or review paths change for accounts 2001–2004.";
+    ? `<tr><td><button class="policy-impact-record" data-policy-impact-record="${row.customerId}">${escapeHtml(row.label)}<small>#${row.customerId}</small></button></td><td colspan="3">${escapeHtml(row.error)}</td></tr>`
+    : `<tr><td><button class="policy-impact-record" data-policy-impact-record="${row.customerId}"><b>${escapeHtml(row.label)}</b><small>#${row.customerId}</small></button></td><td>${escapeHtml(actionLabels[row.baselineAction] || row.baselineAction)}</td><td>${escapeHtml(actionLabels[row.candidateAction] || row.candidateAction)}</td><td>${row.addedFindings.length ? `Added: ${row.addedFindings.map(escapeHtml).join(", ")}` : ""}${row.addedFindings.length && row.resolvedFindings.length ? " · " : ""}${row.resolvedFindings.length ? `Resolved: ${row.resolvedFindings.map(escapeHtml).join(", ")}` : ""}</td></tr>`).join("");
   return `<section class="section policy-impact-results" id="policyImpactResults" tabindex="-1">
     <div class="s-h">Review impact · deterministic candidate preview <span class="policy-state ${impact.complete ? "pass" : "warn"}">${impact.complete ? "Complete" : "Incomplete"}</span></div>
     <div class="s-b">
@@ -303,9 +351,13 @@ function impactResults() {
       <p>Candidate evidence is pinned to ${escapeHtml(governance.current.logicalId)}@${governance.current.revision}, preview release ${escapeHtml(previewReleaseId)}, and baseline ${escapeHtml(release.id)}.</p>
       <div class="policy-metrics">${metrics.map(([label, value]) => `<div><small>${escapeHtml(label)}</small><b>${escapeHtml(value)}</b></div>`).join("")}</div>
       ${rows ? `<div class="policy-impact-table"><table><thead><tr><th>Boundary record</th><th>Active action</th><th>Candidate action</th><th>Finding changes</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<p>No boundary records changed.</p>`}
-      <div class="policy-worklist-result"><b>Worklist preview:</b> ${narrativeResult}</div>
-      ${governance.evidenceComplete() ? `<div class="policy-boundary"><b>Evidence complete for this candidate revision.</b> The candidate is ready for governed review and approval. The active policy and customer state remain unchanged.</div>` : ""}
     </div>
+    <dialog class="fact-dialog impact-dialog" id="policyImpactDialog" aria-labelledby="policyImpactDialogTitle">
+      <button class="dialog-close" aria-label="Close boundary record" onclick="this.closest('dialog').close()">×</button>
+      <div class="env">POLICY UPDATE DRY RUN</div>
+      <h3 id="policyImpactDialogTitle"></h3>
+      <div id="policyImpactDialogBody"></div>
+    </dialog>
   </section>`;
 }
 
@@ -465,6 +517,19 @@ export function createPolicyWorkbench({ onOpen, onClose, onImpactAssessed }) {
     configureButton.focus();
   });
   document.getElementById("policyWorkbench").addEventListener("click", event => {
+    const impactRecordButton = event.target.closest("[data-policy-impact-record]");
+    if (impactRecordButton) {
+      const customerId = Number(impactRecordButton.dataset.policyImpactRecord);
+      const record = policyImpactCohort.records.find(item => item.customer_number === customerId);
+      const row = governance.evidence.batch?.rows.find(item => item.customerId === customerId);
+      const dialog = document.getElementById("policyImpactDialog");
+      if (record && row && dialog) {
+        document.getElementById("policyImpactDialogTitle").textContent = record.name;
+        document.getElementById("policyImpactDialogBody").innerHTML = renderImpactRecord(record, row);
+        dialog.showModal();
+      }
+      return;
+    }
     const scenario = event.target.closest("[data-policy-scenario]");
     if (scenario) {
       captureInputs();
