@@ -1,6 +1,6 @@
 ---
 theme: default
-title: Customer Review
+title: AI Assisted Customer Credit Review
 titleTemplate: '%s · AI proposes, analysts decide'
 author: Lifan Huang
 info: |
@@ -24,7 +24,7 @@ defaults:
 <div class="opening-grid">
   <div>
     <p class="kicker">Customer credit review</p>
-    <h1>Every account arrives<br><span>already reviewed</span></h1>
+    <h1>AI Assisted<br><span>Customer Credit Review</span></h1>
     <p class="subtitle">AI proposes. Analysts decide.</p>
     <p class="author">Lifan Huang</p>
   </div>
@@ -46,7 +46,7 @@ SCRIPT
 
 Today, a credit analyst opens an account and starts building the case from scratch. Statements, aging, history, ratios — all of that happens before any judgment does.
 
-Here is the alternative. The account arrives already evaluated. Ironclad Manufacturing has clean payment behavior, current statements, and a requested move from a $1.75 million credit limit to $2 million. The advisory calculator supports that amount, so the proposal is a credit-limit reassessment.
+Here is the alternative: AI-assisted customer credit review. The account arrives already evaluated. Ironclad Manufacturing has clean payment behavior, current statements, and a requested move from a $1.75 million credit limit to $2 million. The advisory calculator supports that amount, so the proposal is a credit-limit reassessment.
 
 The whole session comes down to one sentence: AI proposes the review result of every account, and credit analysts decide. Deterministic rules and calculations remain authoritative.
 
@@ -54,7 +54,7 @@ The whole session comes down to one sentence: AI proposes the review result of e
 
 今天，credit analyst 打开一个账户，要从头拼出整份案卷。报表、AR aging、历史、比率——这些都要先做完，判断才能开始。
 
-另一种做法是，账户到达时已经评估过。Ironclad Manufacturing 的付款行为正常，financial statements 是 current，并申请把 credit limit 从 175 万美元提高到 200 万美元。advisory calculator 支持这个数额，所以建议是做 credit-limit reassessment。
+另一种做法是 AI-assisted customer credit review：账户到达时已经评估过。Ironclad Manufacturing 的付款行为正常，financial statements 是 current，并申请把 credit limit 从 175 万美元提高到 200 万美元。advisory calculator 支持这个数额，所以建议是做 credit-limit reassessment。
 
 整场可以浓缩成一句话：AI 提出每个账户的复核结果，由 credit analyst 做决定。确定性规则和计算始终保持权威。
 -->
@@ -67,7 +67,7 @@ The whole session comes down to one sentence: AI proposes the review result of e
 
 <div class="gap-split">
   <section class="below">
-    <header><b>Below $50,000</b><span>Rules stopped</span></header>
+    <header><b>Below $50,000</b><span>Auto-review rules outdated and stopped</span></header>
     <div class="gap-figure"><strong>48,400</strong><small>customers</small></div>
     <ul><li>US 40,000</li><li>CA 8,400</li></ul>
     <p>Nothing automated runs here today.</p>
@@ -80,8 +80,6 @@ The whole session comes down to one sentence: AI proposes the review result of e
     <p>The population grows. The team does not.</p>
   </section>
 </div>
-
-<p class="takeaway"><b>Below the line, the rules are off. Above it, nothing is automated.</b></p>
 
 <!--
 SCRIPT
@@ -107,6 +105,8 @@ So the line cuts two ways. Below it, the rules that should run are switched off.
 -->
 
 ---
+class: friction-slide
+---
 
 <p class="kicker">The work today</p>
 
@@ -117,7 +117,7 @@ So the line cuts two ways. Below it, the rules that should run are switched off.
   <article><b>Combined by hand</b><span>Reconciled against internal credit, AR, payment, and relationship data.</span></article>
   <article><b>The same math, re-derived</b><span>Past-due percentage, utilization, days to pay, limit sizing.</span></article>
   <article><b>Thresholds live in a document</b><span>Applied from memory, not shown on the screen.</span></article>
-  <article class="constraint"><b>So reviews rotate</b><span>Growing population, fixed team — backlog, delays, incomplete coverage.</span></article>
+  <article class="constraint"><b>Coverage is rationed</b><span>Growing population, fixed team — backlog, delays, incomplete coverage.</span></article>
 </div>
 
 <p class="takeaway"><b>Capacity scales only with headcount.</b></p>
@@ -135,7 +135,7 @@ Third, the same math is re-derived every time. Past-due percentage, utilization,
 
 Fourth, the thresholds live in a policy document. The policy is real, but it is applied from memory rather than shown and evaluated on the screen.
 
-Fifth — and this is the consequence of the other four — reviews get rotated. A growing population above fifty thousand, a fixed team.
+Fifth — and this is the consequence of the other four — the team has to ration review coverage across a growing population above fifty thousand.
 
 The result is simple: capacity scales only with headcount because every review starts from an empty page. The same reseller can also be asked for the same document more than once.
 
@@ -151,7 +151,7 @@ The result is simple: capacity scales only with headcount because every review s
 
 第四，阈值写在政策文件里。政策是真实的，但执行靠记忆，而不是在屏幕上展示并评估。
 
-第五——这是前四点的结果——复核只能轮流做。五万美元以上的 customer 在增加，团队规模不变。
+第五——这是前四点的结果——团队只能在不断增长的五万美元以上 customer 群体中分配有限的复核产能。
 
 结果很直接：产能只能跟着人头涨，因为每一次复核都从空白页开始。同一家经销商也可能被反复要同一份文件。
 -->
@@ -169,8 +169,6 @@ The result is simple: capacity scales only with headcount because every review s
   <article><span>04</span><b>Differentiated policies</b><small>By customer size and risk, not one blunt threshold.</small></article>
   <article><span>05</span><b>AI-assisted analysis</b><small>Outcomes, risk drivers, policy fit — proposed, not decided.</small></article>
 </div>
-
-<p class="takeaway"><b>Segment and risk set the attention — not one dollar line.</b></p>
 
 <!--
 SCRIPT
@@ -264,6 +262,8 @@ This is how capacity can grow without hiring proportionally. The automated lane 
 -->
 
 ---
+class: ontology-slide
+---
 
 <p class="kicker">The foundation · v2</p>
 
@@ -323,8 +323,6 @@ This is how capacity can grow without hiring proportionally. The automated lane 
   </section>
 </div>
 
-<p class="takeaway"><b>A threshold is governable only if its terms are defined once.</b></p>
-
 <!--
 SCRIPT
 
@@ -364,7 +362,7 @@ v2 demo 把 ontology 落成了一个紧凑的 property registry。
     <tr><td><code>Credit operations</code></td><td>ar_balance · pending_amount · past_due_amount · credit_limit</td><td><code>dim_us.dim_pub_customer_credit_info</code><small>POST /api/customers/creditInfo/queryForm</small></td></tr>
     <tr><td><code>Derived facts</code></td><td>total_exposure · past_due_ratio · credit_utilization</td><td><code>Credit operations inputs</code><small>Deterministic calculation · derived</small></td></tr>
     <tr><td><code>Financial relationship</code></td><td>relationship_type · sharing_group_restricted</td><td><code>CIS.dbo.cust_xref</code><small>GET /api/customer/{custNo}/relationship/FINAN_SUB</small></td></tr>
-    <tr><td><code>External context</code></td><td>NACM and D&amp;B-style concepts (non-actioning)</td><td><code>dim_us.dim_customer_nacm_cms_aging</code><small>POST /api/customer/nacm/nacmDetail/excel/queryForm</small><em>Field mapping unverified</em></td></tr>
+    <tr><td><code>External context</code></td><td>NACM and D&amp;B-style concepts (non-actioning)</td><td><code>dim_us.dim_customer_nacm_cms_aging</code><small>POST /api/customer/nacm/nacmDetail/excel/queryForm</small></td></tr>
     <tr><td><code>Supporting files</code></td><td>financial-statement attachments</td><td><code>customer_attach</code><small>GET /api/customer/{customerNo}/files?templateType=FINANCIAL_STATEMENT</small></td></tr>
   </tbody>
 </table>
@@ -384,7 +382,7 @@ AR balance and past-due amount map to <code>dim_us.dim_pub_customer_credit_info<
 
 Exposure is derived from the same source: current balance plus pending amount, over the credit limit. Defining that calculation once is what stops three teams computing it three different ways.
 
-Financial-master identifiers and relationship type map to <code>CIS.dbo.cust_xref</code>, using the <code>FINAN_SUB</code> relationship API. NACM aging and score concepts have a partial mapping to <code>dim_us.dim_customer_nacm_cms_aging</code> and the NACM query API; the concrete field mapping remains unverified. Review documents map to <code>customer_attach</code> and the financial-statement files API. Field grain and runtime contracts still need read-only verification.
+Financial-master identifiers and relationship type map to <code>CIS.dbo.cust_xref</code>, using the <code>FINAN_SUB</code> relationship API. NACM aging and score concepts map to <code>dim_us.dim_customer_nacm_cms_aging</code> and the NACM query API. Review documents map to <code>customer_attach</code> and the financial-statement files API. Field grain and runtime contracts still need read-only verification.
 
 That is what turns a policy sentence into something a system can evaluate. No more than ten percent past due is enforceable only once past-due percentage has one definition, one unit, and one authoritative source. It is also what lets the same rule mean the same thing in the US and in Canada.
 
@@ -398,7 +396,7 @@ Customer account 的 identity、name、territory、payment_terms 和 region，�
 
 <code>credit_utilization</code> 也由同一来源派生：<code>ar_balance</code> 加 <code>pending_amount</code>，再除以 <code>credit_limit</code>。定义一次，才能避免三个团队用三种算法。
 
-财务主账户标识和关系类型映射到 <code>CIS.dbo.cust_xref</code>，并使用 <code>FINAN_SUB</code> 关系 API。NACM 账龄和评分概念只完成了到 <code>dim_us.dim_customer_nacm_cms_aging</code> 与 NACM 查询 API 的部分映射；具体字段仍未核实。复核文件映射到 <code>customer_attach</code> 和财务报表文件 API。字段粒度和运行时契约仍需只读核实。
+财务主账户标识和关系类型映射到 <code>CIS.dbo.cust_xref</code>，并使用 <code>FINAN_SUB</code> 关系 API。NACM 账龄和评分概念映射到 <code>dim_us.dim_customer_nacm_cms_aging</code> 与 NACM 查询 API。复核文件映射到 <code>customer_attach</code> 和财务报表文件 API。字段粒度和运行时契约仍需只读核实。
 
 这才把一句 policy 变成系统能评估的东西。“<code>past_due_ratio</code> 不超过 10%”只有在这个 property 有统一 definition、unit 和 authoritative source 时才能执行，也才能让同一条 rule 在美国和加拿大表达同一个意思。
 -->
@@ -445,8 +443,6 @@ Customer account 的 identity、name、territory、payment_terms 和 region，�
   </div>
 </div>
 
-<p class="region-strip"><b>One case, evidence assembled:</b> Snapshot · Exposure · Profile · AI proposal · History · Risk · External · Rules · Payment · Relationship · AR aging · Financials · Files</p>
-
 <!--
 SCRIPT
 
@@ -458,8 +454,6 @@ Northwind is auto-cleared and view-only. Cascade and Meridian need manual review
 
 On the right, the ontology becomes tangible. Open <code>past_due_ratio</code> and you see its meaning, type, unit, provenance, and policy references. On Meridian, R2 is a finding because the scoped conditions apply and the ratio is fourteen percent against a ten-percent threshold.
 
-The full case is assembled in one place: snapshot, exposure, profile, proposal, history, risk, external context, rules, payment, relationship, AR aging, financials, and files.
-
 讲稿
 
 这些在产品里长这样。
@@ -470,7 +464,6 @@ Northwind 是 Auto-cleared、view only。Cascade 和 Meridian 因不同的 deter
 
 右边让 ontology 变得可见。打开 <code>past_due_ratio</code>，可以看到 meaning、type、unit、provenance 和 policy references。在 Meridian 上，R2 的 scope conditions 成立，而且 <code>past_due_ratio</code> 是 14%，高于 10% threshold，所以结果是 Finding。
 
-完整 case 也集中在一处：snapshot、exposure、profile、AI proposal、history、risk、external context、rules、payment、relationship、AR aging、financials 和 files。
 -->
 
 ---
@@ -489,8 +482,6 @@ Northwind 是 Auto-cleared、view only。Cascade 和 Meridian 因不同的 deter
   <b>What gets recorded</b>
   <span>Action</span><i>·</i><span>Reason</span><i>·</i><span>Policy version</span><i>·</i><span>Evaluation references</span>
 </div>
-
-<p class="boundary"><b>POC boundary:</b> the illustrative record is session-scoped browser-tab state, not a CIS workflow or durable audit record.</p>
 
 <!--
 SCRIPT
@@ -630,6 +621,11 @@ Review impact 用两个版本评估同一批 12 条 fictional boundary records�
   <article><span>03</span><b>Test the change</b><small>Validation, compatibility, impact — same engine</small></article>
   <i>→</i>
   <article><span>04</span><b>See it in the queue</b><small>Which accounts move, before any approval</small></article>
+  <div class="loop-return" aria-label="Step four returns to step one under analyst control">
+    <span>04 ↺ 01</span>
+    <b>Back to Decide</b>
+    <small>The credit analyst starts the next improvement cycle — no developer support required.</small>
+  </div>
 </div>
 
 <div class="outcome-band">
@@ -650,6 +646,8 @@ Step three is testing that change — candidate, validation, compatibility, and 
 
 And step four, you see which accounts would move, in the queue, before anything is approved.
 
+Then the loop returns to step one: Decide. The credit analyst controls when the next improvement cycle starts and can run it without developer support. Approval remains governed outside this POC.
+
 What the business gets from that: fewer repeated requests to resellers, less manual comparison, capacity that does not scale with headcount, and a process that is measurable and versioned. The POC also shows the shape of an audit-ready record. Production still needs durable workflow, approval, and audit integration.
 
 讲稿
@@ -663,6 +661,8 @@ credit analyst 替换一条 proposed result，并记录 reason。这是第一步
 第三步是测试这次变更——candidate、validation、compatibility 和 impact，对照运行 customer review 的同一套 engine。不是电子表格，也不是猜测。
 
 第四步，你在队列里看到哪些账户会变动，而且是在任何批准之前。
+
+然后流程回到第一步 Decide。下一轮改进何时开始，由 credit analyst 控制，而且不需要 developer support。批准仍由这个 POC 之外的治理流程负责。
 
 业务因此得到：更少对经销商的重复索要，更少手工比对，产能不必跟着人头涨，以及一套 measurable、versioned 的 customer review process。POC 也展示了 audit-ready record 的形状；production 仍需要 durable workflow、approval 和 audit integration。
 -->
@@ -690,8 +690,6 @@ credit analyst 替换一条 proposed result，并记录 reason。这是第一步
   </section>
 </div>
 
-<p class="boundary"><b>Next:</b> confirm the workflow with the people who run it, verify the source systems read-only, and name the owners of thresholds, exceptions, and rollback.</p>
-
 <!--
 SCRIPT
 
@@ -703,7 +701,7 @@ On the right, what never moves. In the target production design, CIS supplies au
 
 The line I would leave you with is this: a credible explanation is not proof. The authoritative evidence is always on the page above the paragraph, which is exactly why an analyst can check rather than believe.
 
-The current v2 demo is an illustrative proof of concept with fictional data and browser-tab state. It does not call CIS or mutate customer state. Going further requires time with the people who run customer reviews, read-only verification of the proposed source mappings, and named owners for thresholds, exceptions, approval, and rollback.
+The current v2 demo is an illustrative proof of concept with fictional data and browser-tab state. It does not call CIS or mutate customer state.
 
 讲稿
 
@@ -715,7 +713,7 @@ The current v2 demo is an illustrative proof of concept with fictional data and 
 
 我想留给你们的一句话是：可信的解释不是证明。权威证据始终在那段文字上方的页面上，正因为如此，credit analyst 可以核对，而不必相信。
 
-当前 v2 demo 是 illustrative proof of concept，使用 fictional data 和 browser-tab state。它不调用 CIS，也不修改 customer state。要继续推进，需要和真正做 customer review 的人交流，对 proposed source mappings 做 read-only verification，并明确 thresholds、exceptions、approval 和 rollback 的 owners。
+当前 v2 demo 是 illustrative proof of concept，使用 fictional data 和 browser-tab state。它不调用 CIS，也不修改 customer state。
 -->
 
 ---
