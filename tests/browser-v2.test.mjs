@@ -81,9 +81,9 @@ test("v2 worklist and detail present the SE-aligned deterministic business scena
     await page.route("**/api/session", route => route.fulfill({ status: 404, body: "Not found" }));
     await page.goto(`http://127.0.0.1:${port}/v2/index.html`);
 
-    // Worklist rows are the four internally consistent account scenarios.
+    // The landing view includes all four scenarios, including the auto-review pass.
     await page.waitForSelector("#list .row");
-    await page.click('[data-tab="all"]');
+    assert.equal(await page.locator('[data-tab="all"]').getAttribute("aria-selected"), "true");
     const listText = await page.textContent("#list");
     for (const name of ["Northwind Components", "Cascade Freight", "Meridian Industrial", "Ironclad Manufacturing"]) {
       assert.ok(listText.includes(name), `worklist should include ${name}`);

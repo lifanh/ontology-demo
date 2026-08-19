@@ -158,7 +158,7 @@ function proposal(record) {
 }
 
 /* ---------- KPIs, tabs, queue ---------- */
-let activeTab = "mine";
+let activeTab = "all";
 let filterState = { query: "", status: "All" };
 
 const pending = record => !isAuto(record) && !savedDisposition(record);
