@@ -419,10 +419,10 @@ Customer account 的 identity、name、territory、payment_terms 和 region，�
   <table class="queue-rows">
     <thead><tr><th>Customer</th><th>Past due</th><th>Risk</th><th>Review mode</th></tr></thead>
     <tbody>
-      <tr class="p-pass"><td><b>Northwind Components</b><span>#2001 · NET 30</span></td><td>$0 <span>no past due</span></td><td>Low · 1.00</td><td><i class="pill pass">Auto-cleared</i><span>view only</span></td></tr>
       <tr class="p-high"><td><b>Cascade Freight</b><span>#2002 · NET 45</span></td><td>$212,400 <span>5.2% of AR</span></td><td>Elevated · 2.76</td><td><i class="pill ai">AI proposal</i><span>Manual review</span></td></tr>
       <tr class="p-high"><td><b>Meridian Industrial</b><span>#2003 · NET 30</span></td><td class="bad">$394,240 <span>14% of AR</span></td><td>Not rated</td><td><i class="pill ai">AI proposal</i><span>Manual review</span></td></tr>
       <tr class="p-soft"><td><b>Ironclad Manufacturing</b><span>#2004 · NET 30</span></td><td>$0 <span>no past due</span></td><td>Low · 1.00</td><td><i class="pill ai">AI proposal</i><span>Credit-limit reassessment</span></td></tr>
+      <tr class="p-pass"><td><b>Northwind Components</b><span>#2001 · NET 30</span></td><td>$0 <span>no past due</span></td><td>Low · 1.00</td><td><i class="pill pass">Auto-cleared</i><span>view only</span></td></tr>
     </tbody>
   </table>
   <div class="fact-open">
