@@ -334,7 +334,6 @@ a{color:var(--brand);text-decoration:none;cursor:pointer}
 @media(max-width:600px){.kv{grid-template-columns:repeat(2,1fr)}}
 .kv-i{background:var(--surface);padding:10px 12px}
 .kv-l{font-size:10px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--faint)}
-.kv-l span{margin-left:4px;color:var(--ai);font-size:8px;white-space:nowrap}
 .kv-v{font-size:14.5px;font-weight:700;margin-top:3px}
 .kv-i.fact-link{min-width:0;border:0;text-align:left;color:var(--ink)}
 .jump{cursor:pointer;transition:background .12s,border-color .12s}

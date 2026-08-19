@@ -329,7 +329,7 @@ function coreSnapshot(record) {
     ["Next review date", record.meta.nrd, "sec-hist"]
   ];
   return `<div class="kv">${rows.map(x => x[3]
-    ? `<button type="button" class="kv-i jump fact-link" data-fact="${x[3]}" onclick="showFact('${x[3]}')"><div class="kv-l">${x[0]} <span>ontology fact</span></div><div class="kv-v">${x[1]}</div></button>`
+    ? `<button type="button" class="kv-i jump fact-link" data-fact="${x[3]}" onclick="showFact('${x[3]}')"><div class="kv-l">${x[0]}</div><div class="kv-v">${x[1]}</div></button>`
     : `<div class="kv-i jump" onclick="jump('${x[2]}')"><div class="kv-l">${x[0]}</div><div class="kv-v">${x[1]}</div></div>`).join("")}</div>
     <div class="jump-note">Ontology facts open their shared definition, provenance, and exact evaluation traces. Other figures jump to supporting detail.</div>`;
 }

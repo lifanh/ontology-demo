@@ -131,6 +131,7 @@ test("v2 worklist and detail present the SE-aligned deterministic business scena
     assert.doesNotMatch(await page.locator("body").textContent(), /illustrative|fictional|\bPOC\b|no model call/i);
 
     // Snapshot ontology facts expose their definition, provenance, and exact trace destinations.
+    assert.equal(await page.getByText("ontology fact", { exact: true }).count(), 0);
     await page.click('[data-fact="max_balance_90d"]');
     await page.waitForSelector("#factDialog[open]");
     const factReference = await page.textContent("#factDialog");
